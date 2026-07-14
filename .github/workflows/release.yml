@@ -43,10 +43,10 @@ concurrency:
 env:
   EXPECTED_ADDON_ID: context.arr.manager
   GH_TOKEN: ${{ github.token }}
-  RELEASE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.sha }}
-  RELEASE_CHANNEL: ${{ github.event_name == 'workflow_dispatch' && inputs.channel || 'stable' }}
-  RELEASE_MARK_LATEST: ${{ github.event_name == 'workflow_dispatch' && format('{0}', inputs.mark_latest) || 'true' }}
-  RELEASE_HIGHLIGHTS: ${{ github.event_name == 'workflow_dispatch' && inputs.release_notes || '' }}
+  RELEASE_REF: ${{ github.event.inputs.ref || github.sha }}
+  RELEASE_CHANNEL: ${{ github.event.inputs.channel || 'stable' }}
+  RELEASE_MARK_LATEST: ${{ github.event.inputs.mark_latest || 'true' }}
+  RELEASE_HIGHLIGHTS: ${{ github.event.inputs.release_notes || '' }}
 
 jobs:
   release:
