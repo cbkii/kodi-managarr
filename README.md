@@ -107,6 +107,18 @@ The package command writes a Kodi-installable ZIP to `dist/`. The ZIP always con
 
 The code uses only Python's standard library outside Kodi. Kodi runtime modules are imported only at entry points, so matching and path logic can be tested on a normal workstation.
 
+## Coding-agent development
+
+Jules, Codex, GitHub Copilot coding agent, Copilot code review, and other autonomous agents must begin with:
+
+- [`AGENTS.md`](AGENTS.md) — shared architecture, safety, implementation, test, review and release contract;
+- [`docs/AGENT_SOURCES.md`](docs/AGENT_SOURCES.md) — authoritative Kodi, Android, Radarr, Sonarr, Prowlarr, API, Debian and battle-tested add-on references;
+- [`.github/copilot-instructions.md`](.github/copilot-instructions.md) — Copilot repository-wide instructions;
+- [`.github/instructions/`](.github/instructions/) — path-specific Kodi and Servarr instructions;
+- [`docs/agents/JULES.md`](docs/agents/JULES.md) and [`docs/agents/CODEX.md`](docs/agents/CODEX.md) — agent-specific execution profiles.
+
+The instructions require agents to verify external contracts against live OpenAPI or current upstream source, preserve fail-closed destructive behaviour, add regression tests, run validation/package checks, inspect complete review/CI evidence, and state any Android TV or live Servarr testing gaps.
+
 ## Publishing a release
 
 The **Build and publish Kodi release** workflow is manual-only and its `workflow_dispatch` fields are authoritative.
@@ -169,6 +181,7 @@ gh workflow run release.yml \
 ## Repository layout
 
 ```text
+AGENTS.md
 addon.xml
 context.py
 default.py
@@ -179,6 +192,12 @@ resources/
 tests/
 scripts/
 docs/
+  AGENT_SOURCES.md
+  agents/
+.github/
+  copilot-instructions.md
+  instructions/
+  workflows/
 ```
 
 ## Licence
