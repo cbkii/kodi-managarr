@@ -4,6 +4,9 @@ import re
 import unicodedata
 from urllib.parse import unquote, urlsplit, urlunsplit
 
+SUPPORTED_KODI_NETWORK_SCHEMES = {"smb", "sftp", "ssh"}
+SFTP_NETWORK_SCHEMES = {"sftp", "ssh"}
+
 
 def as_bool(value, default=False):
     if value is None or value == "":
@@ -39,13 +42,25 @@ def normalise_release(value):
 def normalise_path(value):
     value = unquote((value or "").strip()).replace("\\", "/")
     parts = urlsplit(value)
-    if parts.scheme.lower() in {"smb", "sftp", "ssh"}:
+    if is_supported_kodi_network_url(value):
         path = re.sub(r"/+", "/", parts.path).rstrip("/")
         netloc = parts.netloc.rsplit("@", 1)[-1].lower()
         return urlunsplit((parts.scheme.lower(), netloc, path, "", ""))
     value = re.sub(r"/+", "/", value)
     return value.rstrip("/") or "/"
 
+
+
+def network_scheme(value):
+    return urlsplit((value or "").strip()).scheme.lower()
+
+
+def is_supported_kodi_network_url(value):
+    return network_scheme(value) in SUPPORTED_KODI_NETWORK_SCHEMES
+
+
+def is_sftp_network_url(value):
+    return network_scheme(value) in SFTP_NETWORK_SCHEMES
 
 def redact_url(value):
     if not value:
@@ -67,7 +82,7 @@ def is_path_under(path, parent):
 
 
 def join_path(base, relative):
-    if urlsplit(base).scheme.lower() in {"smb", "sftp", "ssh"}:
+    if is_supported_kodi_network_url(base):
         return base.rstrip("/") + "/" + relative.lstrip("/")
     return posixpath.join(base, relative)
 

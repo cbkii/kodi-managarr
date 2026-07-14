@@ -1,7 +1,7 @@
 from urllib.parse import urlsplit
 
 from .errors import ConfigurationError, SafetyError
-from .util import is_path_under, normalise_path
+from .util import is_path_under, is_sftp_network_url, normalise_path
 
 
 class FileBackend:
@@ -64,7 +64,7 @@ class KodiNetworkVFSBackend(FileBackend):
 
     def _check(self, path, folder):
         _validate_delete_path(path, self.protected_paths, folder)
-        if _is_sftp_url(path):
+        if is_sftp_network_url(path):
             self._ensure_sftp_addon()
 
     def _ensure_sftp_addon(self):
@@ -90,10 +90,6 @@ _SFTP_ADDON_MESSAGE = (
 )
 _NETWORK_SCHEMES = {"smb", "sftp", "ssh"}
 _SFTP_SCHEMES = {"sftp", "ssh"}
-
-
-def _is_sftp_url(path):
-    return urlsplit((path or "").strip()).scheme.lower() in _SFTP_SCHEMES
 
 
 def _network_root_message(scheme):
@@ -122,7 +118,7 @@ def _validate_delete_path(path, protected_paths, folder):
         raise SafetyError("Refusing to recursively remove a top-level filesystem path")
 
     for protected in protected_paths or []:
-        if normal.casefold() == normalise_path(protected).casefold() or is_path_under(protected, normal):
+        if _is_protected_delete_target(normal, protected):
             raise SafetyError(f"Refusing to delete protected path {normal}")
 
 
@@ -140,8 +136,37 @@ def _validate_network_delete_path(parts, folder):
             raise SafetyError(_network_root_message("smb"))
     else:
         # sftp://host/media or sftp://host:22/media names a remote top-level directory; require an item below it.
-        if len(segments) < 2:
+        if folder and len(segments) < 2:
             raise SafetyError(_network_root_message(parts.scheme.lower()))
+
+
+def _is_protected_delete_target(target, protected):
+    target_sftp = _canonical_sftp_path(target)
+    protected_sftp = _canonical_sftp_path(protected)
+    if target_sftp and protected_sftp:
+        return _canonical_path_under(target_sftp, protected_sftp) or _canonical_path_under(protected_sftp, target_sftp)
+    return normalise_path(target).casefold() == normalise_path(protected).casefold() or is_path_under(protected, target)
+
+
+def _canonical_sftp_path(value):
+    parts = urlsplit(normalise_path(value))
+    if parts.scheme.lower() not in _SFTP_SCHEMES or not parts.hostname:
+        return None
+    try:
+        port = parts.port
+    except ValueError as exc:
+        raise SafetyError("Refusing to delete a malformed SFTP/SSH URL") from exc
+    if port == 22:
+        port = None
+    return ("sftp", parts.hostname.lower(), port, (parts.path or "/").rstrip("/") or "/")
+
+
+def _canonical_path_under(path, parent):
+    path_scheme, path_host, path_port, path_value = path
+    parent_scheme, parent_host, parent_port, parent_value = parent
+    if (path_scheme, path_host, path_port) != (parent_scheme, parent_host, parent_port):
+        return False
+    return path_value == parent_value or path_value.startswith(parent_value.rstrip("/") + "/")
 
 
 def make_direct_backend(settings, logger=None):

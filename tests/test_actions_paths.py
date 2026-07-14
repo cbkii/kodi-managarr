@@ -1,0 +1,114 @@
+import os
+import sys
+import unittest
+from unittest.mock import patch
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(ROOT, "resources", "lib"))
+
+from arr_manager.actions import ArrManager
+from arr_manager.errors import SafetyError
+from arr_manager.models import SelectedItem
+from arr_manager.util import PathMapper
+
+
+class FakeSettings:
+    backend = "vfs"
+    confirm = False
+    dry_run = False
+    require_blocklist = False
+    path_mapper = PathMapper([])
+    poll_timeout = 1
+
+
+class FakeBackend:
+    name = "Kodi VFS (SMB/SFTP)"
+
+    def __init__(self):
+        self.deleted = []
+
+    def delete_file(self, path):
+        self.deleted.append(path)
+
+    def close(self):
+        return None
+
+
+class FakeSonarr:
+    def __init__(self, files, backend):
+        self.files = list(files)
+        self.backend = backend
+        self.rescanned = []
+        self.searched = []
+
+    def episode_files(self, series_id):
+        return [] if self.backend.deleted else list(self.files)
+
+    def episodes(self, series_id):
+        return [{"id": 11, "episodeFileId": self.files[0]["id"]}]
+
+    def series_history(self, series_id, event_type=None):
+        return []
+
+    def rescan_series(self, series_id):
+        self.rescanned.append(series_id)
+
+    def search_series(self, series_id):
+        self.searched.append(series_id)
+
+
+class FakeUI:
+    def refresh_kodi_library(self):
+        return None
+
+
+class ActionPathTests(unittest.TestCase):
+    def make_manager(self, files, backend):
+        manager = ArrManager(FakeSettings(), FakeUI(), logger=None)
+        manager._sonarr = FakeSonarr(files, backend)
+        return manager
+
+    def test_series_replace_uses_direct_sftp_url_without_selected_path(self):
+        backend = FakeBackend()
+        manager = self.make_manager([{"id": 7, "path": "sftp://pi/media/Shows/Episode.mkv"}], backend)
+        selected = SelectedItem(media_type="tvshow", tvshow_title="Show")
+        with patch("arr_manager.actions.resolve_series", return_value={"id": 3, "title": "Show", "path": "/media/Shows"}), \
+             patch("arr_manager.actions.make_direct_backend", return_value=backend):
+            result = manager._series_replace(selected)
+        self.assertEqual(backend.deleted, ["sftp://pi/media/Shows/Episode.mkv"])
+        self.assertIn("Deleted 1 files", result)
+
+    def test_series_replace_uses_direct_ssh_alias_url_without_selected_path(self):
+        backend = FakeBackend()
+        manager = self.make_manager([{"id": 7, "path": "ssh://pi/media/Shows/Episode.mkv"}], backend)
+        selected = SelectedItem(media_type="tvshow", tvshow_title="Show")
+        with patch("arr_manager.actions.resolve_series", return_value={"id": 3, "title": "Show", "path": "/media/Shows"}), \
+             patch("arr_manager.actions.make_direct_backend", return_value=backend):
+            manager._series_replace(selected)
+        self.assertEqual(backend.deleted, ["ssh://pi/media/Shows/Episode.mkv"])
+
+    def test_backend_path_rejects_unsupported_direct_url(self):
+        manager = ArrManager(FakeSettings(), FakeUI(), logger=None)
+        with self.assertRaises(SafetyError):
+            manager._backend_path("ftp://pi/media/file.mkv", "", FakeBackend())
+
+    def test_backend_path_rejects_unmapped_filesystem_path(self):
+        manager = ArrManager(FakeSettings(), FakeUI(), logger=None)
+        with self.assertRaises(SafetyError):
+            manager._backend_path("/media/Shows/file.mkv", "", FakeBackend())
+
+    def test_backend_path_preserves_direct_smb_url(self):
+        manager = ArrManager(FakeSettings(), FakeUI(), logger=None)
+        self.assertEqual(
+            manager._backend_path("smb://pi/Shows/file.mkv", "", FakeBackend()),
+            "smb://pi/Shows/file.mkv",
+        )
+
+    def test_remote_file_path_recognises_mixed_case_network_schemes(self):
+        for value in ("SMB://host/share/file.mkv", "SFTP://host/media/file.mkv", "SsH://host/media/file.mkv"):
+            with self.subTest(value=value):
+                self.assertEqual(ArrManager._remote_file_path("/series", {"path": value}), value)
+
+
+if __name__ == "__main__":
+    unittest.main()
