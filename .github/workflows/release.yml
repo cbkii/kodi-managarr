@@ -8,11 +8,6 @@ on:
         required: true
         default: main
         type: string
-      version:
-        description: Version without the leading v (blank uses addon.xml)
-        required: false
-        default: ""
-        type: string
       channel:
         description: Release channel
         required: true
@@ -32,6 +27,11 @@ on:
         required: true
         default: true
         type: boolean
+  push:
+    branches:
+      - main
+    paths:
+      - .github/RELEASE
 
 permissions:
   contents: write
@@ -40,21 +40,25 @@ concurrency:
   group: kodi-release-${{ github.repository }}
   cancel-in-progress: false
 
+env:
+  EXPECTED_ADDON_ID: context.arr.manager
+  GH_TOKEN: ${{ github.token }}
+  RELEASE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.sha }}
+  RELEASE_CHANNEL: ${{ github.event_name == 'workflow_dispatch' && inputs.channel || 'stable' }}
+  RELEASE_MARK_LATEST: ${{ github.event_name == 'workflow_dispatch' && format('{0}', inputs.mark_latest) || 'true' }}
+  RELEASE_HIGHLIGHTS: ${{ github.event_name == 'workflow_dispatch' && inputs.release_notes || '' }}
+
 jobs:
   release:
     name: Validate, package, and release
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
-    env:
-      EXPECTED_ADDON_ID: context.arr.manager
-      GH_TOKEN: ${{ github.token }}
-
     steps:
       - name: Check out release source
         uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ env.RELEASE_REF }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -66,8 +70,6 @@ jobs:
       - name: Resolve and validate release metadata
         id: metadata
         shell: bash
-        env:
-          REQUESTED_VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
 
@@ -76,7 +78,7 @@ jobs:
           print(ET.parse('addon.xml').getroot().attrib['id'])
           PY
           )"
-          ADDON_VERSION="$(python - <<'PY'
+          VERSION="$(python - <<'PY'
           import xml.etree.ElementTree as ET
           print(ET.parse('addon.xml').getroot().attrib['version'])
           PY
@@ -87,17 +89,8 @@ jobs:
             exit 1
           fi
 
-          VERSION="${REQUESTED_VERSION#v}"
-          VERSION="${VERSION:-$ADDON_VERSION}"
-
           if [[ ! "$VERSION" =~ ^[0-9]+(\.[0-9]+){2}([.-][0-9A-Za-z][0-9A-Za-z.-]*)?$ ]]; then
-            echo "Invalid release version: $VERSION" >&2
-            exit 1
-          fi
-
-          if [[ "$VERSION" != "$ADDON_VERSION" ]]; then
-            echo "Requested version $VERSION does not match addon.xml version $ADDON_VERSION." >&2
-            echo "Update addon.xml first so the installed add-on and GitHub release have the same version." >&2
+            echo "Invalid addon.xml version: $VERSION" >&2
             exit 1
           fi
 
@@ -110,7 +103,7 @@ jobs:
           fi
 
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "Release $TAG already exists." >&2
+            echo "Release $TAG already exists. Bump addon.xml before creating another release." >&2
             exit 1
           fi
 
@@ -173,12 +166,13 @@ jobs:
           root = addon_id + '/'
 
           with zipfile.ZipFile(asset) as archive:
-              bad = [name for name in archive.namelist() if not name.startswith(root)]
+              names = archive.namelist()
+              bad = [name for name in names if not name.startswith(root)]
               if bad:
                   raise SystemExit(f'Files outside {root}: {bad}')
 
               addon_xml = f'{root}addon.xml'
-              if addon_xml not in archive.namelist():
+              if addon_xml not in names:
                   raise SystemExit(f'Missing {addon_xml}')
 
               metadata = ET.fromstring(archive.read(addon_xml))
@@ -186,6 +180,17 @@ jobs:
                   raise SystemExit('Packaged add-on ID does not match')
               if metadata.attrib.get('version') != version:
                   raise SystemExit('Packaged add-on version does not match')
+
+              required = {
+                  f'{root}addon.xml',
+                  f'{root}context.py',
+                  f'{root}default.py',
+                  f'{root}resources/settings.xml',
+                  f'{root}resources/icon.png',
+              }
+              missing = sorted(required.difference(names))
+              if missing:
+                  raise SystemExit(f'Missing required package files: {missing}')
 
               forbidden = (
                   f'{root}.git/',
@@ -195,7 +200,7 @@ jobs:
                   f'{root}scripts/',
                   f'{root}tests/',
               )
-              leaked = [name for name in archive.namelist() if name.startswith(forbidden)]
+              leaked = [name for name in names if name.startswith(forbidden)]
               if leaked:
                   raise SystemExit(f'Development files leaked into package: {leaked}')
 
@@ -216,7 +221,6 @@ jobs:
           path: |
             ${{ steps.package.outputs.asset }}
             ${{ steps.package.outputs.checksum }}
-          archive: false
           if-no-files-found: error
           retention-days: 30
 
@@ -226,12 +230,21 @@ jobs:
         env:
           ADDON_ID: ${{ steps.metadata.outputs.addon_id }}
           VERSION: ${{ steps.metadata.outputs.version }}
+          TAG: ${{ steps.metadata.outputs.tag }}
+          TARGET_SHA: ${{ steps.metadata.outputs.target_sha }}
           ASSET: ${{ steps.package.outputs.asset }}
-          MANUAL_NOTES: ${{ inputs.release_notes }}
+          MANUAL_NOTES: ${{ env.RELEASE_HIGHLIGHTS }}
         run: |
           set -euo pipefail
 
           CHECKSUM="$(cut -d ' ' -f 1 "${ASSET}.sha256")"
+          ADDON_NEWS="$(python - <<'PY'
+          import xml.etree.ElementTree as ET
+          root = ET.parse('addon.xml').getroot()
+          news = root.findtext('./extension[@point="xbmc.addon.metadata"]/news', default='')
+          print(news.strip())
+          PY
+          )"
           NOTES_FILE="$RUNNER_TEMP/release-notes.md"
 
           {
@@ -239,6 +252,11 @@ jobs:
               echo "## Release highlights"
               echo
               printf '%s\n' "$MANUAL_NOTES"
+              echo
+            elif [[ -n "$ADDON_NEWS" ]]; then
+              echo "## What's new"
+              echo
+              printf '%s\n' "$ADDON_NEWS"
               echo
             fi
 
@@ -263,6 +281,11 @@ jobs:
             echo "- Kodi 19 or newer with Python 3."
             echo "- Designed for Kodi on Android TV."
             echo "- Radarr and/or Sonarr reachable from the Kodi device."
+            echo
+            echo "## Build provenance"
+            echo
+            echo "- Tag: \`$TAG\`"
+            echo "- Commit: \`$TARGET_SHA\`"
           } > "$NOTES_FILE"
 
           echo "file=$NOTES_FILE" >> "$GITHUB_OUTPUT"
@@ -278,8 +301,8 @@ jobs:
           ASSET: ${{ steps.package.outputs.asset }}
           CHECKSUM: ${{ steps.package.outputs.checksum }}
           NOTES_FILE: ${{ steps.notes.outputs.file }}
-          CHANNEL: ${{ inputs.channel }}
-          MARK_LATEST: ${{ inputs.mark_latest }}
+          CHANNEL: ${{ env.RELEASE_CHANNEL }}
+          MARK_LATEST: ${{ env.RELEASE_MARK_LATEST }}
         run: |
           set -euo pipefail
 
@@ -325,7 +348,7 @@ jobs:
           RELEASE_URL: ${{ steps.release.outputs.url }}
           TAG: ${{ steps.metadata.outputs.tag }}
           ASSET_NAME: ${{ steps.metadata.outputs.asset_name }}
-          CHANNEL: ${{ inputs.channel }}
+          CHANNEL: ${{ env.RELEASE_CHANNEL }}
         run: |
           {
             echo "# Kodi release created"
