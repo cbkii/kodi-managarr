@@ -271,23 +271,20 @@ class ArrManager:
                 backend.close()
 
     def _backend_path(self, remote_path, selected_path, backend):
-        if backend.name == "SSH/SFTP":
-            path = normalise_path(remote_path) or self.settings.path_mapper.kodi_to_remote(selected_path)
-        else:
-            path = self.settings.path_mapper.remote_to_kodi(remote_path)
-            if not path and selected_path:
-                # A selected movie/episode already carries Kodi's authenticated SMB URL.
-                path = selected_path
+        path = self.settings.path_mapper.remote_to_kodi(remote_path)
+        if not path and selected_path:
+            # A selected movie/episode may already carry Kodi's authenticated SMB/SFTP VFS URL.
+            path = selected_path
         if not path:
             raise SafetyError(
-                "No usable file path mapping was found. Configure remote=>Kodi mappings in add-on settings."
+                "No usable file path mapping was found. Configure remote=>Kodi VFS mappings in add-on settings."
             )
         return path
 
     @staticmethod
     def _remote_file_path(entity_path, file_record):
         direct = file_record.get("path") or ""
-        if direct.startswith("/") or direct.startswith("smb://"):
+        if direct.startswith("/") or direct.startswith(("smb://", "sftp://", "ssh://")):
             return direct
         relative = file_record.get("relativePath") or direct
         return posixpath.join(entity_path.rstrip("/"), str(relative).lstrip("/"))

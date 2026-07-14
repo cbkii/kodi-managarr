@@ -1,5 +1,3 @@
-import base64
-import hashlib
 import os
 import posixpath
 import re
@@ -40,8 +38,8 @@ def normalise_release(value):
 
 def normalise_path(value):
     value = unquote((value or "").strip()).replace("\\", "/")
-    if value.startswith("smb://"):
-        parts = urlsplit(value)
+    parts = urlsplit(value)
+    if parts.scheme.lower() in {"smb", "sftp", "ssh"}:
         path = re.sub(r"/+", "/", parts.path).rstrip("/")
         netloc = parts.netloc.rsplit("@", 1)[-1].lower()
         return urlunsplit((parts.scheme.lower(), netloc, path, "", ""))
@@ -69,7 +67,7 @@ def is_path_under(path, parent):
 
 
 def join_path(base, relative):
-    if base.startswith("smb://"):
+    if urlsplit(base).scheme.lower() in {"smb", "sftp", "ssh"}:
         return base.rstrip("/") + "/" + relative.lstrip("/")
     return posixpath.join(base, relative)
 
@@ -110,8 +108,3 @@ class PathMapper:
                 suffix = kodi[len(source):].lstrip("/")
                 return join_path(target, suffix) if suffix else target
         return ""
-
-
-def sha256_fingerprint(key_bytes):
-    digest = hashlib.sha256(key_bytes).digest()
-    return "SHA256:" + base64.b64encode(digest).decode("ascii").rstrip("=")

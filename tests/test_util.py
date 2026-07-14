@@ -20,6 +20,11 @@ class UtilTests(unittest.TestCase):
         self.assertEqual(mapper.remote_to_kodi("/media/Movies/Test/file.mkv"), "smb://pi/movies/Test/file.mkv")
         self.assertEqual(mapper.kodi_to_remote("smb://pi/movies/Test/file.mkv"), "/media/Movies/Test/file.mkv")
 
+    def test_sftp_path_mapping(self):
+        mapper = PathMapper(parse_mappings("/media/Shows=>sftp://pi:22/media/Shows"))
+        self.assertEqual(mapper.remote_to_kodi("/media/Shows/Test/file.mkv"), "sftp://pi:22/media/Shows/Test/file.mkv")
+        self.assertEqual(mapper.kodi_to_remote("sftp://pi:22/media/Shows/Test/file.mkv"), "/media/Shows/Test/file.mkv")
+
 
 if __name__ == "__main__":
     unittest.main()

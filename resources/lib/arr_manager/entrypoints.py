@@ -114,7 +114,6 @@ def _write_diagnostics(addon, settings, logger):
         "requireBlocklist": settings.require_blocklist,
         "radarrConfigured": bool(settings.radarr.url and settings.radarr.api_key),
         "sonarrConfigured": bool(settings.sonarr.url and settings.sonarr.api_key),
-        "sshEnabled": settings.ssh.enabled,
         "pathMappingCount": len(settings.path_mapper.mappings),
     }
     with open(path, "w", encoding="utf-8") as handle:

@@ -23,10 +23,10 @@ A Kodi Python 3 context-menu add-on for managing Radarr movies and Sonarr series
 Kodi on Android normally has no usable system `ssh` executable and cannot safely assume desktop Python wheels are available. This add-on therefore:
 
 1. Uses the **Servarr APIs** as the recommended deletion backend.
-2. Supports **Kodi SMB/VFS** using Kodi's own saved SMB source credentials.
-3. Supports optional **SSH/SFTP** only when a Kodi-compatible `paramiko` module is already installed. It uses SFTP operations, not shell commands.
+2. Supports **Kodi VFS** using Kodi's own saved SMB or SFTP source credentials.
+3. Uses Kodi's official optional **SFTP support** (`vfs.sftp`) binary add-on for SFTP paths instead of a Python SSH library.
 
-No Android storage permission is needed to delete Pi-hosted SMB files through Kodi's VFS.
+No Android storage permission is needed to delete Pi-hosted SMB or SFTP files through Kodi's VFS.
 
 ## Install on Kodi
 
@@ -54,29 +54,28 @@ API keys are available in each application under **Settings → General → Secu
 
 Use whichever Pi address is reachable from the TV. Avoid `localhost`, because that refers to the Android TV itself.
 
-## SMB setup and path mapping
+## Network VFS setup and path mapping
 
-Add the Pi shares to Kodi through **Settings → File manager → Add source** or **Videos → Files → Add videos**. Let Kodi save the SMB credentials.
+Add the Pi shares to Kodi through **Settings → File manager → Add source** or **Videos → Files → Add videos**. For SFTP, install **SFTP support** from Kodi's repository, then use **Add network location → SSH/SFTP** and let Kodi save and verify the credentials before testing deletion.
 
 The add-on maps paths reported by Radarr/Sonarr to paths Kodi can open. The setting format is:
 
 ```text
-Pi path=>Kodi path;Pi path=>Kodi path
+Pi path=>Kodi VFS path;Pi path=>Kodi VFS path
 ```
 
 Example:
 
 ```text
-/media/mediasmb/Movies=>smb://192.168.1.50/Movies;/media/mediasmb/Shows=>smb://192.168.1.50/Shows
+/media/mediasmb/Movies=>smb://192.168.1.50/Movies;/media/mediasmb/Shows=>sftp://192.168.1.50:22/media/mediasmb/Shows
 ```
 
-The share names must match the actual Samba shares. Kodi's selected library item path can also be used directly for a single movie or episode.
+The SMB share names or SFTP paths must match the network location Kodi can access. Avoid embedding passwords in mapping text; use Kodi-managed credentials wherever possible. Kodi's selected library item path can also be used directly for a single movie or episode.
 
 ### Deletion backends
 
 - **Servarr API:** recommended. Radarr/Sonarr perform deletion locally on the Pi and update their databases atomically.
-- **Kodi SMB/VFS:** Kodi deletes over the authenticated SMB source, then the add-on asks Radarr/Sonarr to rescan and waits for the file record to disappear.
-- **SSH/SFTP:** the Android Kodi Python runtime must already provide `paramiko`. Configure a pinned `SHA256:...` host-key fingerprint rather than allowing unknown keys.
+- **Kodi VFS (SMB/SFTP):** Kodi deletes over the authenticated SMB source or official `vfs.sftp` SFTP source, then the add-on asks Radarr/Sonarr to rescan and waits for the file record to disappear. SFTP uses Kodi's trust-on-first-use host-key handling rather than add-on-controlled fingerprint pinning.
 
 ## Safety behaviour
 
@@ -84,7 +83,7 @@ The share names must match the actual Samba shares. Kodi's selected library item
 - Dry-run mode is available.
 - Recursive deletion rejects root/share roots and configured protected paths.
 - Ambiguous Radarr/Sonarr matches fail safely.
-- API keys, SMB credentials and SSH passwords are not written to diagnostics.
+- API keys and credential-bearing network URLs are not written to diagnostics.
 - Replace actions resolve import history before deleting.
 
 Keep the default protected paths and add any other storage roots that must never be recursively removed.
@@ -92,7 +91,7 @@ Keep the default protected paths and add any other storage roots that must never
 ## Current limitations
 
 - Replace cannot guarantee blocklisting for manually copied/imported files that have no usable Servarr import history; strict mode stops safely.
-- SSH/SFTP availability depends on the Kodi Android Python environment. SMB/VFS or Servarr API should be preferred.
+- SFTP availability depends on Kodi's optional platform-matched `vfs.sftp` binary add-on. Servarr API should still be preferred.
 - The initial release targets Kodi 19+ (Python 3), including current Android builds.
 
 ## Development
