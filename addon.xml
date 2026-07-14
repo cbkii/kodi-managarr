@@ -26,7 +26,7 @@
     <description lang="en_GB">Adds Delete &amp; Exclude and Delete &amp; Replace actions to Kodi's video-library context menu. Supports Servarr API deletion, Kodi SMB/VFS, and optional SSH/SFTP.</description>
     <platform>all</platform>
     <license>GPL-3.0-or-later</license>
-    <source>https://github.com/cbkii/context.arr.manager</source>
+    <source>https://github.com/cbkii/kodi-managarr</source>
     <news>v0.1.0 (2026-07-14) - Initial development scaffold.</news>
     <assets>
       <icon>resources/icon.png</icon>
