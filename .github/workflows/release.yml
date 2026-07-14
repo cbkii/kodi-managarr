@@ -1,0 +1,337 @@
+name: Build and publish Kodi release
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch, tag, or commit to release
+        required: true
+        default: main
+        type: string
+      version:
+        description: Version without the leading v (blank uses addon.xml)
+        required: false
+        default: ""
+        type: string
+      channel:
+        description: Release channel
+        required: true
+        default: stable
+        type: choice
+        options:
+          - stable
+          - prerelease
+          - draft
+      release_notes:
+        description: Optional highlights to prepend to generated release notes
+        required: false
+        default: ""
+        type: string
+      mark_latest:
+        description: Mark a stable release as Latest
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: kodi-release-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Validate, package, and release
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      EXPECTED_ADDON_ID: context.arr.manager
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Check out release source
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Resolve and validate release metadata
+        id: metadata
+        shell: bash
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+
+          ADDON_ID="$(python - <<'PY'
+          import xml.etree.ElementTree as ET
+          print(ET.parse('addon.xml').getroot().attrib['id'])
+          PY
+          )"
+          ADDON_VERSION="$(python - <<'PY'
+          import xml.etree.ElementTree as ET
+          print(ET.parse('addon.xml').getroot().attrib['version'])
+          PY
+          )"
+
+          if [[ "$ADDON_ID" != "$EXPECTED_ADDON_ID" ]]; then
+            echo "Unexpected add-on ID: $ADDON_ID (expected $EXPECTED_ADDON_ID)" >&2
+            exit 1
+          fi
+
+          VERSION="${REQUESTED_VERSION#v}"
+          VERSION="${VERSION:-$ADDON_VERSION}"
+
+          if [[ ! "$VERSION" =~ ^[0-9]+(\.[0-9]+){2}([.-][0-9A-Za-z][0-9A-Za-z.-]*)?$ ]]; then
+            echo "Invalid release version: $VERSION" >&2
+            exit 1
+          fi
+
+          if [[ "$VERSION" != "$ADDON_VERSION" ]]; then
+            echo "Requested version $VERSION does not match addon.xml version $ADDON_VERSION." >&2
+            echo "Update addon.xml first so the installed add-on and GitHub release have the same version." >&2
+            exit 1
+          fi
+
+          TAG="v$VERSION"
+          TARGET_SHA="$(git rev-parse HEAD)"
+
+          if git show-ref --tags --verify --quiet "refs/tags/$TAG"; then
+            echo "Tag $TAG already exists. Bump addon.xml before creating another release." >&2
+            exit 1
+          fi
+
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $TAG already exists." >&2
+            exit 1
+          fi
+
+          {
+            echo "addon_id=$ADDON_ID"
+            echo "version=$VERSION"
+            echo "tag=$TAG"
+            echo "target_sha=$TARGET_SHA"
+            echo "asset_name=$ADDON_ID-$VERSION.zip"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Validate add-on
+        run: python scripts/validate.py
+
+      - name: Run unit tests
+        run: python -m unittest discover -s tests -v
+
+      - name: Build Kodi-installable ZIP
+        id: package
+        shell: bash
+        env:
+          ADDON_ID: ${{ steps.metadata.outputs.addon_id }}
+          VERSION: ${{ steps.metadata.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          export SOURCE_DATE_EPOCH="$(git show -s --format=%ct HEAD)"
+          python scripts/package.py
+
+          ASSET="dist/$ADDON_ID-$VERSION.zip"
+          test -s "$ASSET"
+
+          (
+            cd dist
+            sha256sum "$ADDON_ID-$VERSION.zip" > "$ADDON_ID-$VERSION.zip.sha256"
+          )
+
+          {
+            echo "asset=$ASSET"
+            echo "checksum=$ASSET.sha256"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Verify Kodi package structure
+        shell: bash
+        env:
+          ASSET: ${{ steps.package.outputs.asset }}
+          ADDON_ID: ${{ steps.metadata.outputs.addon_id }}
+          VERSION: ${{ steps.metadata.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import os
+          import xml.etree.ElementTree as ET
+          import zipfile
+
+          asset = os.environ['ASSET']
+          addon_id = os.environ['ADDON_ID']
+          version = os.environ['VERSION']
+          root = addon_id + '/'
+
+          with zipfile.ZipFile(asset) as archive:
+              bad = [name for name in archive.namelist() if not name.startswith(root)]
+              if bad:
+                  raise SystemExit(f'Files outside {root}: {bad}')
+
+              addon_xml = f'{root}addon.xml'
+              if addon_xml not in archive.namelist():
+                  raise SystemExit(f'Missing {addon_xml}')
+
+              metadata = ET.fromstring(archive.read(addon_xml))
+              if metadata.attrib.get('id') != addon_id:
+                  raise SystemExit('Packaged add-on ID does not match')
+              if metadata.attrib.get('version') != version:
+                  raise SystemExit('Packaged add-on version does not match')
+
+              forbidden = (
+                  f'{root}.git/',
+                  f'{root}.github/',
+                  f'{root}dist/',
+                  f'{root}docs/',
+                  f'{root}scripts/',
+                  f'{root}tests/',
+              )
+              leaked = [name for name in archive.namelist() if name.startswith(forbidden)]
+              if leaked:
+                  raise SystemExit(f'Development files leaked into package: {leaked}')
+
+              corrupt = archive.testzip()
+              if corrupt:
+                  raise SystemExit(f'Corrupt ZIP member: {corrupt}')
+
+          print(f'Kodi package verified: {asset}')
+          PY
+
+          unzip -l "$ASSET"
+          cat "${ASSET}.sha256"
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.metadata.outputs.addon_id }}-${{ steps.metadata.outputs.version }}
+          path: |
+            ${{ steps.package.outputs.asset }}
+            ${{ steps.package.outputs.checksum }}
+          archive: false
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Prepare release notes
+        id: notes
+        shell: bash
+        env:
+          ADDON_ID: ${{ steps.metadata.outputs.addon_id }}
+          VERSION: ${{ steps.metadata.outputs.version }}
+          ASSET: ${{ steps.package.outputs.asset }}
+          MANUAL_NOTES: ${{ inputs.release_notes }}
+        run: |
+          set -euo pipefail
+
+          CHECKSUM="$(cut -d ' ' -f 1 "${ASSET}.sha256")"
+          NOTES_FILE="$RUNNER_TEMP/release-notes.md"
+
+          {
+            if [[ -n "$MANUAL_NOTES" ]]; then
+              echo "## Release highlights"
+              echo
+              printf '%s\n' "$MANUAL_NOTES"
+              echo
+            fi
+
+            echo "## Install on Kodi"
+            echo
+            echo "1. Download \`$ADDON_ID-$VERSION.zip\` from **Assets** below."
+            echo "2. Copy it to a location accessible from Kodi on the Android TV."
+            echo "3. In Kodi, open **Add-ons → Install from zip file**."
+            echo "4. Select the downloaded ZIP, then configure the add-on under **My add-ons → Context menus → Arr Manager**."
+            echo
+            echo "Do not extract the ZIP before installing it in Kodi."
+            echo
+            echo "## Release assets"
+            echo
+            echo "- \`$ADDON_ID-$VERSION.zip\` — Kodi-installable add-on package."
+            echo "- \`$ADDON_ID-$VERSION.zip.sha256\` — SHA-256 checksum file."
+            echo
+            echo "**SHA-256:** \`$CHECKSUM\`"
+            echo
+            echo "## Compatibility"
+            echo
+            echo "- Kodi 19 or newer with Python 3."
+            echo "- Designed for Kodi on Android TV."
+            echo "- Radarr and/or Sonarr reachable from the Kodi device."
+          } > "$NOTES_FILE"
+
+          echo "file=$NOTES_FILE" >> "$GITHUB_OUTPUT"
+          cat "$NOTES_FILE"
+
+      - name: Create GitHub release
+        id: release
+        shell: bash
+        env:
+          TAG: ${{ steps.metadata.outputs.tag }}
+          VERSION: ${{ steps.metadata.outputs.version }}
+          TARGET_SHA: ${{ steps.metadata.outputs.target_sha }}
+          ASSET: ${{ steps.package.outputs.asset }}
+          CHECKSUM: ${{ steps.package.outputs.checksum }}
+          NOTES_FILE: ${{ steps.notes.outputs.file }}
+          CHANNEL: ${{ inputs.channel }}
+          MARK_LATEST: ${{ inputs.mark_latest }}
+        run: |
+          set -euo pipefail
+
+          ARGS=(
+            release create "$TAG"
+            "$ASSET#Kodi-installable add-on"
+            "$CHECKSUM#SHA-256 checksum"
+            --repo "$GITHUB_REPOSITORY"
+            --target "$TARGET_SHA"
+            --title "Arr Manager v$VERSION"
+            --generate-notes
+            --notes "$(cat "$NOTES_FILE")"
+          )
+
+          case "$CHANNEL" in
+            stable)
+              if [[ "$MARK_LATEST" == "true" ]]; then
+                ARGS+=(--latest)
+              else
+                ARGS+=(--latest=false)
+              fi
+              ;;
+            prerelease)
+              ARGS+=(--prerelease --latest=false)
+              ;;
+            draft)
+              ARGS+=(--draft --latest=false)
+              ;;
+            *)
+              echo "Unsupported release channel: $CHANNEL" >&2
+              exit 1
+              ;;
+          esac
+
+          gh "${ARGS[@]}"
+
+          RELEASE_URL="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url --jq '.url')"
+          echo "url=$RELEASE_URL" >> "$GITHUB_OUTPUT"
+
+      - name: Publish workflow summary
+        shell: bash
+        env:
+          RELEASE_URL: ${{ steps.release.outputs.url }}
+          TAG: ${{ steps.metadata.outputs.tag }}
+          ASSET_NAME: ${{ steps.metadata.outputs.asset_name }}
+          CHANNEL: ${{ inputs.channel }}
+        run: |
+          {
+            echo "# Kodi release created"
+            echo
+            echo "- Release: [$TAG]($RELEASE_URL)"
+            echo "- Channel: \`$CHANNEL\`"
+            echo "- Kodi asset: \`$ASSET_NAME\`"
+            echo "- Checksum: \`$ASSET_NAME.sha256\`"
+          } >> "$GITHUB_STEP_SUMMARY"
