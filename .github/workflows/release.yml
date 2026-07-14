@@ -71,7 +71,6 @@ jobs:
           RELEASE_NOTES: ${{ inputs.release_notes }}
         run: |
           set -euo pipefail
-
           git fetch --force --tags origin
 
           python - <<'PY'
@@ -98,7 +97,6 @@ jobs:
               raise SystemExit(
                   f"Unexpected add-on ID: {addon_id} (expected {expected_addon_id})"
               )
-
           if not version_pattern.fullmatch(current_version):
               raise SystemExit(
                   f"addon.xml version must use numeric x.y.z format: {current_version}"
@@ -175,7 +173,12 @@ jobs:
           print(f"Resolved {tag} from {version_source}")
           PY
 
-          TAG="${{ steps.metadata.outputs.tag }}"
+      - name: Check release tag availability
+        shell: bash
+        env:
+          TAG: ${{ steps.metadata.outputs.tag }}
+        run: |
+          set -euo pipefail
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "Release $TAG already exists; choose another version." >&2
             exit 1
@@ -195,18 +198,15 @@ jobs:
           VERSION: ${{ steps.metadata.outputs.version }}
         run: |
           set -euo pipefail
-
           export SOURCE_DATE_EPOCH="$(git show -s --format=%ct HEAD)"
           python scripts/package.py
 
           ASSET="dist/$ADDON_ID-$VERSION.zip"
           test -s "$ASSET"
-
           (
             cd dist
             sha256sum "$ADDON_ID-$VERSION.zip" > "$ADDON_ID-$VERSION.zip.sha256"
           )
-
           {
             echo "asset=$ASSET"
             echo "checksum=$ASSET.sha256"
@@ -220,7 +220,6 @@ jobs:
           VERSION: ${{ steps.metadata.outputs.version }}
         run: |
           set -euo pipefail
-
           python - <<'PY'
           import os
           import xml.etree.ElementTree as ET
@@ -276,7 +275,6 @@ jobs:
 
           print(f"Kodi package verified: {asset}")
           PY
-
           unzip -l "$ASSET"
           cat "${ASSET}.sha256"
 
@@ -288,7 +286,6 @@ jobs:
           VERSION: ${{ steps.metadata.outputs.version }}
         run: |
           set -euo pipefail
-
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add addon.xml
@@ -300,8 +297,7 @@ jobs:
             echo "addon.xml already contains the selected release metadata."
           fi
 
-          TARGET_SHA="$(git rev-parse HEAD)"
-          echo "target_sha=$TARGET_SHA" >> "$GITHUB_OUTPUT"
+          echo "target_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v7
@@ -326,7 +322,6 @@ jobs:
           VERSION_SOURCE: ${{ steps.metadata.outputs.version_source }}
         run: |
           set -euo pipefail
-
           CHECKSUM="$(cut -d ' ' -f 1 "${ASSET}.sha256")"
           NOTES_FILE="$RUNNER_TEMP/release-notes.md"
 
@@ -384,7 +379,6 @@ jobs:
           MARK_LATEST: ${{ inputs.mark_latest }}
         run: |
           set -euo pipefail
-
           ARGS=(
             release create "$TAG"
             "$ASSET#Kodi-installable add-on"
@@ -417,7 +411,6 @@ jobs:
           esac
 
           gh "${ARGS[@]}"
-
           RELEASE_URL="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url --jq '.url')"
           echo "url=$RELEASE_URL" >> "$GITHUB_OUTPUT"
 
