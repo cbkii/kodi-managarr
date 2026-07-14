@@ -102,7 +102,43 @@ python3 -m unittest discover -s tests -v
 python3 scripts/package.py
 ```
 
+The package command writes a Kodi-installable ZIP to `dist/`. The ZIP always contains the required `context.arr.manager/` top-level directory, regardless of the Git checkout directory name.
+
 The code uses only Python's standard library outside Kodi. Kodi runtime modules are imported only at entry points, so matching and path logic can be tested on a normal workstation.
+
+## Publishing a release
+
+The **Build and publish Kodi release** GitHub Actions workflow is manually triggered with `workflow_dispatch`.
+
+1. Update the `version` and `<news>` entry in `addon.xml`.
+2. Commit and push the release-ready code.
+3. Open **Actions → Build and publish Kodi release → Run workflow**.
+4. Select the source ref and release channel. Leave the version blank to use `addon.xml`.
+5. Optionally enter concise release highlights; GitHub-generated change notes are appended automatically.
+
+The workflow:
+
+- validates XML and Python source;
+- runs the unit tests;
+- builds and verifies the Kodi-installable ZIP;
+- attaches the ZIP and its SHA-256 checksum to the GitHub release;
+- retains the same files as a workflow artifact for 30 days;
+- produces installation instructions, compatibility details, supplied highlights, and generated change notes.
+
+It refuses to publish when the requested version differs from `addon.xml`, or when the release tag already exists.
+
+The workflow can also be started with GitHub CLI:
+
+```bash
+gh workflow run release.yml \
+  --repo cbkii/kodi-managarr \
+  --ref main \
+  -f ref=main \
+  -f channel=stable \
+  -f mark_latest=true
+
+gh run watch --repo cbkii/kodi-managarr --exit-status
+```
 
 ## Repository layout
 
