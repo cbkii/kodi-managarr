@@ -4,7 +4,7 @@ from .errors import ConfigurationError
 from .util import PathMapper, as_bool, as_int, parse_mappings
 
 
-BACKENDS = {"0": "api", "1": "vfs", "2": "ssh", "api": "api", "vfs": "vfs", "ssh": "ssh"}
+BACKENDS = {"0": "api", "1": "vfs", "2": "vfs", "api": "api", "vfs": "vfs", "ssh": "vfs"}
 
 
 @dataclass
@@ -23,18 +23,6 @@ class ServiceConfig:
             raise ConfigurationError(f"Set the {name} URL in add-on settings")
         if not self.api_key:
             raise ConfigurationError(f"Set the {name} API key in add-on settings")
-
-
-@dataclass
-class SSHConfig:
-    enabled: bool
-    host: str
-    port: int
-    username: str
-    password: str
-    key_path: str
-    host_key_sha256: str
-    allow_unknown_host_key: bool
 
 
 class Settings:
@@ -67,22 +55,7 @@ class Settings:
             timeout=timeout,
             verify_tls=as_bool(get("sonarr_verify_tls"), True),
         )
-        self.ssh = SSHConfig(
-            enabled=as_bool(get("ssh_enabled"), False),
-            host=get("ssh_host").strip(),
-            port=as_int(get("ssh_port"), 22, 1, 65535),
-            username=get("ssh_username").strip(),
-            password=get("ssh_password"),
-            key_path=get("ssh_key_path").strip(),
-            host_key_sha256=get("ssh_host_key_sha256").strip(),
-            allow_unknown_host_key=as_bool(get("ssh_allow_unknown_host_key"), False),
-        )
 
     def validate_backend(self):
-        if self.backend not in {"api", "vfs", "ssh"}:
+        if self.backend not in {"api", "vfs"}:
             raise ConfigurationError("Unknown deletion backend")
-        if self.backend == "ssh":
-            if not self.ssh.enabled:
-                raise ConfigurationError("Enable SSH/SFTP in settings or choose another deletion backend")
-            if not self.ssh.host or not self.ssh.username:
-                raise ConfigurationError("SSH host and username are required")

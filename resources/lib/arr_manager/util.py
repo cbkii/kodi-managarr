@@ -1,10 +1,11 @@
-import base64
-import hashlib
 import os
 import posixpath
 import re
 import unicodedata
 from urllib.parse import unquote, urlsplit, urlunsplit
+
+SUPPORTED_KODI_NETWORK_SCHEMES = {"smb", "sftp", "ssh"}
+SFTP_NETWORK_SCHEMES = {"sftp", "ssh"}
 
 
 def as_bool(value, default=False):
@@ -40,14 +41,26 @@ def normalise_release(value):
 
 def normalise_path(value):
     value = unquote((value or "").strip()).replace("\\", "/")
-    if value.startswith("smb://"):
-        parts = urlsplit(value)
+    parts = urlsplit(value)
+    if is_supported_kodi_network_url(value):
         path = re.sub(r"/+", "/", parts.path).rstrip("/")
         netloc = parts.netloc.rsplit("@", 1)[-1].lower()
         return urlunsplit((parts.scheme.lower(), netloc, path, "", ""))
     value = re.sub(r"/+", "/", value)
     return value.rstrip("/") or "/"
 
+
+
+def network_scheme(value):
+    return urlsplit((value or "").strip()).scheme.lower()
+
+
+def is_supported_kodi_network_url(value):
+    return network_scheme(value) in SUPPORTED_KODI_NETWORK_SCHEMES
+
+
+def is_sftp_network_url(value):
+    return network_scheme(value) in SFTP_NETWORK_SCHEMES
 
 def redact_url(value):
     if not value:
@@ -69,7 +82,7 @@ def is_path_under(path, parent):
 
 
 def join_path(base, relative):
-    if base.startswith("smb://"):
+    if is_supported_kodi_network_url(base):
         return base.rstrip("/") + "/" + relative.lstrip("/")
     return posixpath.join(base, relative)
 
@@ -110,8 +123,3 @@ class PathMapper:
                 suffix = kodi[len(source):].lstrip("/")
                 return join_path(target, suffix) if suffix else target
         return ""
-
-
-def sha256_fingerprint(key_bytes):
-    digest = hashlib.sha256(key_bytes).digest()
-    return "SHA256:" + base64.b64encode(digest).decode("ascii").rstrip("=")

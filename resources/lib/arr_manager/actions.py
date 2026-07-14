@@ -7,7 +7,7 @@ from .errors import BlocklistError, ResolutionError, SafetyError
 from .fileops import make_direct_backend
 from .history import match_history, unique_history_matches
 from .resolver import resolve_episode_context, resolve_movie, resolve_series
-from .util import normalise_path
+from .util import is_supported_kodi_network_url
 
 
 class ArrManager:
@@ -271,23 +271,22 @@ class ArrManager:
                 backend.close()
 
     def _backend_path(self, remote_path, selected_path, backend):
-        if backend.name == "SSH/SFTP":
-            path = normalise_path(remote_path) or self.settings.path_mapper.kodi_to_remote(selected_path)
-        else:
-            path = self.settings.path_mapper.remote_to_kodi(remote_path)
-            if not path and selected_path:
-                # A selected movie/episode already carries Kodi's authenticated SMB URL.
-                path = selected_path
+        path = self.settings.path_mapper.remote_to_kodi(remote_path)
+        if not path and is_supported_kodi_network_url(remote_path):
+            path = remote_path
+        if not path and selected_path:
+            # A selected movie/episode may already carry Kodi's authenticated SMB/SFTP VFS URL.
+            path = selected_path
         if not path:
             raise SafetyError(
-                "No usable file path mapping was found. Configure remote=>Kodi mappings in add-on settings."
+                "No usable file path mapping was found. Configure remote=>Kodi VFS mappings in add-on settings."
             )
         return path
 
     @staticmethod
     def _remote_file_path(entity_path, file_record):
         direct = file_record.get("path") or ""
-        if direct.startswith("/") or direct.startswith("smb://"):
+        if direct.startswith("/") or is_supported_kodi_network_url(direct):
             return direct
         relative = file_record.get("relativePath") or direct
         return posixpath.join(entity_path.rstrip("/"), str(relative).lstrip("/"))

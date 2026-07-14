@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <settings>
   <category label="32100">
-    <setting id="deletion_backend" type="enum" label="32101" values="Servarr API (recommended)|Kodi SMB/VFS|SSH/SFTP" default="0"/>
+    <setting id="deletion_backend" type="enum" label="32101" values="Servarr API (recommended)|Kodi VFS (SMB/SFTP)" default="0"/>
     <setting id="confirm_actions" type="bool" label="32102" default="true"/>
     <setting id="dry_run" type="bool" label="32103" default="false"/>
     <setting id="require_blocklist" type="bool" label="32104" default="true"/>
@@ -34,17 +34,6 @@
     <setting id="rescan_poll_timeout" type="slider" label="32403" default="45" range="5,5,300" option="int"/>
     <setting type="sep"/>
     <setting type="action" label="32404" action="RunScript(context.arr.manager,mode=test_backend)" option="close"/>
-  </category>
-
-  <category label="32500">
-    <setting id="ssh_enabled" type="bool" label="32501" default="false"/>
-    <setting id="ssh_host" type="text" label="32502" default="192.168.1.50"/>
-    <setting id="ssh_port" type="number" label="32503" default="22"/>
-    <setting id="ssh_username" type="text" label="32504" default="pipi"/>
-    <setting id="ssh_password" type="text" label="32505" option="hidden" default=""/>
-    <setting id="ssh_key_path" type="text" label="32506" default=""/>
-    <setting id="ssh_host_key_sha256" type="text" label="32507" default=""/>
-    <setting id="ssh_allow_unknown_host_key" type="bool" label="32508" default="false"/>
   </category>
 
   <category label="32600">

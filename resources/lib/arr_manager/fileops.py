@@ -1,10 +1,7 @@
-import os
-import posixpath
-import stat
-import time
+from urllib.parse import urlsplit
 
 from .errors import ConfigurationError, SafetyError
-from .util import is_path_under, normalise_path, sha256_fingerprint
+from .util import is_path_under, is_sftp_network_url, normalise_path
 
 
 class FileBackend:
@@ -20,16 +17,18 @@ class FileBackend:
         return None
 
 
-class KodiVFSBackend(FileBackend):
-    name = "Kodi SMB/VFS"
+class KodiNetworkVFSBackend(FileBackend):
+    name = "Kodi VFS (SMB/SFTP)"
 
     def __init__(self, protected_paths=None, logger=None):
         import xbmcvfs
         self.vfs = xbmcvfs
         self.protected_paths = protected_paths or []
         self.logger = logger
+        self._sftp_checked = False
 
     def exists(self, path):
+        self._check(path, folder=False)
         return bool(self.vfs.exists(path))
 
     def delete_file(self, path):
@@ -44,7 +43,12 @@ class KodiVFSBackend(FileBackend):
         self._walk_delete(path)
 
     def _walk_delete(self, path):
-        dirs, files = self.vfs.listdir(path)
+        try:
+            dirs, files = self.vfs.listdir(path)
+        except Exception as exc:
+            raise SafetyError(f"Kodi VFS could not enumerate folder {path}; refusing recursive deletion") from exc
+        if dirs is None or files is None:
+            raise SafetyError(f"Kodi VFS could not enumerate folder {path}; refusing recursive deletion")
         for filename in files:
             child = path.rstrip("/") + "/" + filename
             if not self.vfs.delete(child):
@@ -60,134 +64,113 @@ class KodiVFSBackend(FileBackend):
 
     def _check(self, path, folder):
         _validate_delete_path(path, self.protected_paths, folder)
+        if is_sftp_network_url(path):
+            self._ensure_sftp_addon()
 
-
-class SSHSFTPBackend(FileBackend):
-    name = "SSH/SFTP"
-
-    def __init__(self, config, protected_paths=None, logger=None):
+    def _ensure_sftp_addon(self):
+        if self._sftp_checked:
+            return
         try:
-            import paramiko
+            import xbmc
+            if not xbmc.getCondVisibility("System.HasAddon(vfs.sftp)"):
+                raise ConfigurationError(_SFTP_ADDON_MESSAGE)
         except ImportError as exc:
-            raise ConfigurationError(
-                "The optional Python 'paramiko' module is not installed in Kodi. Use Servarr API or Kodi SMB/VFS, "
-                "or install a Kodi-compatible Paramiko module."
-            ) from exc
-        self.paramiko = paramiko
-        self.config = config
-        self.protected_paths = protected_paths or []
-        self.logger = logger
-        self.client = None
-        self.sftp = None
-        self._connect()
+            raise ConfigurationError(_SFTP_ADDON_MESSAGE) from exc
+        self._sftp_checked = True
 
-    def _connect(self):
-        cfg = self.config
-        client = self.paramiko.SSHClient()
-        try:
-            client.load_system_host_keys()
-        except OSError:
-            pass
 
-        outer = self
-        class PinPolicy(self.paramiko.MissingHostKeyPolicy):
-            def missing_host_key(self, client_obj, hostname, key):
-                fingerprint = sha256_fingerprint(key.asbytes())
-                configured = (cfg.host_key_sha256 or "").strip()
-                if configured and fingerprint == configured:
-                    client_obj.get_host_keys().add(hostname, key.get_name(), key)
-                    return
-                if cfg.allow_unknown_host_key:
-                    client_obj.get_host_keys().add(hostname, key.get_name(), key)
-                    if outer.logger:
-                        outer.logger.warning("Trusting unknown SSH host key %s", fingerprint)
-                    return
-                raise SafetyError(
-                    f"SSH host key is not trusted. Set SSH host-key fingerprint to {fingerprint} in add-on settings."
-                )
+# Backwards-compatible import name for older tests or add-on state. New code should use KodiNetworkVFSBackend.
+KodiVFSBackend = KodiNetworkVFSBackend
 
-        client.set_missing_host_key_policy(PinPolicy())
-        kwargs = {
-            "hostname": cfg.host,
-            "port": cfg.port,
-            "username": cfg.username,
-            "timeout": 15,
-            "banner_timeout": 15,
-            "auth_timeout": 15,
-            "look_for_keys": False,
-            "allow_agent": False,
-        }
-        if cfg.key_path:
-            key_path = cfg.key_path
-            if key_path.startswith("special://"):
-                try:
-                    import xbmcvfs
-                    key_path = xbmcvfs.translatePath(key_path)
-                except Exception:
-                    pass
-            kwargs["key_filename"] = key_path
-        if cfg.password:
-            kwargs["password"] = cfg.password
-        client.connect(**kwargs)
-        self.client = client
-        self.sftp = client.open_sftp()
 
-    def delete_file(self, path):
-        self._check(path, folder=False)
-        try:
-            self.sftp.remove(path)
-        except FileNotFoundError:
-            return
+_SFTP_ADDON_MESSAGE = (
+    "Kodi SFTP support (vfs.sftp) is not installed or enabled. Install 'SFTP support' from Kodi's add-on "
+    "repository, then create and verify an SSH/SFTP network location in Kodi before testing deletion. The binary "
+    "add-on must match your Kodi major version."
+)
+_NETWORK_SCHEMES = {"smb", "sftp", "ssh"}
+_SFTP_SCHEMES = {"sftp", "ssh"}
 
-    def delete_tree(self, path):
-        self._check(path, folder=True)
-        self._walk_delete(path)
 
-    def _walk_delete(self, path):
-        try:
-            entries = self.sftp.listdir_attr(path)
-        except FileNotFoundError:
-            return
-        for entry in entries:
-            child = posixpath.join(path, entry.filename)
-            if stat.S_ISDIR(entry.st_mode):
-                self._walk_delete(child)
-            else:
-                self.sftp.remove(child)
-        self.sftp.rmdir(path)
-
-    def _check(self, path, folder):
-        _validate_delete_path(path, self.protected_paths, folder)
-
-    def close(self):
-        try:
-            if self.sftp:
-                self.sftp.close()
-        finally:
-            if self.client:
-                self.client.close()
+def _network_root_message(scheme):
+    if scheme == "smb":
+        return "Refusing to recursively remove an SMB share root"
+    return "Refusing to delete an SFTP/SSH server root or top-level remote directory"
 
 
 def _validate_delete_path(path, protected_paths, folder):
+    raw_parts = urlsplit((path or "").strip())
+    if raw_parts.scheme.lower() in _NETWORK_SCHEMES and (raw_parts.username or raw_parts.password):
+        raise SafetyError("Refusing to delete credential-bearing network URLs; use Kodi-saved credentials instead")
     normal = normalise_path(path)
-    if not normal or normal in {"/", ".", ".."}:
-        raise SafetyError("Refusing to delete an empty or root path")
-    for protected in protected_paths or []:
-        if normalise_path(normal).casefold() == normalise_path(protected).casefold() or is_path_under(protected, normal):
-            raise SafetyError(f"Refusing to delete protected path {normal}")
-    if normal.startswith("smb://"):
-        # smb://host/share is a share root; require an item below it for folder removal.
-        pieces = normal.split("/", 4)
-        if folder and len(pieces) < 5:
-            raise SafetyError("Refusing to recursively remove an SMB share root")
+    if not normal or normal in {"/", "~", ".", ".."}:
+        raise SafetyError("Refusing to delete an empty, home, current, parent, or root path")
+    if normal.startswith("~/") or normal.startswith("../") or normal == "..":
+        raise SafetyError("Refusing to delete a home-relative or parent-relative path")
+
+    parts = urlsplit(normal)
+    scheme = parts.scheme.lower()
+    if scheme in _NETWORK_SCHEMES:
+        _validate_network_delete_path(parts, folder)
+    elif "://" in normal:
+        raise SafetyError("Refusing to delete a malformed or unsupported network path")
     elif folder and len([part for part in normal.split("/") if part]) < 2:
         raise SafetyError("Refusing to recursively remove a top-level filesystem path")
+
+    for protected in protected_paths or []:
+        if _is_protected_delete_target(normal, protected):
+            raise SafetyError(f"Refusing to delete protected path {normal}")
+
+
+def _validate_network_delete_path(parts, folder):
+    if not parts.hostname:
+        raise SafetyError("Refusing to delete a malformed or credential-only network URL")
+    if parts.path in {"", "/"}:
+        raise SafetyError(_network_root_message(parts.scheme.lower()))
+
+    segments = [segment for segment in parts.path.split("/") if segment]
+    if any(segment in {".", "..", "~"} for segment in segments):
+        raise SafetyError("Refusing to delete a network path containing current, parent, or home segments")
+    if parts.scheme.lower() == "smb":
+        if folder and len(segments) < 2:
+            raise SafetyError(_network_root_message("smb"))
+    else:
+        # sftp://host/media or sftp://host:22/media names a remote top-level directory; require an item below it.
+        if folder and len(segments) < 2:
+            raise SafetyError(_network_root_message(parts.scheme.lower()))
+
+
+def _is_protected_delete_target(target, protected):
+    target_sftp = _canonical_sftp_path(target)
+    protected_sftp = _canonical_sftp_path(protected)
+    if target_sftp and protected_sftp:
+        return _canonical_path_under(target_sftp, protected_sftp) or _canonical_path_under(protected_sftp, target_sftp)
+    return normalise_path(target).casefold() == normalise_path(protected).casefold() or is_path_under(protected, target)
+
+
+def _canonical_sftp_path(value):
+    parts = urlsplit(normalise_path(value))
+    if parts.scheme.lower() not in _SFTP_SCHEMES or not parts.hostname:
+        return None
+    try:
+        port = parts.port
+    except ValueError as exc:
+        raise SafetyError("Refusing to delete a malformed SFTP/SSH URL") from exc
+    if port == 22:
+        port = None
+    return ("sftp", parts.hostname.lower(), port, (parts.path or "/").rstrip("/") or "/")
+
+
+def _canonical_path_under(path, parent):
+    path_scheme, path_host, path_port, path_value = path
+    parent_scheme, parent_host, parent_port, parent_value = parent
+    if (path_scheme, path_host, path_port) != (parent_scheme, parent_host, parent_port):
+        return False
+    return path_value == parent_value or path_value.startswith(parent_value.rstrip("/") + "/")
 
 
 def make_direct_backend(settings, logger=None):
     settings.validate_backend()
     if settings.backend == "vfs":
-        return KodiVFSBackend(settings.protected_paths, logger)
-    if settings.backend == "ssh":
-        return SSHSFTPBackend(settings.ssh, settings.protected_paths, logger)
+        return KodiNetworkVFSBackend(settings.protected_paths, logger)
     return None

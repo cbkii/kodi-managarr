@@ -100,12 +100,12 @@ msgid "Test Sonarr connection"
 msgstr "Test Sonarr connection"
 
 msgctxt "#32400"
-msgid "SMB / path mapping"
-msgstr "SMB / path mapping"
+msgid "Network VFS / path mapping"
+msgstr "Network VFS / path mapping"
 
 msgctxt "#32401"
-msgid "Mappings: Pi path=>Kodi SMB path; separate with ;"
-msgstr "Mappings: Pi path=>Kodi SMB path; separate with ;"
+msgid "Mappings: Pi path=>Kodi VFS path; separate with ;"
+msgstr "Mappings: Pi path=>Kodi VFS path; separate with ;"
 
 msgctxt "#32402"
 msgid "Protected paths; separate with ;"
@@ -118,42 +118,6 @@ msgstr "Direct-delete rescan timeout (seconds)"
 msgctxt "#32404"
 msgid "Test selected file backend"
 msgstr "Test selected file backend"
-
-msgctxt "#32500"
-msgid "SSH / SFTP (optional)"
-msgstr "SSH / SFTP (optional)"
-
-msgctxt "#32501"
-msgid "Enable SSH/SFTP"
-msgstr "Enable SSH/SFTP"
-
-msgctxt "#32502"
-msgid "SSH host"
-msgstr "SSH host"
-
-msgctxt "#32503"
-msgid "SSH port"
-msgstr "SSH port"
-
-msgctxt "#32504"
-msgid "SSH username"
-msgstr "SSH username"
-
-msgctxt "#32505"
-msgid "SSH password"
-msgstr "SSH password"
-
-msgctxt "#32506"
-msgid "SSH private-key path inside Kodi"
-msgstr "SSH private-key path inside Kodi"
-
-msgctxt "#32507"
-msgid "Pinned SSH host-key fingerprint (SHA256:...)"
-msgstr "Pinned SSH host-key fingerprint (SHA256:...)"
-
-msgctxt "#32508"
-msgid "Allow an unknown SSH host key"
-msgstr "Allow an unknown SSH host key"
 
 msgctxt "#32600"
 msgid "Diagnostics"
