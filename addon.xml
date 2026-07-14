@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<addon id="context.arr.manager" name="Arr Manager" version="0.1.0" provider-name="CB">
+  <requires>
+    <import addon="xbmc.python" version="3.0.0"/>
+  </requires>
+  <extension point="kodi.context.item">
+    <menu id="kodi.core.main">
+      <menu>
+        <label>32000</label>
+        <item library="context.py" args="delete_exclude">
+          <label>32001</label>
+          <visible>String.IsEqual(ListItem.DBType,movie) | String.IsEqual(ListItem.DBType,tvshow) | String.IsEqual(ListItem.DBType,episode)</visible>
+        </item>
+        <item library="context.py" args="delete_replace">
+          <label>32002</label>
+          <visible>String.IsEqual(ListItem.DBType,movie) | String.IsEqual(ListItem.DBType,tvshow) | String.IsEqual(ListItem.DBType,episode)</visible>
+        </item>
+      </menu>
+    </menu>
+  </extension>
+  <extension point="xbmc.python.script" library="default.py">
+    <provides>executable</provides>
+  </extension>
+  <extension point="xbmc.addon.metadata">
+    <summary lang="en_GB">Manage Radarr movies and Sonarr series or episodes from Kodi.</summary>
+    <description lang="en_GB">Adds Delete &amp; Exclude and Delete &amp; Replace actions to Kodi's video-library context menu. Supports Servarr API deletion, Kodi SMB/VFS, and optional SSH/SFTP.</description>
+    <platform>all</platform>
+    <license>GPL-3.0-or-later</license>
+    <source>https://github.com/cbkii/context.arr.manager</source>
+    <news>v0.1.0 (2026-07-14) - Initial development scaffold.</news>
+    <assets>
+      <icon>resources/icon.png</icon>
+    </assets>
+  </extension>
+</addon>

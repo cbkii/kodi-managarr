@@ -1,0 +1,168 @@
+# Kodi Media Center language file
+# Addon Name: Arr Manager
+# Addon id: context.arr.manager
+msgid ""
+msgstr ""
+"Project-Id-Version: Arr Manager\n"
+"Language: en_GB\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+
+msgctxt "#32000"
+msgid "Arr Manager"
+msgstr "Arr Manager"
+
+msgctxt "#32001"
+msgid "Delete & Exclude"
+msgstr "Delete & Exclude"
+
+msgctxt "#32002"
+msgid "Delete & Replace"
+msgstr "Delete & Replace"
+
+msgctxt "#32100"
+msgid "General"
+msgstr "General"
+
+msgctxt "#32101"
+msgid "Deletion backend"
+msgstr "Deletion backend"
+
+msgctxt "#32102"
+msgid "Confirm destructive actions"
+msgstr "Confirm destructive actions"
+
+msgctxt "#32103"
+msgid "Dry run (make no changes)"
+msgstr "Dry run (make no changes)"
+
+msgctxt "#32104"
+msgid "Require release-history match before Replace"
+msgstr "Require release-history match before Replace"
+
+msgctxt "#32106"
+msgid "HTTP timeout (seconds)"
+msgstr "HTTP timeout (seconds)"
+
+msgctxt "#32200"
+msgid "Radarr"
+msgstr "Radarr"
+
+msgctxt "#32201"
+msgid "Enable Radarr"
+msgstr "Enable Radarr"
+
+msgctxt "#32202"
+msgid "Radarr base URL"
+msgstr "Radarr base URL"
+
+msgctxt "#32203"
+msgid "Radarr API key"
+msgstr "Radarr API key"
+
+msgctxt "#32204"
+msgid "Radarr API version"
+msgstr "Radarr API version"
+
+msgctxt "#32205"
+msgid "Verify Radarr HTTPS certificate"
+msgstr "Verify Radarr HTTPS certificate"
+
+msgctxt "#32206"
+msgid "Test Radarr connection"
+msgstr "Test Radarr connection"
+
+msgctxt "#32300"
+msgid "Sonarr"
+msgstr "Sonarr"
+
+msgctxt "#32301"
+msgid "Enable Sonarr"
+msgstr "Enable Sonarr"
+
+msgctxt "#32302"
+msgid "Sonarr base URL"
+msgstr "Sonarr base URL"
+
+msgctxt "#32303"
+msgid "Sonarr API key"
+msgstr "Sonarr API key"
+
+msgctxt "#32304"
+msgid "Sonarr API version"
+msgstr "Sonarr API version"
+
+msgctxt "#32305"
+msgid "Verify Sonarr HTTPS certificate"
+msgstr "Verify Sonarr HTTPS certificate"
+
+msgctxt "#32306"
+msgid "Test Sonarr connection"
+msgstr "Test Sonarr connection"
+
+msgctxt "#32400"
+msgid "SMB / path mapping"
+msgstr "SMB / path mapping"
+
+msgctxt "#32401"
+msgid "Mappings: Pi path=>Kodi SMB path; separate with ;"
+msgstr "Mappings: Pi path=>Kodi SMB path; separate with ;"
+
+msgctxt "#32402"
+msgid "Protected paths; separate with ;"
+msgstr "Protected paths; separate with ;"
+
+msgctxt "#32403"
+msgid "Direct-delete rescan timeout (seconds)"
+msgstr "Direct-delete rescan timeout (seconds)"
+
+msgctxt "#32404"
+msgid "Test selected file backend"
+msgstr "Test selected file backend"
+
+msgctxt "#32500"
+msgid "SSH / SFTP (optional)"
+msgstr "SSH / SFTP (optional)"
+
+msgctxt "#32501"
+msgid "Enable SSH/SFTP"
+msgstr "Enable SSH/SFTP"
+
+msgctxt "#32502"
+msgid "SSH host"
+msgstr "SSH host"
+
+msgctxt "#32503"
+msgid "SSH port"
+msgstr "SSH port"
+
+msgctxt "#32504"
+msgid "SSH username"
+msgstr "SSH username"
+
+msgctxt "#32505"
+msgid "SSH password"
+msgstr "SSH password"
+
+msgctxt "#32506"
+msgid "SSH private-key path inside Kodi"
+msgstr "SSH private-key path inside Kodi"
+
+msgctxt "#32507"
+msgid "Pinned SSH host-key fingerprint (SHA256:...)"
+msgstr "Pinned SSH host-key fingerprint (SHA256:...)"
+
+msgctxt "#32508"
+msgid "Allow an unknown SSH host key"
+msgstr "Allow an unknown SSH host key"
+
+msgctxt "#32600"
+msgid "Diagnostics"
+msgstr "Diagnostics"
+
+msgctxt "#32601"
+msgid "Debug logging"
+msgstr "Debug logging"
+
+msgctxt "#32602"
+msgid "Write non-secret diagnostics file"
+msgstr "Write non-secret diagnostics file"
