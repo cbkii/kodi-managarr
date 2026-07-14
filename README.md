@@ -30,13 +30,14 @@ No Android storage permission is needed to delete Pi-hosted SMB files through Ko
 
 ## Install on Kodi
 
-1. Copy `context.arr.manager-0.1.0.zip` to a location available to Kodi.
-2. In Kodi, enable **Settings → System → Add-ons → Unknown sources** if required.
-3. Open **Add-ons → Install from zip file** and select the archive.
-4. Open **Add-ons → My add-ons → Context menus → Arr Manager → Configure**.
-5. Enter the Radarr and Sonarr base URLs and API keys.
-6. Run both connection tests.
-7. Leave `Dry run` enabled for the first tests.
+1. Download the latest `context.arr.manager-<version>.zip` release asset.
+2. Copy it to a location available to Kodi.
+3. In Kodi, enable **Settings → System → Add-ons → Unknown sources** if required.
+4. Open **Add-ons → Install from zip file** and select the archive.
+5. Open **Add-ons → My add-ons → Context menus → Arr Manager → Configure**.
+6. Enter the Radarr and Sonarr base URLs and API keys.
+7. Run both connection tests.
+8. Leave `Dry run` enabled for the first tests.
 
 The context menu appears on Kodi **library** movies, TV shows and episodes. Add SMB folders as video sources and scan them into Kodi's library first.
 
@@ -108,36 +109,61 @@ The code uses only Python's standard library outside Kodi. Kodi runtime modules 
 
 ## Publishing a release
 
-The **Build and publish Kodi release** GitHub Actions workflow is manually triggered with `workflow_dispatch`.
+The **Build and publish Kodi release** workflow is manual-only and its `workflow_dispatch` fields are authoritative.
 
-1. Update the `version` and `<news>` entry in `addon.xml`.
-2. Commit and push the release-ready code.
-3. Open **Actions → Build and publish Kodi release → Run workflow**.
-4. Select the source ref and release channel. Leave the version blank to use `addon.xml`.
-5. Optionally enter concise release highlights; GitHub-generated change notes are appended automatically.
+Open **Actions → Build and publish Kodi release → Run workflow**, then set:
+
+- **branch:** the branch to package and update, normally `main`;
+- **version:** an exact numeric `x.y.z` version, or leave blank to increment the highest existing patch version automatically;
+- **channel:** `stable`, `prerelease`, or `draft`;
+- **release_notes:** optional release highlights; these are also written into `addon.xml` as the `<news>` entry;
+- **mark_latest:** whether a stable release should become GitHub's Latest release.
+
+Examples:
+
+- Existing highest version `0.1.0`, blank version input → `0.1.1`.
+- Existing highest version `99.99.9`, blank version input → `99.99.10`.
+- Version input `2.0.0` → exactly `2.0.0`.
 
 The workflow:
 
-- validates XML and Python source;
-- runs the unit tests;
-- builds and verifies the Kodi-installable ZIP;
-- attaches the ZIP and its SHA-256 checksum to the GitHub release;
-- retains the same files as a workflow artifact for 30 days;
-- produces installation instructions, compatibility details, supplied highlights, and generated change notes.
+1. resolves the authoritative version from the dispatch form;
+2. updates `addon.xml` version and news metadata;
+3. validates XML and Python source;
+4. runs unit tests;
+5. builds and verifies the Kodi-installable ZIP;
+6. commits the selected release metadata back to the chosen branch;
+7. creates the tag and GitHub release at that commit;
+8. uploads the ZIP and SHA-256 checksum as release assets and workflow artifacts;
+9. combines supplied highlights, installation guidance, compatibility details, provenance, and GitHub-generated change notes.
 
-It refuses to publish when the requested version differs from `addon.xml`, or when the release tag already exists.
+It refuses duplicate tags/releases and invalid versions. Because the workflow writes back to the selected branch, that branch must permit GitHub Actions to push with `contents: write` permission.
 
-The workflow can also be started with GitHub CLI:
+Run with automatic patch increment:
 
 ```bash
 gh workflow run release.yml \
   --repo cbkii/kodi-managarr \
   --ref main \
-  -f ref=main \
+  -f branch=main \
+  -f version= \
   -f channel=stable \
-  -f mark_latest=true
+  -f mark_latest=true \
+  -f release_notes='Describe the user-visible changes here.'
 
 gh run watch --repo cbkii/kodi-managarr --exit-status
+```
+
+Run with an explicit version:
+
+```bash
+gh workflow run release.yml \
+  --repo cbkii/kodi-managarr \
+  --ref main \
+  -f branch=main \
+  -f version=2.0.0 \
+  -f channel=stable \
+  -f mark_latest=true
 ```
 
 ## Repository layout
