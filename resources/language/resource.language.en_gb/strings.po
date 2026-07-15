@@ -1,15 +1,15 @@
 # Kodi Media Center language file
-# Addon Name: Arr Manager
+# Addon Name: Kodi Managarr
 # Addon id: context.arr.manager
 msgid ""
 msgstr ""
-"Project-Id-Version: Arr Manager\n"
+"Project-Id-Version: Kodi Managarr\n"
 "Language: en_GB\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 
 msgctxt "#32000"
-msgid "Arr Manager"
-msgstr "Arr Manager"
+msgid "(⁠●⁠_⁠_⁠●⁠) Managarr"
+msgstr "(⁠●⁠_⁠_⁠●⁠) Managarr"
 
 msgctxt "#32001"
 msgid "Delete & Exclude"
@@ -118,6 +118,30 @@ msgstr "Direct-delete rescan timeout (seconds)"
 msgctxt "#32404"
 msgid "Test selected file backend"
 msgstr "Test selected file backend"
+
+msgctxt "#32500"
+msgid "Tools & settings"
+msgstr "Tools & settings"
+
+msgctxt "#32501"
+msgid "Open settings"
+msgstr "Open settings"
+
+msgctxt "#32502"
+msgid "Test Radarr"
+msgstr "Test Radarr"
+
+msgctxt "#32503"
+msgid "Test Sonarr"
+msgstr "Test Sonarr"
+
+msgctxt "#32504"
+msgid "Test file backend"
+msgstr "Test file backend"
+
+msgctxt "#32505"
+msgid "Write diagnostics"
+msgstr "Write diagnostics"
 
 msgctxt "#32600"
 msgid "Diagnostics"
