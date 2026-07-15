@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 import compileall
 import os
-import shutil
 import re
+import shutil
 import sys
 import xml.etree.ElementTree as ET
 
@@ -13,7 +13,7 @@ def main():
     for relative in ("addon.xml", "resources/settings.xml"):
         ET.parse(os.path.join(ROOT, relative))
         print(f"OK XML: {relative}")
-    if not compileall.compile_dir(ROOT, quiet=1, rx=re.compile(r"[\\/]\.git[\\/]")):
+    if not compileall.compile_dir(ROOT, quiet=1, rx=re.compile(r"[\/]\.git[\/]")):
         print("Python compilation failed", file=sys.stderr)
         return 1
     _remove_bytecode(ROOT)
@@ -35,15 +35,18 @@ def main():
 
 
 def _remove_bytecode(root):
-    for dirpath, dirnames, filenames in os.walk(root):
-        if ".git" in dirpath.split(os.sep):
-            continue
+    for dirpath, dirnames, filenames in os.walk(root, topdown=True):
+        if ".git" in dirnames:
+            dirnames.remove(".git")
+        if "__pycache__" in dirnames:
+            dirnames.remove("__pycache__")
+            shutil.rmtree(os.path.join(dirpath, "__pycache__"), ignore_errors=True)
         for filename in filenames:
             if filename.endswith((".pyc", ".pyo")):
-                os.unlink(os.path.join(dirpath, filename))
-        for dirname in list(dirnames):
-            if dirname == "__pycache__":
-                shutil.rmtree(os.path.join(dirpath, dirname), ignore_errors=True)
+                try:
+                    os.unlink(os.path.join(dirpath, filename))
+                except OSError:
+                    pass
 
 
 if __name__ == "__main__":
