@@ -19,6 +19,7 @@ class FileBackend:
 
 class KodiNetworkVFSBackend(FileBackend):
     """Kodi VFS backend with fail-closed probes before destructive use."""
+
     name = "Kodi VFS (SMB/SFTP)"
     max_entries = 10000
     max_depth = 64
@@ -64,13 +65,23 @@ class KodiNetworkVFSBackend(FileBackend):
     def delete_tree(self, path):
         self._check(path, folder=True)
         files, dirs = self._plan_delete_tree(path)
+        deleted_by_parent = {}
         for child in files:
             if not self.vfs.delete(child):
                 raise SafetyError(f"Kodi VFS could not delete {child}")
-            parent, name = _split_child(child)
-            if self.vfs.exists(child) or name in self.probe_directory(parent)["files"]:
+            if self.vfs.exists(child):
                 raise SafetyError(f"Kodi VFS could not verify deletion of {child}")
-        for child in sorted(dirs, key=lambda value: value.count('/'), reverse=True):
+            parent, name = _split_child(child)
+            deleted_by_parent.setdefault(parent, set()).add(name)
+
+        for parent, deleted_names in deleted_by_parent.items():
+            listing = self.probe_directory(parent)
+            remaining = deleted_names.intersection(set(listing["files"]) | set(listing["dirs"]))
+            if remaining:
+                names = ", ".join(sorted(remaining))
+                raise SafetyError(f"Kodi VFS parent listing still contains deleted entries under {parent}: {names}")
+
+        for child in sorted(dirs, key=lambda value: value.count("/"), reverse=True):
             try:
                 ok = self.vfs.rmdir(child, force=False)
             except TypeError:
@@ -80,21 +91,21 @@ class KodiNetworkVFSBackend(FileBackend):
 
     def _plan_delete_tree(self, path):
         files = []
-        dirs = [path.rstrip('/')]
-        stack = [(path.rstrip('/'), 0)]
+        dirs = [path.rstrip("/")]
+        stack = [(path.rstrip("/"), 0)]
         while stack:
             current, depth = stack.pop()
             if depth > self.max_depth:
                 raise SafetyError(f"Kodi VFS recursive deletion exceeded depth limit at {current}")
             listing = self.probe_directory(current)
             for filename in listing["files"]:
-                if '/' in filename or '\\' in filename or filename in {'.', '..'}:
+                if "/" in filename or "\\" in filename or filename in {".", ".."}:
                     raise SafetyError(f"Kodi VFS returned unsafe file entry under {current}")
-                files.append(current.rstrip('/') + '/' + filename)
+                files.append(current.rstrip("/") + "/" + filename)
             for dirname in listing["dirs"]:
-                if '/' in dirname or '\\' in dirname or dirname in {'.', '..'}:
+                if "/" in dirname or "\\" in dirname or dirname in {".", ".."}:
                     raise SafetyError(f"Kodi VFS returned unsafe directory entry under {current}")
-                child = current.rstrip('/') + '/' + dirname
+                child = current.rstrip("/") + "/" + dirname
                 dirs.append(child)
                 stack.append((child, depth + 1))
             if len(files) + len(dirs) > self.max_entries:
@@ -216,6 +227,6 @@ def make_direct_backend(settings, logger=None):
 
 def _split_child(path):
     normal = normalise_path(path)
-    parent = normal.rsplit('/', 1)[0] or '/'
-    name = normal.rsplit('/', 1)[-1]
+    parent = normal.rsplit("/", 1)[0] or "/"
+    name = normal.rsplit("/", 1)[-1]
     return parent, name
