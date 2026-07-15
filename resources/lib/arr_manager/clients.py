@@ -16,6 +16,9 @@ class ServarrClient:
     def mark_history_failed(self, history_id):
         return self.http.request("POST", f"/history/failed/{int(history_id)}", payload={})
 
+    def command_status(self, command_id):
+        return self.http.request("GET", f"/command/{int(command_id)}") or {}
+
 
 class RadarrClient(ServarrClient):
     def all_movies(self):

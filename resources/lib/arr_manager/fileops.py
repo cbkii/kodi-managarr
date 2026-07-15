@@ -1,7 +1,7 @@
 from urllib.parse import urlsplit
 
 from .errors import ConfigurationError, SafetyError
-from .util import is_path_under, is_sftp_network_url, normalise_path
+from .util import is_path_under, is_sftp_network_url, normalise_path, paths_equal
 
 
 class FileBackend:
@@ -18,7 +18,11 @@ class FileBackend:
 
 
 class KodiNetworkVFSBackend(FileBackend):
+    """Kodi VFS backend with fail-closed probes before destructive use."""
+
     name = "Kodi VFS (SMB/SFTP)"
+    max_entries = 10000
+    max_depth = 64
 
     def __init__(self, protected_paths=None, logger=None):
         import xbmcvfs
@@ -31,36 +35,82 @@ class KodiNetworkVFSBackend(FileBackend):
         self._check(path, folder=False)
         return bool(self.vfs.exists(path))
 
+    def probe_directory(self, path):
+        self._check(path, folder=True)
+        probe = path.rstrip("/") + "/"
+        try:
+            dirs, files = self.vfs.listdir(probe)
+        except Exception as exc:
+            raise SafetyError(f"Kodi VFS could not access {path}") from exc
+        if dirs is None or files is None:
+            raise SafetyError(f"Kodi VFS state is unknown for {path}")
+        return {"dirs": list(dirs), "files": list(files)}
+
     def delete_file(self, path):
         self._check(path, folder=False)
-        if self.vfs.exists(path) and not self.vfs.delete(path):
+        parent, name = _split_child(path)
+        if not self.vfs.exists(path):
+            listing = self.probe_directory(parent)
+            if name not in listing["files"] and name not in listing["dirs"]:
+                raise SafetyError(f"Kodi VFS reports the file is absent before deletion: {path}")
+            raise SafetyError(f"Kodi VFS state is inconsistent for {path}; refusing deletion")
+        if not self.vfs.delete(path):
             raise SafetyError(f"Kodi VFS could not delete {path}")
+        if self.vfs.exists(path):
+            raise SafetyError(f"Kodi VFS could not verify deletion of {path}")
+        listing = self.probe_directory(parent)
+        if name in listing["files"] or name in listing["dirs"]:
+            raise SafetyError(f"Kodi VFS parent listing still contains {path}")
 
     def delete_tree(self, path):
         self._check(path, folder=True)
-        if not self.vfs.exists(path):
-            return
-        self._walk_delete(path)
-
-    def _walk_delete(self, path):
-        try:
-            dirs, files = self.vfs.listdir(path)
-        except Exception as exc:
-            raise SafetyError(f"Kodi VFS could not enumerate folder {path}; refusing recursive deletion") from exc
-        if dirs is None or files is None:
-            raise SafetyError(f"Kodi VFS could not enumerate folder {path}; refusing recursive deletion")
-        for filename in files:
-            child = path.rstrip("/") + "/" + filename
+        files, dirs = self._plan_delete_tree(path)
+        deleted_by_parent = {}
+        for child in files:
             if not self.vfs.delete(child):
                 raise SafetyError(f"Kodi VFS could not delete {child}")
-        for dirname in dirs:
-            self._walk_delete(path.rstrip("/") + "/" + dirname)
-        try:
-            ok = self.vfs.rmdir(path, force=False)
-        except TypeError:
-            ok = self.vfs.rmdir(path)
-        if not ok and self.vfs.exists(path):
-            raise SafetyError(f"Kodi VFS could not remove folder {path}")
+            if self.vfs.exists(child):
+                raise SafetyError(f"Kodi VFS could not verify deletion of {child}")
+            parent, name = _split_child(child)
+            deleted_by_parent.setdefault(parent, set()).add(name)
+
+        for parent, deleted_names in deleted_by_parent.items():
+            listing = self.probe_directory(parent)
+            remaining = deleted_names.intersection(set(listing["files"]) | set(listing["dirs"]))
+            if remaining:
+                names = ", ".join(sorted(remaining))
+                raise SafetyError(f"Kodi VFS parent listing still contains deleted entries under {parent}: {names}")
+
+        for child in sorted(dirs, key=lambda value: value.count("/"), reverse=True):
+            try:
+                ok = self.vfs.rmdir(child, force=False)
+            except TypeError:
+                ok = self.vfs.rmdir(child)
+            if not ok or self.vfs.exists(child):
+                raise SafetyError(f"Kodi VFS could not remove folder {child}")
+
+    def _plan_delete_tree(self, path):
+        files = []
+        dirs = [path.rstrip("/")]
+        stack = [(path.rstrip("/"), 0)]
+        while stack:
+            current, depth = stack.pop()
+            if depth > self.max_depth:
+                raise SafetyError(f"Kodi VFS recursive deletion exceeded depth limit at {current}")
+            listing = self.probe_directory(current)
+            for filename in listing["files"]:
+                if "/" in filename or "\\" in filename or filename in {".", ".."}:
+                    raise SafetyError(f"Kodi VFS returned unsafe file entry under {current}")
+                files.append(current.rstrip("/") + "/" + filename)
+            for dirname in listing["dirs"]:
+                if "/" in dirname or "\\" in dirname or dirname in {".", ".."}:
+                    raise SafetyError(f"Kodi VFS returned unsafe directory entry under {current}")
+                child = current.rstrip("/") + "/" + dirname
+                dirs.append(child)
+                stack.append((child, depth + 1))
+            if len(files) + len(dirs) > self.max_entries:
+                raise SafetyError("Kodi VFS recursive deletion exceeded entry limit")
+        return files, dirs
 
     def _check(self, path, folder):
         _validate_delete_path(path, self.protected_paths, folder)
@@ -102,7 +152,10 @@ def _validate_delete_path(path, protected_paths, folder):
     raw_parts = urlsplit((path or "").strip())
     if raw_parts.scheme.lower() in _NETWORK_SCHEMES and (raw_parts.username or raw_parts.password):
         raise SafetyError("Refusing to delete credential-bearing network URLs; use Kodi-saved credentials instead")
-    normal = normalise_path(path)
+    try:
+        normal = normalise_path(path)
+    except ValueError as exc:
+        raise SafetyError(str(exc)) from exc
     if not normal or normal in {"/", "~", ".", ".."}:
         raise SafetyError("Refusing to delete an empty, home, current, parent, or root path")
     if normal.startswith("~/") or normal.startswith("../") or normal == "..":
@@ -141,11 +194,7 @@ def _validate_network_delete_path(parts, folder):
 
 
 def _is_protected_delete_target(target, protected):
-    target_sftp = _canonical_sftp_path(target)
-    protected_sftp = _canonical_sftp_path(protected)
-    if target_sftp and protected_sftp:
-        return _canonical_path_under(target_sftp, protected_sftp) or _canonical_path_under(protected_sftp, target_sftp)
-    return normalise_path(target).casefold() == normalise_path(protected).casefold() or is_path_under(protected, target)
+    return paths_equal(target, protected) or is_path_under(protected, target)
 
 
 def _canonical_sftp_path(value):
@@ -174,3 +223,10 @@ def make_direct_backend(settings, logger=None):
     if settings.backend == "vfs":
         return KodiNetworkVFSBackend(settings.protected_paths, logger)
     return None
+
+
+def _split_child(path):
+    normal = normalise_path(path)
+    parent = normal.rsplit("/", 1)[0] or "/"
+    name = normal.rsplit("/", 1)[-1]
+    return parent, name

@@ -10,7 +10,7 @@
 
   <category label="32200">
     <setting id="radarr_enabled" type="bool" label="32201" default="true"/>
-    <setting id="radarr_url" type="text" label="32202" default="http://192.168.1.50:7878"/>
+    <setting id="radarr_url" type="text" label="32202" default=""/>
     <setting id="radarr_api_key" type="text" label="32203" option="hidden" default=""/>
     <setting id="radarr_api_version" type="text" label="32204" default="v3"/>
     <setting id="radarr_verify_tls" type="bool" label="32205" default="true"/>
@@ -20,7 +20,7 @@
 
   <category label="32300">
     <setting id="sonarr_enabled" type="bool" label="32301" default="true"/>
-    <setting id="sonarr_url" type="text" label="32302" default="http://192.168.1.50:8989"/>
+    <setting id="sonarr_url" type="text" label="32302" default=""/>
     <setting id="sonarr_api_key" type="text" label="32303" option="hidden" default=""/>
     <setting id="sonarr_api_version" type="text" label="32304" default="v3"/>
     <setting id="sonarr_verify_tls" type="bool" label="32305" default="true"/>
@@ -29,8 +29,8 @@
   </category>
 
   <category label="32400">
-    <setting id="path_mappings" type="text" label="32401" default="/media/mediasmb/Movies=&gt;smb://192.168.1.50/Movies;/media/mediasmb/Shows=&gt;smb://192.168.1.50/Shows"/>
-    <setting id="protected_paths" type="text" label="32402" default="/;/media/mediasmb;smb://192.168.1.50/Movies;smb://192.168.1.50/Shows"/>
+    <setting id="path_mappings" type="text" label="32401" default=""/>
+    <setting id="protected_paths" type="text" label="32402" default="/;/media/mediasmb"/>
     <setting id="rescan_poll_timeout" type="slider" label="32403" default="45" range="5,5,300" option="int"/>
     <setting type="sep"/>
     <setting type="action" label="32404" action="RunScript(context.arr.manager,mode=test_backend)" option="close"/>

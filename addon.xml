@@ -27,7 +27,7 @@
     <platform>all</platform>
     <license>GPL-3.0-or-later</license>
     <source>https://github.com/cbkii/kodi-managarr</source>
-    <news>v0.1.0 (2026-07-14) - Initial development scaffold.</news>
+    <news>v0.1.0 (2026-07-15) - Fail-closed destructive workflows with pre-delete release blocklisting, verified Servarr command polling, allowlisted SMB/SFTP Kodi VFS deletion, targeted Kodi JSON-RPC cleanup, and reproducible CI/package validation.</news>
     <assets>
       <icon>resources/icon.png</icon>
     </assets>

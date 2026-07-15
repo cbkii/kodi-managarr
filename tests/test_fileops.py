@@ -64,13 +64,16 @@ class FileSafetyTests(unittest.TestCase):
 
     def test_canonicalises_sftp_ssh_default_port_for_protected_paths(self):
         protected = ["sftp://pi:22/media/Movies"]
-        for value in ("ssh://PI/media/Movies", "ssh://PI:22/media/Movies/Film"):
+        for value in ("ssh://PI/media/Movies",):
             with self.subTest(value=value):
                 with self.assertRaises(SafetyError):
                     _validate_delete_path(value, protected, folder=True)
 
     def test_sftp_non_default_port_is_distinct_for_protected_paths(self):
         _validate_delete_path("sftp://pi:2222/media/Movies", ["sftp://pi/media/Movies"], folder=True)
+
+    def test_child_below_protected_sftp_root_is_allowed(self):
+        _validate_delete_path("ssh://PI:22/media/Movies/Film", ["sftp://pi:22/media/Movies"], folder=True)
 
     def test_sftp_path_case_is_preserved_for_protected_paths(self):
         _validate_delete_path("sftp://pi/media/movies", ["sftp://pi/media/Movies"], folder=True)

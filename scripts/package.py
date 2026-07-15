@@ -18,6 +18,7 @@ INCLUDED_ROOT_FILES = ("addon.xml", "context.py", "default.py", "LICENSE")
 INCLUDED_ROOT_DIRS = ("resources",)
 MIN_ZIP_EPOCH = 315532800  # 1980-01-01, the earliest ZIP timestamp.
 MAX_ZIP_EPOCH = 4354819198  # 2107-12-31 23:59:58 UTC.
+PACKAGE_FILE_MODE = 0o644
 
 
 def _zip_timestamp() -> tuple[int, int, int, int, int, int]:
@@ -59,8 +60,10 @@ def main() -> int:
                 info.compress_type = zipfile.ZIP_DEFLATED
                 info.create_system = 3
                 info.flag_bits |= 0x800  # UTF-8 filenames.
-                mode = source.stat().st_mode & 0o777
-                info.external_attr = ((0o100000 | mode) & 0xFFFF) << 16
+                # Kodi runtime files are data loaded by Kodi/Python, not host
+                # executables. Use deterministic non-executable permissions
+                # instead of inheriting checkout or developer filesystem modes.
+                info.external_attr = ((0o100000 | PACKAGE_FILE_MODE) & 0xFFFF) << 16
                 archive.writestr(
                     info,
                     source.read_bytes(),
