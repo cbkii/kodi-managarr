@@ -82,7 +82,7 @@ class ArrManager:
         finally:
             if backend:
                 backend.close()
-        self.ui.refresh_kodi_library()
+        self._sync_kodi("movie", selected)
         return f"Deleted and excluded {movie.get('title')}"
 
     def _series_exclude(self, selected):
@@ -108,7 +108,7 @@ class ArrManager:
         finally:
             if backend:
                 backend.close()
-        self.ui.refresh_kodi_library()
+        self._sync_kodi("series", selected)
         return f"Deleted and excluded {series.get('title')}"
 
     def _episode_exclude(self, selected):
@@ -128,7 +128,7 @@ class ArrManager:
             return f"Dry run: would delete and unmonitor {episode_names}"
 
         changed = []
-        deletion_committed = False
+        deletion_committed = [False]
         try:
             for episode in linked:
                 if episode.get("monitored"):
@@ -136,10 +136,9 @@ class ArrManager:
                     updated["monitored"] = False
                     self.sonarr.update_episode(updated)
                     changed.append(episode)
-            self._delete_episode_file(series, file_record, selected.file_path)
-            deletion_committed = True
+            self._delete_episode_file(series, file_record, selected.file_path, on_committed=lambda: deletion_committed.__setitem__(0, True))
         except Exception:
-            if not deletion_committed:
+            if not deletion_committed[0]:
                 for episode in changed:
                     try:
                         self.sonarr.update_episode(episode)
@@ -147,7 +146,7 @@ class ArrManager:
                         if self.logger:
                             self.logger.exception("Could not restore episode monitoring after failed deletion")
             raise
-        self.ui.refresh_kodi_library()
+        self._sync_kodi("episodes", selected, linked)
         return f"Deleted and unmonitored {episode_names}"
 
     def _movie_replace(self, selected):
@@ -159,17 +158,18 @@ class ArrManager:
         history_match = match_history(self.radarr.movie_history(movie["id"], event_type=3), file_record)
         self._require_history(history_match, movie.get("title", "movie"))
         release = history_match.source_title if history_match else "no matched release"
-        message = f"Blocklist '{release}', delete the current file for '{movie.get('title')}', and search for a replacement?"
+        blocklist_text = self._blocklist_confirmation([history_match])
+        message = f"{blocklist_text} Delete the current file for '{movie.get('title')}' and search for a replacement?"
         if not self._approved("Delete & Replace", message):
             return "Cancelled"
         if self.settings.dry_run:
-            return f"Dry run: would replace {movie.get('title')} and blocklist {release}"
+            return f"Dry run: would replace {movie.get('title')}. {self._blocklist_summary([history_match])}"
 
         self._mark_failed(self.radarr, history_match)
         self._delete_movie_file(movie, file_record, selected.file_path)
         self._queue_search(self.radarr, self.radarr.search_movie(movie["id"]), "Radarr movie search")
-        self.ui.refresh_kodi_library()
-        return f"Blocklisted, deleted, and started replacement search for {movie.get('title')}"
+        self._sync_kodi("movie", selected)
+        return f"{self._blocklist_summary([history_match])} Deleted file and started replacement search for {movie.get('title')}"
 
     def _episode_replace(self, selected):
         series = resolve_series(selected, self.sonarr, self.settings.path_mapper)
@@ -179,17 +179,18 @@ class ArrManager:
         name = ", ".join(f"S{int(ep.get('seasonNumber', 0)):02d}E{int(ep.get('episodeNumber', 0)):02d}" for ep in linked)
         self._require_history(history_match, f"{series.get('title')} {name}")
         release = history_match.source_title if history_match else "no matched release"
-        message = f"Blocklist '{release}', delete {series.get('title')} {name}, and search for a replacement?"
+        blocklist_text = self._blocklist_confirmation([history_match])
+        message = f"{blocklist_text} Delete {series.get('title')} {name} and search for a replacement?"
         if not self._approved("Delete & Replace", message):
             return "Cancelled"
         if self.settings.dry_run:
-            return f"Dry run: would replace {series.get('title')} {name} and blocklist {release}"
+            return f"Dry run: would replace {series.get('title')} {name}. {self._blocklist_summary([history_match])}"
 
         self._mark_failed(self.sonarr, history_match)
         self._delete_episode_file(series, file_record, selected.file_path)
         self._queue_search(self.sonarr, self.sonarr.search_episodes(episode_ids), "Sonarr episode search")
-        self.ui.refresh_kodi_library()
-        return f"Blocklisted, deleted, and started replacement search for {series.get('title')} {name}"
+        self._sync_kodi("episodes", selected, linked)
+        return f"{self._blocklist_summary([history_match])} Deleted file and started replacement search for {series.get('title')} {name}"
 
     def _series_replace(self, selected):
         series = resolve_series(selected, self.sonarr, self.settings.path_mapper)
@@ -207,13 +208,14 @@ class ArrManager:
         missing = sum(1 for match in matches if not match)
         if missing and self.settings.require_blocklist:
             raise BlocklistError(f"Could not match imported history for {missing} of {len(files)} episode files. Nothing was deleted.")
-        message = f"Blocklist matched releases, delete all {len(files)} episode files for '{series.get('title')}', and run a full series search?"
+        matched = unique_history_matches(matches)
+        message = f"{self._blocklist_confirmation(matches)} Delete all {len(files)} episode files for '{series.get('title')}' and run a full series search?"
         if not self._approved("Delete & Replace", message):
             return "Cancelled"
         if self.settings.dry_run:
-            return f"Dry run: would replace all files for {series.get('title')}"
+            return f"Dry run: would replace all files for {series.get('title')}. {self._blocklist_summary(matches)}"
 
-        for history_match in unique_history_matches(matches):
+        for history_match in matched:
             self._mark_failed(self.sonarr, history_match)
 
         backend = make_direct_backend(self.settings, self.logger)
@@ -231,31 +233,52 @@ class ArrManager:
                 backend.close()
 
         self._queue_search(self.sonarr, self.sonarr.search_series(series["id"]), "Sonarr series search")
-        self.ui.refresh_kodi_library()
-        return f"Blocklisted matched releases, deleted {len(files)} files, and started a series search for {series.get('title')}"
+        self._sync_kodi("series", selected)
+        return f"{self._blocklist_summary(matches)} Deleted {len(files)} files and started a series search for {series.get('title')}"
 
-    def _delete_movie_file(self, movie, file_record, selected_path):
+
+    def _sync_kodi(self, kind, selected, linked=None):
+        try:
+            if kind == "movie" and hasattr(self.ui, "sync_deleted_movie"):
+                return self.ui.sync_deleted_movie(selected)
+            if kind == "series" and hasattr(self.ui, "sync_deleted_series"):
+                return self.ui.sync_deleted_series(selected)
+            if kind == "episodes" and hasattr(self.ui, "sync_deleted_episodes"):
+                return self.ui.sync_deleted_episodes(selected, linked or [])
+            return self.ui.refresh_kodi_library()
+        except Exception as exc:
+            raise SafetyError(f"Kodi library synchronisation failed after deletion was committed: {exc}") from exc
+
+    def _delete_movie_file(self, movie, file_record, selected_path, on_committed=None):
         backend = make_direct_backend(self.settings, self.logger)
         try:
             if backend is None:
                 self.radarr.delete_movie_file(file_record["id"])
+                if on_committed:
+                    on_committed()
                 return
             remote = self._remote_file_path(movie.get("path", ""), file_record)
             backend.delete_file(self._backend_path(remote, selected_path, backend))
+            if on_committed:
+                on_committed()
             self._poll_command(self.radarr, self.radarr.rescan_movie(movie["id"]), "Radarr rescan")
             self._wait_for_movie_file_removed(movie["id"], int(file_record["id"]))
         finally:
             if backend:
                 backend.close()
 
-    def _delete_episode_file(self, series, file_record, selected_path):
+    def _delete_episode_file(self, series, file_record, selected_path, on_committed=None):
         backend = make_direct_backend(self.settings, self.logger)
         try:
             if backend is None:
                 self.sonarr.delete_episode_file(file_record["id"])
+                if on_committed:
+                    on_committed()
                 return
             remote = self._remote_file_path(series.get("path", ""), file_record)
             backend.delete_file(self._backend_path(remote, selected_path, backend))
+            if on_committed:
+                on_committed()
             self._poll_command(self.sonarr, self.sonarr.rescan_series(series["id"]), "Sonarr rescan")
             self._wait_for_episode_files_removed(series["id"], {int(file_record["id"])})
         finally:
@@ -299,6 +322,26 @@ class ArrManager:
             self._bounded_wait(POLL_INTERVAL_SECONDS)
         raise SafetyError("Sonarr did not clear the deleted episode file(s) after its rescan")
 
+
+    def _blocklist_confirmation(self, matches):
+        matched = unique_history_matches(matches)
+        missing = sum(1 for match in matches if not match)
+        if matched and missing:
+            return f"Blocklist {len(matched)} matched release(s); {missing} file(s) have no history match and may be reacquired."
+        if matched:
+            names = ", ".join(match.source_title for match in matched)
+            return f"Blocklist matched release(s): {names}."
+        return "No imported-history match will be blocklisted; the same release may be reacquired."
+
+    def _blocklist_summary(self, matches):
+        matched = unique_history_matches(matches)
+        missing = sum(1 for match in matches if not match)
+        if matched and missing:
+            return f"Blocklisted {len(matched)} matched release(s); {missing} file(s) had no history match and may be reacquired."
+        if matched:
+            return f"Blocklisted {len(matched)} matched release(s)."
+        return "No release was blocklisted; unmatched media may be reacquired."
+
     def _mark_failed(self, client, history_match):
         if history_match:
             client.mark_history_failed(history_match.history_id)
@@ -324,9 +367,11 @@ class ArrManager:
 
     def _bounded_wait(self, seconds):
         waiter = getattr(self.ui, "wait_for_abort", None)
-        if waiter and waiter(seconds):
-            raise SafetyError("Operation cancelled because Kodi is shutting down")
-        # Host tests do not provide xbmc.Monitor; use an interruptible event wait rather than time.sleep().
+        if waiter:
+            if waiter(seconds):
+                raise SafetyError("Operation cancelled because Kodi is shutting down")
+            return
+        # Host tests do not provide xbmc.Monitor; use an interruptible event wait fallback.
         import threading
         threading.Event().wait(seconds)
 

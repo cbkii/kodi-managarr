@@ -12,11 +12,11 @@ A Kodi Python 3 context-menu add-on for managing Radarr movies and Sonarr series
 
 ### Delete & Replace
 
-- **Movie:** identifies the imported release, deletes the current file, marks that release failed so Radarr blocklists it, then starts a movie search.
-- **Episode:** handles multi-episode files, blocklists the matched imported release, deletes the file, then searches for every linked episode.
-- **Series:** preflights every current episode file, deletes them, blocklists the matched releases, then starts a full series search.
+- **Movie:** identifies the imported release, marks that release failed so Radarr blocklists it, deletes the current file, then starts a movie search.
+- **Episode:** handles multi-episode files, blocklists the matched imported release before deletion, deletes the file, then searches for every linked episode.
+- **Series:** preflights every current episode file, blocklists every unique matched release before the first deletion, deletes the files, then starts a full series search.
 
-`Require release-history match before Replace` is enabled by default. If the add-on cannot prove which release created a file, it stops before deleting anything. This is important for the requirement that the same release must not be downloaded again.
+`Require release-history match before Replace` is enabled by default. If the add-on cannot prove which release created a file, it stops before deleting anything. If you disable strict matching, unmatched files may still be deleted and replaced, but no release is blocklisted for those files and the same release may be reacquired.
 
 ## Android TV design
 
@@ -75,7 +75,7 @@ The SMB share names or SFTP paths must match the network location Kodi can acces
 ### Deletion backends
 
 - **Servarr API:** recommended. Radarr/Sonarr perform deletion locally on the Pi and update their databases atomically.
-- **Kodi VFS (SMB/SFTP):** Kodi deletes over the authenticated SMB source or official `vfs.sftp` SFTP source, then the add-on asks Radarr/Sonarr to rescan and waits for the file record to disappear. SFTP uses Kodi's trust-on-first-use host-key handling rather than add-on-controlled fingerprint pinning.
+- **Kodi VFS (SMB/SFTP):** Kodi deletes over the authenticated SMB source or official `vfs.sftp` SFTP source, then the add-on queues the appropriate Radarr/Sonarr rescan command, polls that command to completion, and waits for the file record to disappear. SFTP uses Kodi's trust-on-first-use host-key handling rather than add-on-controlled fingerprint pinning.
 
 ## Safety behaviour
 
@@ -84,15 +84,21 @@ The SMB share names or SFTP paths must match the network location Kodi can acces
 - Recursive deletion rejects root/share roots and configured protected paths.
 - Ambiguous Radarr/Sonarr matches fail safely.
 - API keys and credential-bearing network URLs are not written to diagnostics.
-- Replace actions resolve import history before deleting.
+- Replace actions resolve import history and complete all required blocklist calls before deleting.
+- After successful deletions, Kodi library rows are synchronised with targeted JSON-RPC removal calls when Kodi DB IDs are available; failures are reported separately from Servarr/file success.
 
 Keep the default protected paths and add any other storage roots that must never be recursively removed.
 
 ## Current limitations
 
-- Replace cannot guarantee blocklisting for manually copied/imported files that have no usable Servarr import history; strict mode stops safely.
+- Replace cannot guarantee blocklisting for manually copied/imported files that have no usable Servarr import history; strict mode stops safely, while non-strict mode warns that unmatched releases may be reacquired.
+- Host-side tests were run in this repository; Android device and live Radarr/Sonarr testing must be completed before release promotion.
 - SFTP availability depends on Kodi's optional platform-matched `vfs.sftp` binary add-on. Servarr API should still be preferred.
 - The initial release targets Kodi 19+ (Python 3), including current Android builds.
+
+## Android validation checklist
+
+Before a release, verify on a real Android Kodi device: ZIP installation, settings rendering, context-menu visibility for movies/shows/episodes, Radarr and Sonarr connectivity, SMB access, SFTP access with `vfs.sftp` installed and enabled, dry-run output, Delete & Exclude and Delete & Replace for each media type, season-zero specials, multi-episode files, cancellation before deletion, network loss during rescan polling, and Kodi restart/shutdown during a bounded wait.
 
 ## Development
 

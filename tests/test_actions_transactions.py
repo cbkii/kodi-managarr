@@ -64,7 +64,7 @@ class TransactionTests(unittest.TestCase):
         with patch("arr_manager.actions.resolve_movie", return_value={"id": 3, "title": "Film"}), \
              patch("arr_manager.actions.match_history", return_value=match):
             result = manager._movie_replace(selected)
-        self.assertIn("Blocklisted, deleted", result)
+        self.assertIn("Blocklisted 1 matched release", result)
         self.assertEqual(manager._radarr.calls, [
             ("files", 3), ("history", 3, 3), ("failed", 42), ("delete", 7), ("search", 3)
         ])

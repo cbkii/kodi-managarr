@@ -4,6 +4,12 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
+env:
+  PYTHONDONTWRITEBYTECODE: "1"
+
 jobs:
   validate:
     name: Validate (${{ matrix.python-version }})
@@ -14,6 +20,8 @@ jobs:
         python-version: ['3.8', '3.12']
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}

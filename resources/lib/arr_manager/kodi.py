@@ -36,6 +36,52 @@ class KodiLogger:
         self.error("%s\n%s", message, traceback.format_exc())
 
 
+class KodiJsonRpcError(Exception):
+    pass
+
+
+class KodiJsonRpcClient:
+    def __init__(self, xbmc_module, logger=None):
+        self.xbmc = xbmc_module
+        self.logger = logger
+        self._next_id = 1
+
+    def call(self, method, params=None):
+        request_id = self._next_id
+        self._next_id += 1
+        payload = {"jsonrpc": "2.0", "id": request_id, "method": method}
+        if params is not None:
+            payload["params"] = params
+        raw = self.xbmc.executeJSONRPC(json.dumps(payload))
+        try:
+            response = json.loads(raw or "")
+        except Exception as exc:
+            raise KodiJsonRpcError("Kodi JSON-RPC returned malformed JSON") from exc
+        if response.get("error"):
+            error = response["error"]
+            raise KodiJsonRpcError(str(error.get("message") or error))
+        if response.get("id") != request_id:
+            raise KodiJsonRpcError("Kodi JSON-RPC response ID did not match the request")
+        if "result" not in response:
+            raise KodiJsonRpcError("Kodi JSON-RPC response did not contain a result")
+        return response["result"]
+
+    def remove_movie(self, movie_id):
+        if int(movie_id or 0) <= 0:
+            return "skipped"
+        return self.call("VideoLibrary.RemoveMovie", {"movieid": int(movie_id)})
+
+    def remove_tvshow(self, tvshow_id):
+        if int(tvshow_id or 0) <= 0:
+            return "skipped"
+        return self.call("VideoLibrary.RemoveTVShow", {"tvshowid": int(tvshow_id)})
+
+    def remove_episode(self, episode_id):
+        if int(episode_id or 0) <= 0:
+            return "skipped"
+        return self.call("VideoLibrary.RemoveEpisode", {"episodeid": int(episode_id)})
+
+
 class KodiUI:
     def __init__(self, addon):
         import xbmc
@@ -44,6 +90,7 @@ class KodiUI:
         self.xbmcgui = xbmcgui
         self.addon = addon
         self.name = addon.getAddonInfo("name")
+        self.jsonrpc = KodiJsonRpcClient(xbmc)
 
     def notification(self, message, error=False, milliseconds=5000):
         icon = self.xbmcgui.NOTIFICATION_ERROR if error else self.xbmcgui.NOTIFICATION_INFO
@@ -67,8 +114,19 @@ class KodiUI:
         self.addon.openSettings()
 
     def refresh_kodi_library(self):
-        # Fallback only: workflow-specific JSON-RPC cleanup is preferred where available.
+        # Kept as a compatibility no-op: destructive workflows call targeted JSON-RPC methods below.
         return None
+
+    def sync_deleted_movie(self, selected):
+        return self.jsonrpc.remove_movie(getattr(selected, "db_id", 0))
+
+    def sync_deleted_series(self, selected):
+        return self.jsonrpc.remove_tvshow(getattr(selected, "db_id", 0))
+
+    def sync_deleted_episodes(self, selected, linked=None):
+        # Kodi only exposes the selected episode DB ID here; linked multi-episode rows are skipped unless
+        # a caller supplies Kodi IDs in future metadata enrichment.
+        return [self.jsonrpc.remove_episode(getattr(selected, "db_id", 0))]
 
     def wait_for_abort(self, seconds):
         return self.xbmc.Monitor().waitForAbort(float(seconds))

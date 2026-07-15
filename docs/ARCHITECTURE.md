@@ -26,3 +26,12 @@ A Replace action first locates a `DownloadFolderImported` history event (`eventT
 ## Episode exclusion
 
 Sonarr's import-list exclusion model is series-level. For an episode item, the add-on first sets all episodes linked to that file to `monitored=false`, then deletes the episode file. If failure occurs before deletion is committed it restores monitoring; after confirmed deletion it preserves the safer unmonitored state and reports the failure stage. This correctly handles files containing multiple numbered episodes.
+
+
+## Kodi library synchronisation
+
+Destructive workflows use targeted Kodi JSON-RPC calls rather than a blind global library update. Movie and TV-show actions use the selected Kodi database ID for `VideoLibrary.RemoveMovie` or `VideoLibrary.RemoveTVShow`; episode actions remove the selected episode row with `VideoLibrary.RemoveEpisode`. If Kodi returns a JSON-RPC error after deletion is committed, the workflow reports Kodi synchronisation as a separate post-delete failure instead of claiming rollback.
+
+## Non-strict replacement mode
+
+When strict history matching is disabled, a file without an imported-history match may be deleted and searched without a blocklist call. Confirmation, dry-run and result text explicitly say that no release was blocklisted and that the same release may be reacquired. Duplicate history matches are collapsed by download ID before failed-history calls are made.
