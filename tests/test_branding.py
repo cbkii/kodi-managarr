@@ -30,6 +30,22 @@ class BrandingTests(unittest.TestCase):
         self.assertIn('msgid "(⁠●⁠_⁠_⁠●⁠) Managarr"', content)
         self.assertNotIn('msgid "Arr Manager"', content)
 
+    def test_legacy_user_facing_name_is_absent(self):
+        paths = [
+            "README.md",
+            "addon.xml",
+            "docs/ARCHITECTURE.md",
+            ".github/workflows/release.yml",
+            "resources/language/resource.language.en_gb/strings.po",
+            "resources/lib/arr_manager/__init__.py",
+            "resources/lib/arr_manager/kodi.py",
+        ]
+        for relative_path in paths:
+            with self.subTest(path=relative_path):
+                path = os.path.join(ROOT, *relative_path.split("/"))
+                with open(path, encoding="utf-8") as handle:
+                    self.assertNotIn("Arr Manager", handle.read())
+
 
 if __name__ == "__main__":
     unittest.main()
