@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<addon id="context.arr.manager" name="Arr Manager" version="0.1.0" provider-name="CB">
+<addon id="context.arr.manager" name="Arr Manager" version="0.1.1" provider-name="CB">
   <requires>
     <import addon="xbmc.python" version="3.0.0"/>
   </requires>
@@ -27,7 +27,7 @@
     <platform>all</platform>
     <license>GPL-3.0-or-later</license>
     <source>https://github.com/cbkii/kodi-managarr</source>
-    <news>v0.1.0 (2026-07-15) - Fail-closed destructive workflows with pre-delete release blocklisting, verified Servarr command polling, allowlisted SMB/SFTP Kodi VFS deletion, targeted Kodi JSON-RPC cleanup, and reproducible CI/package validation.</news>
+    <news>v0.1.1 (2026-07-15) - Automated release v0.1.1.</news>
     <assets>
       <icon>resources/icon.png</icon>
     </assets>
