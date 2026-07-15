@@ -2,7 +2,9 @@
 
 ## Kodi integration
 
-`addon.xml` registers two context actions under an **Arr Manager** submenu and also exposes an executable script used for settings tests and diagnostics. Kodi's documented `sys.listitem` object is used first; information-label fallbacks cover skins or builds that expose incomplete video tags.
+`addon.xml` registers two context actions under the **(⁠●⁠_⁠_⁠●⁠) Managarr** submenu and exposes the add-on as the executable **Kodi Managarr** script. Kodi's documented `sys.listitem` object is used first; information-label fallbacks cover skins or builds that expose incomplete video tags.
+
+Keymap Editor discovers enabled `xbmc.python.script` add-ons and generates one `RunAddon(addon_id)` action for each. It does not enumerate a context add-on's individual arguments. A no-argument Managarr launch therefore presents a focused Delete & Exclude / Delete & Replace chooser for the currently highlighted Kodi library item, while explicit `mode=delete_exclude` and `mode=delete_replace` arguments remain available to manually maintained keymaps.
 
 ## Resolution
 
@@ -21,12 +23,11 @@ Recursive folder deletion is used only by whole-movie/whole-series exclusion and
 
 ## Release blocklisting
 
-A Replace action first locates a `DownloadFolderImported` history event (`eventType=3`). Matching considers imported paths, dropped paths, source release titles, file names, episode IDs and download IDs. Before deletion, the add-on calls `POST /api/v3/history/failed/{id}` for every unique matched imported release. Servarr publishes its normal failed-download event, which creates the blocklist entry. Only after blocklisting succeeds does the add-on delete files, verify any direct-backend rescan reconciliation, and explicitly queue the requested search. Strict blocklist mode therefore cannot delete media without proven imported-history evidence.
+A Replace action first locates a `DownloadFolderImported` history event (`eventType=3`). Matching considers imported paths, dropped paths, source release titles, file names, episode IDs and download IDs. Before deletion, the add-on calls `POST /api/v3/history/failed/{id}` for every unique matched imported release. Servarr publishes its normal failed-download event, which creates the blocklist entry. Only after blocklisting succeeds does Managarr delete files, verify any direct-backend rescan reconciliation, and explicitly queue the requested search. Strict blocklist mode therefore cannot delete media without proven imported-history evidence.
 
 ## Episode exclusion
 
-Sonarr's import-list exclusion model is series-level. For an episode item, the add-on first sets all episodes linked to that file to `monitored=false`, then deletes the episode file. If failure occurs before deletion is committed it restores monitoring; after confirmed deletion it preserves the safer unmonitored state and reports the failure stage. This correctly handles files containing multiple numbered episodes.
-
+Sonarr's import-list exclusion model is series-level. For an episode item, Managarr first sets all episodes linked to that file to `monitored=false`, then deletes the episode file. If failure occurs before deletion is committed it restores monitoring; after confirmed deletion it preserves the safer unmonitored state and reports the failure stage. This correctly handles files containing multiple numbered episodes.
 
 ## Kodi library synchronisation
 
@@ -35,7 +36,6 @@ Destructive workflows use targeted Kodi JSON-RPC calls rather than a blind globa
 ## Non-strict replacement mode
 
 When strict history matching is disabled, a file without an imported-history match may be deleted and searched without a blocklist call. Confirmation, dry-run and result text explicitly say that no release was blocklisted and that the same release may be reacquired. Duplicate history matches are collapsed by download ID before failed-history calls are made.
-
 
 ## Path and HTTP hardening
 
