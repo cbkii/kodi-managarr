@@ -18,6 +18,7 @@ class FakeSettings:
     dry_run = False
     require_blocklist = False
     poll_timeout = 1
+
     def __init__(self, mappings=None):
         self.path_mapper = PathMapper(mappings or [])
 
@@ -64,11 +65,16 @@ class FakeSonarr:
 
 
 class FakeUI:
-    def __init__(self): self.series_syncs = 0; self.episode_syncs = 0
+    def __init__(self):
+        self.series_syncs = 0
+        self.episode_syncs = 0
+
     def refresh_kodi_library(self):
         return None
+
     def sync_deleted_series(self, selected):
         self.series_syncs += 1
+
     def sync_deleted_episodes(self, selected, linked=None):
         self.episode_syncs += 1
         return ["OK"] if getattr(selected, "db_id", 0) else ["unresolved"]
