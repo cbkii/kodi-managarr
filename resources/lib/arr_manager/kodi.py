@@ -67,7 +67,11 @@ class KodiUI:
         self.addon.openSettings()
 
     def refresh_kodi_library(self):
-        self.xbmc.executebuiltin("UpdateLibrary(video)")
+        # Fallback only: workflow-specific JSON-RPC cleanup is preferred where available.
+        return None
+
+    def wait_for_abort(self, seconds):
+        return self.xbmc.Monitor().waitForAbort(float(seconds))
 
 
 def _tag_value(tag, method, default=""):
@@ -78,6 +82,13 @@ def _tag_value(tag, method, default=""):
     except Exception:
         return default
 
+
+
+def _first_present(*values):
+    for value in values:
+        if value is not None and value != "":
+            return value
+    return ""
 
 def selected_item_from_context():
     import xbmc
@@ -119,12 +130,12 @@ def selected_item_from_context():
 
     return SelectedItem(
         media_type=str(media_type).lower(),
-        db_id=as_int((_tag_value(tag, "getDbId") if tag else 0) or label("ListItem.DBID"), 0),
+        db_id=as_int(_first_present(_tag_value(tag, "getDbId", "") if tag else "", label("ListItem.DBID")), 0),
         title=str(title),
-        year=as_int((_tag_value(tag, "getYear") if tag else 0) or label("ListItem.Year"), 0),
+        year=as_int(_first_present(_tag_value(tag, "getYear", "") if tag else "", label("ListItem.Year")), 0),
         tvshow_title=str(tvshow_title),
-        season=as_int((_tag_value(tag, "getSeason") if tag else -1) or label("ListItem.Season"), -1),
-        episode=as_int((_tag_value(tag, "getEpisode") if tag else -1) or label("ListItem.Episode"), -1),
+        season=as_int(_first_present(_tag_value(tag, "getSeason", "") if tag else "", label("ListItem.Season")), -1),
+        episode=as_int(_first_present(_tag_value(tag, "getEpisode", "") if tag else "", label("ListItem.Episode")), -1),
         file_path=str(file_path),
         unique_ids=unique_ids,
     )

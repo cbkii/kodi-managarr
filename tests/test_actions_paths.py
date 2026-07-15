@@ -52,9 +52,14 @@ class FakeSonarr:
 
     def rescan_series(self, series_id):
         self.rescanned.append(series_id)
+        return {"id": 101}
+
+    def command_status(self, command_id):
+        return {"id": command_id, "status": "completed"}
 
     def search_series(self, series_id):
         self.searched.append(series_id)
+        return {"id": 102}
 
 
 class FakeUI:
@@ -76,7 +81,7 @@ class ActionPathTests(unittest.TestCase):
              patch("arr_manager.actions.make_direct_backend", return_value=backend):
             result = manager._series_replace(selected)
         self.assertEqual(backend.deleted, ["sftp://pi/media/Shows/Episode.mkv"])
-        self.assertIn("Deleted 1 files", result)
+        self.assertIn("deleted 1 files", result)
 
     def test_series_replace_uses_direct_ssh_alias_url_without_selected_path(self):
         backend = FakeBackend()
