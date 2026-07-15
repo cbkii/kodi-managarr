@@ -152,6 +152,22 @@ class KeymapEntrypointTests(unittest.TestCase):
         self.assertEqual(FakeManager.calls, [])
         self.assertEqual(ui.notifications, [])
 
+    def test_launcher_without_active_library_item_shows_clean_error(self):
+        self.selected = SelectedItem(media_type="", title="")
+        ui = self.run_script(["mode=delete_replace"], [])
+
+        self.assertEqual(FakeManager.calls, [])
+        self.assertEqual(ui.notifications, [])
+        self.assertEqual(
+            ui.dialogs,
+            [
+                (
+                    "Kodi Managarr",
+                    "No active Kodi library movie, TV show, or episode is selected.",
+                )
+            ],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
