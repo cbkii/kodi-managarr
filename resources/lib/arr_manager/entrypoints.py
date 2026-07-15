@@ -14,6 +14,7 @@ from .kodi import KodiLogger, KodiUI, selected_item_from_context
 ACTION_DELETE_EXCLUDE = "delete_exclude"
 ACTION_DELETE_REPLACE = "delete_replace"
 SELECTED_ACTIONS = (ACTION_DELETE_EXCLUDE, ACTION_DELETE_REPLACE)
+SUPPORTED_MEDIA_TYPES = ("movie", "tvshow", "episode")
 
 
 def _runtime():
@@ -35,6 +36,8 @@ def _localize(addon, string_id, fallback):
 
 def _execute_selected_action(action, settings, logger, ui):
     selected = selected_item_from_context()
+    if not selected or selected.media_type not in SUPPORTED_MEDIA_TYPES:
+        raise ArrManagerError("No active Kodi library movie, TV show, or episode is selected.")
     logger.info("Action %s requested for %s", action, selected.display_name)
     result = ArrManager(settings, ui, logger).execute(action, selected)
     ui.notification(result)
