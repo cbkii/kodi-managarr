@@ -1,4 +1,4 @@
-# Kodi Managarr
+# Managarr
 
 Managarr is a Python 3 add-on for managing Radarr movies and Sonarr series or episodes directly from Kodi's video library.
 
@@ -34,22 +34,22 @@ No Android storage permission is required for Pi-hosted SMB or SFTP files access
 1. Download `context.arr.manager-<version>.zip` from the release assets.
 2. In Kodi, enable **Settings → System → Add-ons → Unknown sources** when required.
 3. Open **Add-ons → Install from zip file** and select the archive.
-4. Open **Add-ons → My add-ons → Context menus → Kodi Managarr → Configure**.
+4. Open **Add-ons → My add-ons → Context menus → Managarr → Configure**.
 5. Enter the Radarr and Sonarr base URLs and API keys.
 6. Run both connection tests.
 7. Enable **Dry run** for the first validation pass.
 
-The **(⁠●⁠_⁠_⁠●⁠) Managarr** context menu is available for Kodi library movies, TV shows and episodes. Media must first be scanned into Kodi's video library.
+The **🗑️ Managarr** context menu is available for Kodi library movies, TV shows and episodes. Media must first be scanned into Kodi's video library.
 
 ## Keymap Editor and remote buttons
 
-Managarr remains an executable Kodi script so Keymap Editor discovers it automatically as **Launch Kodi Managarr** under its **Add-ons** action category.
+Managarr remains an executable Kodi script so Keymap Editor discovers it automatically as **Launch Managarr** under its **Add-ons** action category.
 
 To assign a remote or keyboard button:
 
 1. Open **Keymap Editor → Edit**.
 2. Choose **Global** for a system-wide mapping, or **Videos** to limit it to Kodi's video windows.
-3. Open **Add-ons → Launch Kodi Managarr**.
+3. Open **Add-ons → Launch Managarr**.
 4. Select **Edit key**, then press the desired button.
 5. Save the keymap and press the mapped button while a Kodi library movie, TV show or episode is highlighted.
 
@@ -139,7 +139,7 @@ Before promoting a release, verify:
 
 - ZIP installation and settings rendering;
 - context-menu visibility for movies, TV shows and episodes;
-- Keymap Editor lists **Launch Kodi Managarr** and the mapped button opens the action chooser;
+- Keymap Editor lists **Launch Managarr** and the mapped button opens the action chooser;
 - Radarr and Sonarr connection tests;
 - SMB root access;
 - SFTP access with `vfs.sftp` installed and enabled;

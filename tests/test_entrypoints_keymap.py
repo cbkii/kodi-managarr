@@ -24,7 +24,7 @@ class FakeAddon:
 
     def getAddonInfo(self, key):
         return {
-            "name": "Kodi Managarr",
+            "name": "Managarr",
             "profile": "special://profile/addon_data/context.arr.manager",
             "version": "0.1.1",
         }.get(key, "")
@@ -108,7 +108,7 @@ class KeymapEntrypointTests(unittest.TestCase):
             ui.selections,
             [
                 (
-                    "Kodi Managarr",
+                    "Managarr",
                     ["Delete & Exclude", "Delete & Replace", "Tools & settings"],
                 )
             ],
@@ -129,7 +129,7 @@ class KeymapEntrypointTests(unittest.TestCase):
         self.assertEqual(
             ui.selections[1],
             (
-                "Kodi Managarr",
+                "Managarr",
                 [
                     "Open settings",
                     "Test Radarr",
@@ -162,7 +162,7 @@ class KeymapEntrypointTests(unittest.TestCase):
             ui.dialogs,
             [
                 (
-                    "Kodi Managarr",
+                    "Managarr",
                     "No active Kodi library movie, TV show, or episode is selected.",
                 )
             ],

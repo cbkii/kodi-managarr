@@ -23,11 +23,11 @@
   </extension>
   <extension point="xbmc.addon.metadata">
     <summary lang="en_GB">Manage Radarr and Sonarr media from Kodi.</summary>
-    <description lang="en_GB">Manage Radarr movies and Sonarr series or episodes from Kodi.&#10;&#10;Actions:&#10;• Delete &amp; Exclude&#10;• Delete &amp; Replace</description>
+    <description lang="en_GB">Manage Radarr movies and Sonarr series or episodes from Kodi.&#10;&#10;Actions:&#10;  • Delete &amp; Exclude&#10;  • Delete &amp; Replace</description>
     <platform>all</platform>
     <license>GPL-3.0-or-later</license>
     <source>https://github.com/cbkii/kodi-managarr</source>
-    <news>v0.1.1 (2026-07-15) - Automated release v0.1.1.</news>
+    <news>v0.1.1 (2026-07-15)</news>
     <assets>
       <icon>resources/icon.png</icon>
     </assets>

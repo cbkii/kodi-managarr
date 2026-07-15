@@ -2,7 +2,7 @@
 
 ## Kodi integration
 
-`addon.xml` registers two context actions under the **(⁠●⁠_⁠_⁠●⁠) Managarr** submenu and exposes the add-on as the executable **Kodi Managarr** script. Kodi's documented `sys.listitem` object is used first; information-label fallbacks cover skins or builds that expose incomplete video tags.
+`addon.xml` registers two context actions under the **🗑️ Managarr** submenu and exposes the add-on as the executable **Managarr** script. Kodi's documented `sys.listitem` object is used first; information-label fallbacks cover skins or builds that expose incomplete video tags.
 
 Keymap Editor discovers enabled `xbmc.python.script` add-ons and generates one `RunAddon(addon_id)` action for each. It does not enumerate a context add-on's individual arguments. A no-argument Managarr launch therefore presents a focused Delete & Exclude / Delete & Replace chooser for the currently highlighted Kodi library item, while explicit `mode=delete_exclude` and `mode=delete_replace` arguments remain available to manually maintained keymaps.
 

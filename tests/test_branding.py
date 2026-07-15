@@ -8,7 +8,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 class BrandingTests(unittest.TestCase):
     def test_addon_metadata_uses_kodi_managarr_branding_and_action_list(self):
         root = ET.parse(os.path.join(ROOT, "addon.xml")).getroot()
-        self.assertEqual(root.attrib["name"], "Kodi Managarr")
+        self.assertEqual(root.attrib["name"], "Managarr")
 
         metadata = root.find("extension[@point='xbmc.addon.metadata']")
         self.assertIsNotNone(metadata)
@@ -27,8 +27,8 @@ class BrandingTests(unittest.TestCase):
         )
         with open(path, encoding="utf-8") as handle:
             content = handle.read()
-        self.assertIn('msgid "(⁠●⁠_⁠_⁠●⁠) Managarr"', content)
-        self.assertNotIn('msgid "Arr Manager"', content)
+        self.assertIn('msgid "🗑️ Managarr"', content)
+        self.assertNotIn('msgid "Managarr"', content)
 
     def test_legacy_user_facing_name_is_absent(self):
         paths = [
@@ -44,7 +44,7 @@ class BrandingTests(unittest.TestCase):
             with self.subTest(path=relative_path):
                 path = os.path.join(ROOT, *relative_path.split("/"))
                 with open(path, encoding="utf-8") as handle:
-                    self.assertNotIn("Arr Manager", handle.read())
+                    self.assertNotIn("Managarr", handle.read())
 
 
 if __name__ == "__main__":

@@ -1,15 +1,15 @@
 # Kodi Media Center language file
-# Addon Name: Kodi Managarr
+# Addon Name: Managarr
 # Addon id: context.arr.manager
 msgid ""
 msgstr ""
-"Project-Id-Version: Kodi Managarr\n"
+"Project-Id-Version: Managarr\n"
 "Language: en_GB\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 
 msgctxt "#32000"
-msgid "(⁠●⁠_⁠_⁠●⁠) Managarr"
-msgstr "(⁠●⁠_⁠_⁠●⁠) Managarr"
+msgid "🗑️ Managarr"
+msgstr "🗑️ Managarr"
 
 msgctxt "#32001"
 msgid "Delete & Exclude"
