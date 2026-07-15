@@ -17,8 +17,9 @@ class FakeSettings:
     confirm = False
     dry_run = False
     require_blocklist = False
-    path_mapper = PathMapper([])
     poll_timeout = 1
+    def __init__(self, mappings=None):
+        self.path_mapper = PathMapper(mappings or [])
 
 
 class FakeBackend:
@@ -69,13 +70,13 @@ class FakeUI:
 
 class ActionPathTests(unittest.TestCase):
     def make_manager(self, files, backend):
-        manager = ArrManager(FakeSettings(), FakeUI(), logger=None)
+        manager = ArrManager(FakeSettings([("/media/Shows", "sftp://pi/media/Shows")]), FakeUI(), logger=None)
         manager._sonarr = FakeSonarr(files, backend)
         return manager
 
-    def test_series_replace_uses_direct_sftp_url_without_selected_path(self):
+    def test_series_replace_uses_mapped_sftp_url_without_selected_path(self):
         backend = FakeBackend()
-        manager = self.make_manager([{"id": 7, "path": "sftp://pi/media/Shows/Episode.mkv"}], backend)
+        manager = self.make_manager([{"id": 7, "path": "/media/Shows/Episode.mkv"}], backend)
         selected = SelectedItem(media_type="tvshow", tvshow_title="Show")
         with patch("arr_manager.actions.resolve_series", return_value={"id": 3, "title": "Show", "path": "/media/Shows"}), \
              patch("arr_manager.actions.make_direct_backend", return_value=backend):
@@ -83,9 +84,10 @@ class ActionPathTests(unittest.TestCase):
         self.assertEqual(backend.deleted, ["sftp://pi/media/Shows/Episode.mkv"])
         self.assertIn("Deleted 1 files", result)
 
-    def test_series_replace_uses_direct_ssh_alias_url_without_selected_path(self):
+    def test_series_replace_uses_mapped_ssh_alias_url_without_selected_path(self):
         backend = FakeBackend()
-        manager = self.make_manager([{"id": 7, "path": "ssh://pi/media/Shows/Episode.mkv"}], backend)
+        manager = ArrManager(FakeSettings([("/media/Shows", "ssh://pi/media/Shows")]), FakeUI(), logger=None)
+        manager._sonarr = FakeSonarr([{"id": 7, "path": "/media/Shows/Episode.mkv"}], backend)
         selected = SelectedItem(media_type="tvshow", tvshow_title="Show")
         with patch("arr_manager.actions.resolve_series", return_value={"id": 3, "title": "Show", "path": "/media/Shows"}), \
              patch("arr_manager.actions.make_direct_backend", return_value=backend):
@@ -102,12 +104,10 @@ class ActionPathTests(unittest.TestCase):
         with self.assertRaises(SafetyError):
             manager._backend_path("/media/Shows/file.mkv", "", FakeBackend())
 
-    def test_backend_path_preserves_direct_smb_url(self):
+    def test_backend_path_requires_mapping_for_direct_network_url(self):
         manager = ArrManager(FakeSettings(), FakeUI(), logger=None)
-        self.assertEqual(
-            manager._backend_path("smb://pi/Shows/file.mkv", "", FakeBackend()),
-            "smb://pi/Shows/file.mkv",
-        )
+        with self.assertRaises(SafetyError):
+            manager._backend_path("smb://pi/Shows/file.mkv", "", FakeBackend())
 
     def test_remote_file_path_recognises_mixed_case_network_schemes(self):
         for value in ("SMB://host/share/file.mkv", "SFTP://host/media/file.mkv", "SsH://host/media/file.mkv"):

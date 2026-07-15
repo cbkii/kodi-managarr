@@ -31,15 +31,31 @@ class KodiNetworkVFSBackend(FileBackend):
         self._check(path, folder=False)
         return bool(self.vfs.exists(path))
 
+    def probe_directory(self, path):
+        self._check(path, folder=True)
+        probe = path.rstrip("/") + "/"
+        try:
+            dirs, files = self.vfs.listdir(probe)
+        except Exception as exc:
+            raise SafetyError(f"Kodi VFS could not access {path}") from exc
+        if dirs is None or files is None:
+            raise SafetyError(f"Kodi VFS state is unknown for {path}")
+        return {"dirs": list(dirs), "files": list(files)}
+
     def delete_file(self, path):
         self._check(path, folder=False)
-        if self.vfs.exists(path) and not self.vfs.delete(path):
+        if not self.vfs.exists(path):
+            parent = path.rsplit("/", 1)[0] or "/"
+            self.probe_directory(parent)
+            raise SafetyError(f"Kodi VFS reports the file is absent before deletion: {path}")
+        if not self.vfs.delete(path):
             raise SafetyError(f"Kodi VFS could not delete {path}")
+        if self.vfs.exists(path):
+            raise SafetyError(f"Kodi VFS could not verify deletion of {path}")
 
     def delete_tree(self, path):
         self._check(path, folder=True)
-        if not self.vfs.exists(path):
-            return
+        self.probe_directory(path)
         self._walk_delete(path)
 
     def _walk_delete(self, path):

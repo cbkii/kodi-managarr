@@ -290,12 +290,8 @@ class ArrManager:
             path = self.settings.path_mapper.remote_to_kodi(remote_path)
         except ValueError as exc:
             raise SafetyError(str(exc)) from exc
-        if not path and is_supported_kodi_network_url(remote_path):
-            path = remote_path
-        if not path and selected_path:
-            path = selected_path
         if not path:
-            raise SafetyError("No usable file path mapping was found. Configure remote=>Kodi VFS mappings in add-on settings.")
+            raise SafetyError("No allowlisted remote=>Kodi mapping was found for this destructive direct-backend path")
         return path
 
     @staticmethod

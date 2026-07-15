@@ -19,7 +19,7 @@ class Settings:
     require_blocklist = False
     poll_timeout = 1
     def __init__(self):
-        self.path_mapper = PathMapper([])
+        self.path_mapper = PathMapper([("/shows/Show", "smb://pi/Shows")])
         self.protected_paths = []
     def validate_backend(self): return None
 
@@ -77,7 +77,7 @@ class CommitAndWaitTests(unittest.TestCase):
         manager._sonarr = Sonarr()
         selected = SelectedItem(media_type="episode", tvshow_title="Show", season=1, episode=2, db_id=77)
         linked = [{"id": 1, "seasonNumber": 1, "episodeNumber": 2, "episodeFileId": 9, "monitored": True}]
-        file_record = {"id": 9, "path": "smb://pi/Shows/file.mkv"}
+        file_record = {"id": 9, "path": "/shows/Show/file.mkv"}
         with patch("arr_manager.actions.resolve_series", return_value={"id": 3, "title": "Show", "path": "/shows/Show"}), \
              patch("arr_manager.actions.resolve_episode_context", return_value=(linked[0], linked, file_record)), \
              patch("arr_manager.actions.make_direct_backend", return_value=backend):
