@@ -2,7 +2,7 @@ import os
 import posixpath
 import re
 import unicodedata
-from urllib.parse import urlsplit, urlunsplit, unquote
+from urllib.parse import unquote, urlsplit, urlunsplit
 
 SUPPORTED_KODI_NETWORK_SCHEMES = {"smb", "sftp", "ssh"}
 SFTP_NETWORK_SCHEMES = {"sftp", "ssh"}
@@ -46,12 +46,7 @@ _UNSUPPORTED_KODI_SCHEMES = {"videodb", "stack", "plugin", "special", "zip", "ra
 
 
 def _has_encoded_traversal(value):
-    """Detect encoded separators or dot traversal without changing path identity.
-
-    The operational path is never decoded.  Decoding is bounded and used only
-    for safety inspection so single or double encoded traversal such as
-    ``%2e%2e`` and ``%252f`` cannot bypass destructive-path checks.
-    """
+    """Detect encoded separators or dot traversal without changing path identity."""
     text = value or ""
     if _PERCENT_RE.search(text):
         raise ValueError("Malformed percent encoding is not safe for destructive paths")
@@ -107,6 +102,7 @@ def is_supported_kodi_network_url(value):
 def is_sftp_network_url(value):
     return network_scheme(value) in SFTP_NETWORK_SCHEMES
 
+
 def redact_url(value):
     if not value:
         return value
@@ -140,11 +136,11 @@ def _path_identity(value):
 
 
 def is_path_under(path, parent):
-    p_id, p_segments, _ = _path_identity(path)
-    root_id, root_segments, _ = _path_identity(parent)
-    if p_id != root_id:
+    path_identity, path_segments, _ = _path_identity(path)
+    parent_identity, parent_segments, _ = _path_identity(parent)
+    if path_identity != parent_identity:
         return False
-    return p_segments == root_segments or p_segments[:len(root_segments)] == root_segments
+    return path_segments == parent_segments or path_segments[:len(parent_segments)] == parent_segments
 
 
 def paths_equal(left, right):
@@ -158,13 +154,12 @@ def path_suffix(path, parent):
     if not is_path_under(path, parent):
         return ""
     normal = normalise_path(path)
-    root = normalise_path(parent)
-    p_id, p_segments, _ = _path_identity(path)
-    root_id, root_segments, _ = _path_identity(parent)
-    suffix_segments = p_segments[len(root_segments):]
+    path_identity, path_segments, _ = _path_identity(path)
+    _, parent_segments, _ = _path_identity(parent)
+    suffix_segments = path_segments[len(parent_segments):]
     if not suffix_segments:
         return ""
-    if p_id[0] == "posix":
+    if path_identity[0] == "posix":
         raw_segments = [segment for segment in normal.split("/") if segment]
     else:
         raw_segments = [segment for segment in urlsplit(normal).path.split("/") if segment]
@@ -218,7 +213,7 @@ class PathMapper:
 
     def kodi_to_remote(self, kodi_path):
         kodi = normalise_path(kodi_path)
-        reverse = sorted(((target, source) for source, target in self.mappings), key=lambda p: len(p[0]), reverse=True)
+        reverse = sorted(((target, source) for source, target in self.mappings), key=lambda pair: len(pair[0]), reverse=True)
         for source, target in reverse:
             if is_path_under(kodi, source):
                 suffix = path_suffix(kodi, source)
