@@ -31,15 +31,37 @@ jobs:
         run: python3 scripts/validate.py
       - name: Run unit tests
         run: python3 -m unittest discover -s tests -v
-      - name: Run Kodi addon checker
-        run: |
-          find . -type d -name __pycache__ -prune -exec rm -rf {} +
-          find . -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
-          kodi-addon-checker --branch matrix --allow-folder-id-mismatch .
       - name: Build package
         run: python3 scripts/package.py
+      - name: Extract package for Kodi validation
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import shutil
+          import xml.etree.ElementTree as ET
+          import zipfile
+          from pathlib import Path
+
+          root = ET.parse('addon.xml').getroot()
+          addon_id = root.attrib['id']
+          version = root.attrib['version']
+          archive_path = Path('dist') / f'{addon_id}-{version}.zip'
+          check_root = Path('dist') / 'addon-check'
+          shutil.rmtree(check_root, ignore_errors=True)
+          check_root.mkdir(parents=True)
+          with zipfile.ZipFile(archive_path) as archive:
+              archive.extractall(check_root)
+          addon_path = check_root / addon_id
+          assert addon_path.is_dir(), addon_path
+          print(addon_path)
+          PY
+      - name: Run Kodi addon checker
+        run: |
+          set -euo pipefail
+          kodi-addon-checker --branch matrix dist/addon-check/context.arr.manager
       - name: Inspect package
         run: |
+          set -euo pipefail
           python3 - <<'PY'
           import stat
           import xml.etree.ElementTree as ET
