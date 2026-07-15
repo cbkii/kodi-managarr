@@ -1,6 +1,6 @@
-# Arr Manager for Kodi
+# Kodi Managarr
 
-Arr Manager is a Python 3 context-menu add-on for managing Radarr movies and Sonarr series or episodes directly from Kodi's video library.
+Managarr is a Python 3 add-on for managing Radarr movies and Sonarr series or episodes directly from Kodi's video library.
 
 ## Actions
 
@@ -16,11 +16,11 @@ Arr Manager is a Python 3 context-menu add-on for managing Radarr movies and Son
 - **Episode:** supports multi-episode files, blocklists the matched imported release before deletion, deletes and reconciles the file, then searches for all linked episodes.
 - **Series:** preflights every episode file, blocklists every unique matched release before the first deletion, deletes and reconciles all files, then runs and verifies a full series search.
 
-`Require release-history match before Replace` is enabled by default. When the add-on cannot prove which imported release created every required file, it stops before deletion. Non-strict mode may replace unmatched files but clearly reports that no release was blocklisted and the same release may be reacquired.
+`Require release-history match before Replace` is enabled by default. When Managarr cannot prove which imported release created every required file, it stops before deletion. Non-strict mode may replace unmatched files but clearly reports that no release was blocklisted and the same release may be reacquired.
 
 ## Android TV design
 
-Kodi on Android cannot safely assume a system SSH executable or desktop Python wheels. Arr Manager therefore:
+Kodi on Android cannot safely assume a system SSH executable or desktop Python wheels. Managarr therefore:
 
 1. uses the **Servarr API** as the recommended deletion backend;
 2. uses **Kodi VFS** and Kodi-saved credentials for direct SMB or SFTP access;
@@ -34,12 +34,39 @@ No Android storage permission is required for Pi-hosted SMB or SFTP files access
 1. Download `context.arr.manager-<version>.zip` from the release assets.
 2. In Kodi, enable **Settings → System → Add-ons → Unknown sources** when required.
 3. Open **Add-ons → Install from zip file** and select the archive.
-4. Open **Add-ons → My add-ons → Context menus → Arr Manager → Configure**.
+4. Open **Add-ons → My add-ons → Context menus → Kodi Managarr → Configure**.
 5. Enter the Radarr and Sonarr base URLs and API keys.
 6. Run both connection tests.
 7. Enable **Dry run** for the first validation pass.
 
-The context menu is available for Kodi library movies, TV shows and episodes. Media must first be scanned into Kodi's video library.
+The **(⁠●⁠_⁠_⁠●⁠) Managarr** context menu is available for Kodi library movies, TV shows and episodes. Media must first be scanned into Kodi's video library.
+
+## Keymap Editor and remote buttons
+
+Managarr remains an executable Kodi script so Keymap Editor discovers it automatically as **Launch Kodi Managarr** under its **Add-ons** action category.
+
+To assign a remote or keyboard button:
+
+1. Open **Keymap Editor → Edit**.
+2. Choose **Global** for a system-wide mapping, or **Videos** to limit it to Kodi's video windows.
+3. Open **Add-ons → Launch Kodi Managarr**.
+4. Select **Edit key**, then press the desired button.
+5. Save the keymap and press the mapped button while a Kodi library movie, TV show or episode is highlighted.
+
+The mapped launcher opens a focused chooser for:
+
+- **Delete & Exclude**
+- **Delete & Replace**
+- **Tools & settings**
+
+Keymap Editor exposes one `RunAddon(...)` action per enabled script add-on; it does not enumerate a context add-on's individual arguments. Managarr therefore presents its two destructive actions after the mapped launch. Advanced custom keymaps can call either action directly:
+
+```xml
+<key>RunScript(special://home/addons/context.arr.manager/default.py,mode=delete_exclude)</key>
+<key>RunScript(special://home/addons/context.arr.manager/default.py,mode=delete_replace)</key>
+```
+
+Replace `<key>` with the desired Kodi keymap element or use the corresponding command as the mapped action in a manually maintained keymap.
 
 ## Radarr and Sonarr configuration
 
@@ -73,7 +100,7 @@ Every destructive direct-backend path must resolve through exactly one configure
 ### Deletion backends
 
 - **Servarr API:** recommended. Radarr or Sonarr deletes locally and updates its database.
-- **Kodi VFS (SMB/SFTP):** Kodi deletes through an allowlisted mapped root. Arr Manager preflights the target, verifies accessibility, performs bounded deletion, polls the corresponding Servarr rescan command, and verifies that file records disappear.
+- **Kodi VFS (SMB/SFTP):** Kodi deletes through an allowlisted mapped root. Managarr preflights the target, verifies accessibility, performs bounded deletion, polls the corresponding Servarr rescan command, and verifies that file records disappear.
 
 Recursive VFS deletion fully plans the tree before the first removal, applies depth and entry limits, rejects unsafe entries and roots, removes bottom-up, and verifies each operation. Unknown or inaccessible VFS state blocks deletion rather than being treated as absence.
 
@@ -102,7 +129,7 @@ Keep protected paths configured for every storage root that must never be recurs
 
 Host-side CI validates Python 3.8 and 3.12 compatibility, XML and Python compilation, the complete unit-test suite, package construction, Kodi `addon-check` against the extracted release ZIP, archive contents, permissions and integrity.
 
-Physical Android TV testing and live Radarr/Sonarr testing have not been performed by CI and are not claimed. Before release promotion, validate on a real Kodi Android device with the actual media server and network environment.
+Physical Android TV testing and live Radarr/Sonarr testing are not performed by CI. The service connection tests and current actions have been validated on the target Kodi environment, but every release should still be checked against the actual media server and network configuration before broad deployment.
 
 SFTP availability depends on a platform- and Kodi-version-compatible `vfs.sftp` add-on. Prefer Servarr API deletion whenever it satisfies the deployment requirements.
 
@@ -112,6 +139,7 @@ Before promoting a release, verify:
 
 - ZIP installation and settings rendering;
 - context-menu visibility for movies, TV shows and episodes;
+- Keymap Editor lists **Launch Kodi Managarr** and the mapped button opens the action chooser;
 - Radarr and Sonarr connection tests;
 - SMB root access;
 - SFTP access with `vfs.sftp` installed and enabled;
