@@ -19,12 +19,15 @@ class Response:
 
 class HttpTests(unittest.TestCase):
     def test_rejects_malformed_base_url_and_api_version(self):
-        with self.assertRaises(ApiError):
-            JsonHttpClient("not-a-url", "key")
-        with self.assertRaises(ApiError):
-            JsonHttpClient("http://user:pass@host", "key")
+        for value in ("not-a-url", "http://[", "http://[::1", "http://host:bad", "ftp://host", "http:///path", "http://user:pass@host"):
+            with self.subTest(value=value):
+                with self.assertRaises(ApiError):
+                    JsonHttpClient(value, "key")
         with self.assertRaises(ApiError):
             JsonHttpClient("http://host", "key", "../v3")
+
+    def test_accepts_valid_bracketed_ipv6_base_url(self):
+        self.assertEqual(JsonHttpClient("http://[::1]:7878/base/", "key").base_url, "http://[::1]:7878/base")
 
     def test_redacts_logged_urls_and_parses_json(self):
         logs = []

@@ -41,6 +41,7 @@ class KodiJsonRpcError(Exception):
 
 
 class KodiJsonRpcClient:
+    """Small validated wrapper around Kodi's JSON-RPC transport."""
     def __init__(self, xbmc_module, logger=None):
         self.xbmc = xbmc_module
         self.logger = logger
@@ -135,11 +136,13 @@ class KodiUI:
             for key in ("kodiDbId", "kodiEpisodeId", "kodi_id"):
                 try:
                     value = int(episode.get(key) or 0)
-                except Exception:
+                except (TypeError, ValueError):
                     value = 0
                 if value > 0 and value not in ids:
                     ids.append(value)
-        return [self.jsonrpc.remove_episode(episode_id) for episode_id in ids] or ["skipped"]
+        if not ids:
+            raise KodiJsonRpcError("No Kodi episode database IDs were available for targeted cleanup")
+        return [self.jsonrpc.remove_episode(episode_id) for episode_id in ids]
 
     def wait_for_abort(self, seconds):
         return self.xbmc.Monitor().waitForAbort(float(seconds))
@@ -201,6 +204,11 @@ def selected_item_from_context():
     file_path = ""
     if tag is not None:
         file_path = _tag_value(tag, "getFilenameAndPath") or _tag_value(tag, "getPath")
+    if not file_path and item is not None:
+        try:
+            file_path = item.getPath() or ""
+        except Exception:
+            file_path = ""
     file_path = file_path or label("ListItem.FileNameAndPath")
 
     return SelectedItem(

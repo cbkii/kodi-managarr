@@ -64,8 +64,14 @@ class FakeSonarr:
 
 
 class FakeUI:
+    def __init__(self): self.series_syncs = 0; self.episode_syncs = 0
     def refresh_kodi_library(self):
         return None
+    def sync_deleted_series(self, selected):
+        self.series_syncs += 1
+    def sync_deleted_episodes(self, selected, linked=None):
+        self.episode_syncs += 1
+        return ["OK"] if getattr(selected, "db_id", 0) else ["unresolved"]
 
 
 class ActionPathTests(unittest.TestCase):
@@ -82,6 +88,8 @@ class ActionPathTests(unittest.TestCase):
              patch("arr_manager.actions.make_direct_backend", return_value=backend):
             result = manager._series_replace(selected)
         self.assertEqual(backend.deleted, ["sftp://pi/media/Shows/Episode.mkv"])
+        self.assertEqual(manager.ui.series_syncs, 0)
+        self.assertEqual(manager.ui.episode_syncs, 1)
         self.assertIn("Deleted 1 files", result)
 
     def test_series_replace_uses_mapped_ssh_alias_url_without_selected_path(self):

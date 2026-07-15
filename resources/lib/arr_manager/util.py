@@ -2,7 +2,7 @@ import os
 import posixpath
 import re
 import unicodedata
-from urllib.parse import urlsplit, urlunsplit
+from urllib.parse import urlsplit, urlunsplit, unquote
 
 SUPPORTED_KODI_NETWORK_SCHEMES = {"smb", "sftp", "ssh"}
 SFTP_NETWORK_SCHEMES = {"sftp", "ssh"}
@@ -41,17 +41,35 @@ def normalise_release(value):
 
 _ENCODED_SEPARATOR_RE = re.compile(r"%(?:2f|5c)", re.I)
 _ENCODED_DOT_RE = re.compile(r"%(?:2e)", re.I)
+_PERCENT_RE = re.compile(r"%(?![0-9a-fA-F]{2})")
 _UNSUPPORTED_KODI_SCHEMES = {"videodb", "stack", "plugin", "special", "zip", "rar", "bluray", "dvd"}
 
 
 def _has_encoded_traversal(value):
-    return bool(_ENCODED_SEPARATOR_RE.search(value or "") or _ENCODED_DOT_RE.search(value or ""))
+    """Detect encoded separators or dot traversal without changing path identity.
+
+    The operational path is never decoded.  Decoding is bounded and used only
+    for safety inspection so single or double encoded traversal such as
+    ``%2e%2e`` and ``%252f`` cannot bypass destructive-path checks.
+    """
+    text = value or ""
+    if _PERCENT_RE.search(text):
+        raise ValueError("Malformed percent encoding is not safe for destructive paths")
+    for _ in range(3):
+        if _ENCODED_SEPARATOR_RE.search(text) or _ENCODED_DOT_RE.search(text):
+            raise ValueError("Encoded separators or dot segments are not safe for destructive paths")
+        decoded = unquote(text)
+        if decoded == text:
+            return False
+        text = decoded
+    if "%" in text:
+        raise ValueError("Repeatedly encoded paths are not safe for destructive paths")
+    return False
 
 
 def normalise_path(value):
     value = (value or "").strip().replace("\\", "/")
-    if _has_encoded_traversal(value):
-        raise ValueError("Encoded separators or dot segments are not safe for destructive paths")
+    _has_encoded_traversal(value)
     parts = urlsplit(value)
     scheme = parts.scheme.lower()
     if scheme in _UNSUPPORTED_KODI_SCHEMES:
@@ -102,10 +120,55 @@ def redact_url(value):
     return value
 
 
+def _path_identity(value):
+    """Return a scheme-aware identity tuple and path segments for containment."""
+    normal = normalise_path(value)
+    parts = urlsplit(normal)
+    scheme = parts.scheme.lower()
+    if scheme in SUPPORTED_KODI_NETWORK_SCHEMES:
+        host = (parts.hostname or "").lower()
+        port = parts.port
+        if scheme in SFTP_NETWORK_SCHEMES:
+            if port == 22:
+                port = None
+            scheme = "sftp"
+        path_segments = tuple(segment for segment in parts.path.split("/") if segment)
+        if scheme == "smb":
+            path_segments = tuple(segment.lower() for segment in path_segments)
+        return (scheme, host, port), path_segments, normal
+    return ("posix", "", None), tuple(segment for segment in normal.split("/") if segment), normal
+
+
 def is_path_under(path, parent):
-    p = normalise_path(path)
+    p_id, p_segments, _ = _path_identity(path)
+    root_id, root_segments, _ = _path_identity(parent)
+    if p_id != root_id:
+        return False
+    return p_segments == root_segments or p_segments[:len(root_segments)] == root_segments
+
+
+def paths_equal(left, right):
+    left_id, left_segments, _ = _path_identity(left)
+    right_id, right_segments, _ = _path_identity(right)
+    return left_id == right_id and left_segments == right_segments
+
+
+def path_suffix(path, parent):
+    """Return the raw child suffix when ``path`` is under ``parent``."""
+    if not is_path_under(path, parent):
+        return ""
+    normal = normalise_path(path)
     root = normalise_path(parent)
-    return p == root or p.startswith(root.rstrip("/") + "/")
+    p_id, p_segments, _ = _path_identity(path)
+    root_id, root_segments, _ = _path_identity(parent)
+    suffix_segments = p_segments[len(root_segments):]
+    if not suffix_segments:
+        return ""
+    if p_id[0] == "posix":
+        raw_segments = [segment for segment in normal.split("/") if segment]
+    else:
+        raw_segments = [segment for segment in urlsplit(normal).path.split("/") if segment]
+    return "/".join(raw_segments[-len(suffix_segments):])
 
 
 def join_path(base, relative):
@@ -149,7 +212,7 @@ class PathMapper:
         remote = normalise_path(remote_path)
         for source, target in self.mappings:
             if is_path_under(remote, source):
-                suffix = remote[len(source):].lstrip("/")
+                suffix = path_suffix(remote, source)
                 return join_path(target, suffix) if suffix else target
         return ""
 
@@ -158,6 +221,6 @@ class PathMapper:
         reverse = sorted(((target, source) for source, target in self.mappings), key=lambda p: len(p[0]), reverse=True)
         for source, target in reverse:
             if is_path_under(kodi, source):
-                suffix = kodi[len(source):].lstrip("/")
+                suffix = path_suffix(kodi, source)
                 return join_path(target, suffix) if suffix else target
         return ""

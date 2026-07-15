@@ -52,6 +52,9 @@ class Radarr:
     def search_movie(self, movie_id):
         self.calls.append(("search", movie_id))
         return {"id": 99}
+    def command_status(self, command_id):
+        self.calls.append(("command", command_id))
+        return {"id": command_id, "status": "completed"}
 
 
 class TransactionTests(unittest.TestCase):
@@ -66,7 +69,7 @@ class TransactionTests(unittest.TestCase):
             result = manager._movie_replace(selected)
         self.assertIn("Blocklisted 1 matched release", result)
         self.assertEqual(manager._radarr.calls, [
-            ("files", 3), ("history", 3, 3), ("failed", 42), ("delete", 7), ("search", 3)
+            ("files", 3), ("history", 3, 3), ("failed", 42), ("delete", 7), ("search", 3), ("command", 99)
         ])
         self.assertTrue(ui.refreshed)
 

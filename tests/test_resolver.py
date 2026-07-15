@@ -61,6 +61,18 @@ class ResolverTests(unittest.TestCase):
         selected = SelectedItem(media_type="movie", title="Dune", file_path="videodb://movies/titles/1")
         with self.assertRaises(ResolutionError):
             resolve_movie(selected, FakeRadarr(), self.mapper)
+    def test_tvdb_direct_match_rejects_contradictory_title_and_year(self):
+        class Client:
+            def __init__(self, row): self.row = row
+            def series_by_tvdb(self, tvdb_id): return self.row
+        from arr_manager.resolver import resolve_series
+        selected = SelectedItem(media_type="tvshow", title="Wrong", tvshow_title="Wrong", year=2020, unique_ids={"tvdb": "42"})
+        with self.assertRaises(ResolutionError):
+            resolve_series(selected, Client({"id": 1, "title": "Right", "year": 2020}), PathMapper([]))
+        selected = SelectedItem(media_type="tvshow", title="Right", tvshow_title="Right", year=2021, unique_ids={"tvdb": "42"})
+        with self.assertRaises(ResolutionError):
+            resolve_series(selected, Client({"id": 1, "title": "Right", "year": 2020}), PathMapper([]))
+
 
 if __name__ == "__main__":
     unittest.main()

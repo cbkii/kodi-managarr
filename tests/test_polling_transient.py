@@ -1,12 +1,13 @@
 import os
 import sys
+import errno
 import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "resources", "lib"))
 
 from arr_manager.actions import ArrManager
-from arr_manager.errors import ApiError
+from arr_manager.errors import ApiError, SafetyError
 from arr_manager.util import PathMapper
 
 class Settings:
@@ -66,6 +67,32 @@ class PollingTransientTests(unittest.TestCase):
         manager = ArrManager(Settings(), UI(), Logger())
         with self.assertRaises(ApiError):
             manager._poll_command(Client([ApiError("forbidden", status=403)]), {"id": 5}, "rescan")
+
+    def test_command_poll_retries_timeout_and_429(self):
+        manager = ArrManager(Settings(), UI(), Logger())
+        state = manager._poll_command(Client([TimeoutError("slow"), ApiError("rate", status=429)]), {"id": 5}, "rescan")
+        self.assertEqual(state["status"], "completed")
+
+    def test_command_poll_rejects_malformed_status_response(self):
+        class BadClient:
+            def command_status(self, command_id): return []
+        manager = ArrManager(Settings(), UI(), Logger())
+        with self.assertRaises(SafetyError):
+            manager._poll_command(BadClient(), {"id": 5}, "rescan")
+
+    def test_polling_does_not_retry_invalid_json_or_non_transient_oserror(self):
+        manager = ArrManager(Settings(), UI(), Logger())
+        self.assertFalse(manager._is_transient_poll_error(ApiError("API response contained invalid JSON")))
+        self.assertFalse(manager._is_transient_poll_error(OSError(errno.EACCES, "denied")))
+        self.assertTrue(manager._is_transient_poll_error(OSError(errno.ECONNRESET, "reset")))
+
+    def test_search_queue_polls_to_completion_and_surfaces_failure(self):
+        manager = ArrManager(Settings(), UI(), Logger())
+        manager._queue_search(Client([]), {"id": 5}, "search")
+        class FailedClient:
+            def command_status(self, command_id): return {"id": command_id, "status": "failed", "message": "bad"}
+        with self.assertRaises(SafetyError):
+            manager._queue_search(FailedClient(), {"id": 6}, "search")
 
 if __name__ == "__main__":
     unittest.main()

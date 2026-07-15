@@ -32,7 +32,10 @@ jobs:
       - name: Run unit tests
         run: python3 -m unittest discover -s tests -v
       - name: Run Kodi addon checker
-        run: kodi-addon-checker --branch matrix --allow-folder-id-mismatch .
+        run: |
+          find . -type d -name __pycache__ -prune -exec rm -rf {} +
+          find . -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
+          python -m kodi_addon_checker --branch matrix --allow-folder-id-mismatch .
       - name: Build package
         run: python3 scripts/package.py
       - name: Inspect package

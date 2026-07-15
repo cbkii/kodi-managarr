@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 from .errors import ConfigurationError
-from .util import PathMapper, as_bool, as_int, parse_mappings
+from .util import PathMapper, as_bool, as_int, normalise_path, parse_mappings
 
 
 BACKENDS = {"0": "api", "1": "vfs", "2": "vfs", "api": "api", "vfs": "vfs", "ssh": "vfs"}
@@ -39,7 +39,15 @@ class Settings:
         except ValueError as exc:
             raise ConfigurationError(str(exc)) from exc
         self.path_mapper = PathMapper(mappings)
-        self.protected_paths = [x.strip() for x in get("protected_paths").replace("\n", ";").split(";") if x.strip()]
+        self.protected_paths = []
+        for raw_path in get("protected_paths").replace("\n", ";").split(";"):
+            raw_path = raw_path.strip()
+            if not raw_path:
+                continue
+            try:
+                self.protected_paths.append(normalise_path(raw_path))
+            except ValueError as exc:
+                raise ConfigurationError(f"Invalid protected path: {exc}") from exc
         self.poll_timeout = as_int(get("rescan_poll_timeout"), 45, 5, 300)
 
         timeout = as_int(get("http_timeout"), 15, 3, 120)

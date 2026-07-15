@@ -1,4 +1,6 @@
+import errno
 import posixpath
+import socket
 import time
 
 from .clients import RadarrClient, SonarrClient
@@ -233,7 +235,7 @@ class ArrManager:
                 backend.close()
 
         self._queue_search(self.sonarr, self.sonarr.search_series(series["id"]), "Sonarr series search")
-        self._sync_kodi("series", selected)
+        self._sync_kodi("episodes", selected, episodes)
         return f"{self._blocklist_summary(matches)} Deleted {len(files)} files and started a series search for {series.get('title')}"
 
 
@@ -319,7 +321,7 @@ class ArrManager:
             if file_id not in ids:
                 return
             self._bounded_wait(POLL_INTERVAL_SECONDS)
-        detail = f" Last transient error: {last_error}" if last_error else ""
+        detail = f" Last transient error type: {type(last_error).__name__}" if last_error else ""
         raise SafetyError(f"Radarr did not clear the deleted movie file after its rescan.{detail}")
 
     def _wait_for_episode_files_removed(self, series_id, file_ids):
@@ -340,7 +342,7 @@ class ArrManager:
             if not (ids & file_ids):
                 return
             self._bounded_wait(POLL_INTERVAL_SECONDS)
-        detail = f" Last transient error: {last_error}" if last_error else ""
+        detail = f" Last transient error type: {type(last_error).__name__}" if last_error else ""
         raise SafetyError(f"Sonarr did not clear the deleted episode file(s) after its rescan.{detail}")
 
 
@@ -368,8 +370,8 @@ class ArrManager:
             client.mark_history_failed(history_match.history_id)
 
     def _queue_search(self, client, response, description):
-        if not isinstance(response, dict) or not response.get("id"):
-            raise SafetyError(f"{description} was not accepted by Servarr")
+        """Validate and poll an asynchronous Servarr search command."""
+        self._poll_command(client, response, description)
 
     def _poll_command(self, client, response, description):
         if not isinstance(response, dict) or not response.get("id"):
@@ -388,20 +390,30 @@ class ArrManager:
                 self._log_transient_poll_error(f"{description} command polling", exc)
                 self._bounded_wait(POLL_INTERVAL_SECONDS)
                 continue
-            status = str(state.get("status") or "").lower() if isinstance(state, dict) else ""
+            if not isinstance(state, dict):
+                raise SafetyError(f"{description} command returned a malformed status response")
+            status = str(state.get("status") or "").lower()
             if status in {"completed", "complete"}:
                 return state
             if status in {"failed", "failure", "aborted", "cancelled", "canceled"}:
                 raise SafetyError(f"{description} command failed: {state.get('message') or state.get('errorMessage') or status}")
             self._bounded_wait(POLL_INTERVAL_SECONDS)
-        detail = f" Last transient error: {last_error}" if last_error else ""
+        detail = f" Last transient error type: {type(last_error).__name__}" if last_error else ""
         raise SafetyError(f"{description} command did not complete before timeout.{detail}")
 
 
     def _is_transient_poll_error(self, exc):
         if isinstance(exc, ApiError):
+            permanent_text = str(exc).lower()
+            if any(token in permanent_text for token in ("invalid json", "not json", "api version", "base url", "malformed")):
+                return False
             return exc.status is None or exc.status in {408, 429} or int(exc.status or 0) >= 500
-        return isinstance(exc, (ConnectionError, TimeoutError, OSError))
+        if isinstance(exc, (socket.timeout, TimeoutError, ConnectionError)):
+            return True
+        if isinstance(exc, OSError):
+            transient = {errno.ETIMEDOUT, errno.ECONNRESET, errno.ECONNREFUSED, errno.EHOSTUNREACH, errno.ENETUNREACH}
+            return getattr(exc, "errno", None) in transient
+        return False
 
     def _log_transient_poll_error(self, stage, exc):
         if self.logger:

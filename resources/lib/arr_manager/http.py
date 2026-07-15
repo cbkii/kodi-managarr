@@ -20,6 +20,7 @@ class JsonHttpClient:
         self.logger = logger
 
     def request(self, method, path, params=None, payload=None):
+        """Send one bounded JSON API request without retrying mutations."""
         path = "/" + path.lstrip("/")
         url = self.api_root + path
         if params:
@@ -66,7 +67,7 @@ class JsonHttpClient:
             try:
                 parsed = json.loads(raw)
                 message = parsed.get("message") or parsed.get("error") or message
-            except Exception:
+            except json.JSONDecodeError:
                 if raw.strip():
                     message = f"{message}: {raw[:300]}"
             raise ApiError(message, status=exc.code, body=raw) from exc
@@ -80,8 +81,13 @@ class JsonHttpClient:
     @staticmethod
     def _validate_base_url(base_url):
         value = (base_url or "").strip().rstrip("/")
-        parts = urlsplit(value)
-        if parts.scheme not in {"http", "https"} or not parts.netloc or not parts.hostname:
+        try:
+            parts = urlsplit(value)
+            hostname = parts.hostname
+            _ = parts.port
+        except ValueError as exc:
+            raise ApiError("API base URL must be a valid absolute http(s) URL with a host") from exc
+        if parts.scheme not in {"http", "https"} or not parts.netloc or not hostname:
             raise ApiError("API base URL must be an absolute http(s) URL with a host")
         if parts.username or parts.password:
             raise ApiError("API base URL must not contain embedded credentials")
@@ -96,6 +102,9 @@ class JsonHttpClient:
 
     @staticmethod
     def _redact_url(value):
-        parts = urlsplit(value or "")
-        netloc = parts.netloc.rsplit("@", 1)[-1]
-        return parts._replace(netloc=netloc, query="", fragment="").geturl()
+        try:
+            parts = urlsplit(value or "")
+            netloc = parts.netloc.rsplit("@", 1)[-1]
+            return parts._replace(netloc=netloc, query="", fragment="").geturl()
+        except ValueError:
+            return "<redacted-url>"
