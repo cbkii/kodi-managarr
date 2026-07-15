@@ -44,7 +44,7 @@ class BrandingTests(unittest.TestCase):
             with self.subTest(path=relative_path):
                 path = os.path.join(ROOT, *relative_path.split("/"))
                 with open(path, encoding="utf-8") as handle:
-                    self.assertNotIn("Managarr", handle.read())
+                    self.assertNotIn("Arr Manager", handle.read())
 
 
 if __name__ == "__main__":
