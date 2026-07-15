@@ -27,7 +27,7 @@ A Replace action first locates a `DownloadFolderImported` history event (`eventT
 
 ## Episode exclusion
 
-Sonarr's import-list exclusion model is series-level. For an episode item, Managarr first sets all episodes linked to that file to `monitored=false`, then deletes the episode file. If failure occurs before deletion is committed it restores monitoring; after confirmed deletion it preserves the safer unmonitored state and reports the failure stage. This correctly handles files containing multiple numbered episodes.
+Sonarr's import-list exclusion model is series-level. For an episode item, Managarr first sets all episodes linked to that file to `monitored=false`, then deletes the episode file. If failure occurs before deletion is committed, it restores monitoring; after confirmed deletion it preserves the safer unmonitored state and reports the failure stage. This correctly handles files containing multiple numbered episodes.
 
 ## Kodi library synchronisation
 
