@@ -16,20 +16,11 @@ ACTION_DELETE_REPLACE = "delete_replace"
 SELECTED_ACTIONS = (ACTION_DELETE_EXCLUDE, ACTION_DELETE_REPLACE)
 
 
-class ManagarrLogger(KodiLogger):
-    """Kodi logger with the current user-facing add-on name."""
-
-    def _write(self, level, message, *args):
-        if args:
-            message = message % args
-        self.xbmc.log(f"[Managarr] {message}", level)
-
-
 def _runtime():
     import xbmcaddon
     addon = xbmcaddon.Addon()
     settings = Settings(addon)
-    logger = ManagarrLogger(settings.debug)
+    logger = KodiLogger(settings.debug)
     ui = KodiUI(addon)
     return addon, settings, logger, ui
 
