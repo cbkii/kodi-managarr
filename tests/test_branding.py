@@ -8,7 +8,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 class BrandingTests(unittest.TestCase):
     def test_addon_metadata_uses_kodi_managarr_branding_and_action_list(self):
         root = ET.parse(os.path.join(ROOT, "addon.xml")).getroot()
-        self.assertEqual(root.attrib["name"], "Managarr")
+        self.assertEqual(root.attrib["name"], "Kodi Managarr")
 
         metadata = root.find("extension[@point='xbmc.addon.metadata']")
         self.assertIsNotNone(metadata)
