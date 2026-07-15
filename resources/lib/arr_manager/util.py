@@ -2,7 +2,7 @@ import os
 import posixpath
 import re
 import unicodedata
-from urllib.parse import unquote, urlsplit, urlunsplit
+from urllib.parse import urlsplit, urlunsplit
 
 SUPPORTED_KODI_NETWORK_SCHEMES = {"smb", "sftp", "ssh"}
 SFTP_NETWORK_SCHEMES = {"sftp", "ssh"}
@@ -39,16 +39,43 @@ def normalise_release(value):
     return normalise_title(value)
 
 
-def normalise_path(value):
-    value = unquote((value or "").strip()).replace("\\", "/")
-    parts = urlsplit(value)
-    if is_supported_kodi_network_url(value):
-        path = re.sub(r"/+", "/", parts.path).rstrip("/")
-        netloc = parts.netloc.rsplit("@", 1)[-1].lower()
-        return urlunsplit((parts.scheme.lower(), netloc, path, "", ""))
-    value = re.sub(r"/+", "/", value)
-    return value.rstrip("/") or "/"
+_ENCODED_SEPARATOR_RE = re.compile(r"%(?:2f|5c)", re.I)
+_ENCODED_DOT_RE = re.compile(r"%(?:2e)", re.I)
+_UNSUPPORTED_KODI_SCHEMES = {"videodb", "stack", "plugin", "special", "zip", "rar", "bluray", "dvd"}
 
+
+def _has_encoded_traversal(value):
+    return bool(_ENCODED_SEPARATOR_RE.search(value or "") or _ENCODED_DOT_RE.search(value or ""))
+
+
+def normalise_path(value):
+    value = (value or "").strip().replace("\\", "/")
+    if _has_encoded_traversal(value):
+        raise ValueError("Encoded separators or dot segments are not safe for destructive paths")
+    parts = urlsplit(value)
+    scheme = parts.scheme.lower()
+    if scheme in _UNSUPPORTED_KODI_SCHEMES:
+        raise ValueError(f"Unsupported Kodi path scheme: {scheme}")
+    if scheme in SUPPORTED_KODI_NETWORK_SCHEMES:
+        if not parts.netloc or not parts.hostname:
+            raise ValueError("Network paths require a host")
+        if scheme == "smb":
+            segments = [segment for segment in parts.path.split("/") if segment]
+            if not segments:
+                raise ValueError("SMB paths require a share")
+        path = re.sub(r"/+", "/", parts.path).rstrip("/")
+        segments = [segment for segment in path.split("/") if segment]
+        if any(segment in {".", "..", "~"} for segment in segments):
+            raise ValueError("Path traversal segments are not safe")
+        netloc = parts.netloc.rsplit("@", 1)[-1].lower()
+        return urlunsplit((scheme, netloc, path, "", ""))
+    if scheme and "://" in value:
+        raise ValueError(f"Unsupported path scheme: {scheme}")
+    value = re.sub(r"/+", "/", value)
+    segments = [segment for segment in value.split("/") if segment]
+    if any(segment in {".", "..", "~"} for segment in segments):
+        raise ValueError("Path traversal segments are not safe")
+    return value.rstrip("/") or "/"
 
 
 def network_scheme(value):
@@ -76,8 +103,8 @@ def redact_url(value):
 
 
 def is_path_under(path, parent):
-    p = normalise_path(path).casefold()
-    root = normalise_path(parent).casefold()
+    p = normalise_path(path)
+    root = normalise_path(parent)
     return p == root or p.startswith(root.rstrip("/") + "/")
 
 
@@ -88,17 +115,28 @@ def join_path(base, relative):
 
 
 def parse_mappings(raw):
-    """Parse `remote=>kodi` entries separated by semicolons or new lines."""
+    """Parse strict `remote=>kodi` entries separated by semicolons or new lines."""
     mappings = []
+    seen = set()
     for entry in re.split(r"[;\n]+", raw or ""):
         entry = entry.strip()
         if not entry:
             continue
         if "=>" not in entry:
-            continue
+            raise ValueError(f"Invalid path mapping entry: {entry}")
         left, right = (part.strip() for part in entry.split("=>", 1))
-        if left and right:
-            mappings.append((normalise_path(left), normalise_path(right)))
+        if not left or not right:
+            raise ValueError(f"Invalid path mapping entry: {entry}")
+        pair = (normalise_path(left), normalise_path(right))
+        if pair in seen:
+            raise ValueError(f"Duplicate path mapping entry: {entry}")
+        for existing_left, existing_right in mappings:
+            if is_path_under(pair[0], existing_left) or is_path_under(existing_left, pair[0]):
+                raise ValueError("Overlapping remote path mappings are ambiguous")
+            if is_path_under(pair[1], existing_right) or is_path_under(existing_right, pair[1]):
+                raise ValueError("Overlapping Kodi path mappings are ambiguous")
+        seen.add(pair)
+        mappings.append(pair)
     mappings.sort(key=lambda pair: len(pair[0]), reverse=True)
     return mappings
 

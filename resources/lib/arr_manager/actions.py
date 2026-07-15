@@ -286,7 +286,10 @@ class ArrManager:
                 backend.close()
 
     def _backend_path(self, remote_path, selected_path, backend):
-        path = self.settings.path_mapper.remote_to_kodi(remote_path)
+        try:
+            path = self.settings.path_mapper.remote_to_kodi(remote_path)
+        except ValueError as exc:
+            raise SafetyError(str(exc)) from exc
         if not path and is_supported_kodi_network_url(remote_path):
             path = remote_path
         if not path and selected_path:

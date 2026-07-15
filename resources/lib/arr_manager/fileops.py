@@ -102,7 +102,10 @@ def _validate_delete_path(path, protected_paths, folder):
     raw_parts = urlsplit((path or "").strip())
     if raw_parts.scheme.lower() in _NETWORK_SCHEMES and (raw_parts.username or raw_parts.password):
         raise SafetyError("Refusing to delete credential-bearing network URLs; use Kodi-saved credentials instead")
-    normal = normalise_path(path)
+    try:
+        normal = normalise_path(path)
+    except ValueError as exc:
+        raise SafetyError(str(exc)) from exc
     if not normal or normal in {"/", "~", ".", ".."}:
         raise SafetyError("Refusing to delete an empty, home, current, parent, or root path")
     if normal.startswith("~/") or normal.startswith("../") or normal == "..":

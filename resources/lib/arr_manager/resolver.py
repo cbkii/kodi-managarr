@@ -21,13 +21,15 @@ def _year_from_series(series):
 
 def resolve_movie(selected, client, mapper):
     tmdb_id = _numeric_unique_id(selected.unique_ids.get("tmdb"))
+    selected_path = _safe_selected_path(selected.file_path)
+    wanted_title = normalise_title(selected.title)
     if tmdb_id:
         direct = client.movie_by_tmdb(tmdb_id)
         if direct:
+            _reject_contradictory_movie(selected, direct, wanted_title)
             return direct
 
     candidates = client.all_movies()
-    selected_path = normalise_path(selected.file_path)
     selected_remote = mapper.kodi_to_remote(selected_path) if selected_path else ""
     wanted_title = normalise_title(selected.title)
     scored = []
@@ -49,9 +51,15 @@ def resolve_movie(selected, client, mapper):
         if wanted_title and wanted_title in {title, original}:
             score += 80
             reasons.append("title")
-        if selected.year and int(movie.get("year") or 0) == selected.year:
+        movie_year = int(movie.get("year") or 0)
+        if selected.year and movie_year and movie_year != selected.year and "path" not in reasons and "mapped path" not in reasons:
+            scored.append((0, movie, "year mismatch"))
+            continue
+        if selected.year and movie_year == selected.year:
             score += 25
             reasons.append("year")
+        if reasons == ["title"]:
+            score = 0
         scored.append((score, movie, ", ".join(reasons)))
 
     return _choose_unique(scored, "Radarr movie", selected.display_name)
@@ -59,15 +67,16 @@ def resolve_movie(selected, client, mapper):
 
 def resolve_series(selected, client, mapper):
     tvdb_id = _numeric_unique_id(selected.unique_ids.get("tvdb"))
+    selected_path = _safe_selected_path(selected.file_path)
+    wanted_title = normalise_title(selected.tvshow_title or selected.title)
     if tvdb_id:
         direct = client.series_by_tvdb(tvdb_id)
         if direct:
+            _reject_contradictory_series(selected, direct, wanted_title)
             return direct
 
     candidates = client.all_series()
-    selected_path = normalise_path(selected.file_path)
     selected_remote = mapper.kodi_to_remote(selected_path) if selected_path else ""
-    wanted_title = normalise_title(selected.tvshow_title or selected.title)
     scored = []
     for series in candidates:
         score = 0
@@ -91,9 +100,15 @@ def resolve_series(selected, client, mapper):
         if wanted_title and wanted_title in title_values:
             score += 80
             reasons.append("title")
-        if selected.year and _year_from_series(series) == selected.year:
+        series_year = _year_from_series(series)
+        if selected.year and series_year and series_year != selected.year and "path" not in reasons and "mapped path" not in reasons:
+            scored.append((0, series, "year mismatch"))
+            continue
+        if selected.year and series_year == selected.year:
             score += 25
             reasons.append("year")
+        if reasons == ["title"]:
+            score = 0
         scored.append((score, series, ", ".join(reasons)))
 
     return _choose_unique(scored, "Sonarr series", selected.display_name)
@@ -124,6 +139,34 @@ def resolve_episode_context(selected, client, series):
         raise ResolutionError(f"Could not resolve Sonarr episode file ID {file_id}")
     return episode, linked, file_matches[0]
 
+
+
+def _safe_selected_path(path):
+    if not path:
+        return ""
+    try:
+        return normalise_path(path)
+    except ValueError as exc:
+        raise ResolutionError(str(exc)) from exc
+
+
+def _reject_contradictory_movie(selected, movie, wanted_title):
+    if selected.year and int(movie.get("year") or 0) and int(movie.get("year") or 0) != selected.year:
+        raise ResolutionError("Kodi movie year contradicts the matched Radarr movie")
+    if wanted_title:
+        titles = {normalise_title(movie.get("title", "")), normalise_title(movie.get("originalTitle", ""))} - {""}
+        if titles and wanted_title not in titles:
+            raise ResolutionError("Kodi movie title contradicts the matched Radarr movie")
+
+
+def _reject_contradictory_series(selected, series, wanted_title):
+    series_year = _year_from_series(series)
+    if selected.year and series_year and series_year != selected.year:
+        raise ResolutionError("Kodi series year contradicts the matched Sonarr series")
+    if wanted_title:
+        titles = {normalise_title(series.get("title", "")), normalise_title(series.get("sortTitle", "")), normalise_title(series.get("originalTitle", ""))} - {""}
+        if titles and wanted_title not in titles:
+            raise ResolutionError("Kodi series title contradicts the matched Sonarr series")
 
 def _choose_unique(scored, entity_name, display_name):
     scored.sort(key=lambda row: row[0], reverse=True)

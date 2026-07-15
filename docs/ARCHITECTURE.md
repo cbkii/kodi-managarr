@@ -35,3 +35,10 @@ Destructive workflows use targeted Kodi JSON-RPC calls rather than a blind globa
 ## Non-strict replacement mode
 
 When strict history matching is disabled, a file without an imported-history match may be deleted and searched without a blocklist call. Confirmation, dry-run and result text explicitly say that no release was blocklisted and that the same release may be reacquired. Duplicate history matches are collapsed by download ID before failed-history calls are made.
+
+
+## Path and HTTP hardening
+
+Path mapping parsing is strict: malformed entries, duplicate entries, overlapping remote roots and overlapping Kodi roots are rejected instead of silently ignored. Destructive path normalisation preserves POSIX and URL path case, rejects unsupported virtual schemes such as `videodb://`, `stack://` and `plugin://`, and rejects literal or encoded traversal/separator attempts before boundary checks.
+
+The HTTP client validates absolute `http`/`https` base URLs without embedded credentials, validates API-version syntax such as `v3`, redacts logged URLs, rejects unexpected content types, and classifies invalid JSON as an API error. Polling loops retry only transient GET failures while preserving the original monotonic deadline.

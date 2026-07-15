@@ -34,7 +34,11 @@ class Settings:
         self.dry_run = as_bool(get("dry_run"), False)
         self.require_blocklist = as_bool(get("require_blocklist"), True)
         self.debug = as_bool(get("debug"), False)
-        self.path_mapper = PathMapper(parse_mappings(get("path_mappings")))
+        try:
+            mappings = parse_mappings(get("path_mappings"))
+        except ValueError as exc:
+            raise ConfigurationError(str(exc)) from exc
+        self.path_mapper = PathMapper(mappings)
         self.protected_paths = [x.strip() for x in get("protected_paths").replace("\n", ";").split(";") if x.strip()]
         self.poll_timeout = as_int(get("rescan_poll_timeout"), 45, 5, 300)
 
