@@ -57,9 +57,13 @@ class KodiJsonRpcClient:
             response = json.loads(raw or "")
         except Exception as exc:
             raise KodiJsonRpcError("Kodi JSON-RPC returned malformed JSON") from exc
-        if response.get("error"):
-            error = response["error"]
-            raise KodiJsonRpcError(str(error.get("message") or error))
+        if not isinstance(response, dict):
+            raise KodiJsonRpcError("Kodi JSON-RPC response is not an object")
+        error = response.get("error")
+        if error:
+            if isinstance(error, dict):
+                raise KodiJsonRpcError(str(error.get("message") or error))
+            raise KodiJsonRpcError("Kodi JSON-RPC returned a malformed error")
         if response.get("id") != request_id:
             raise KodiJsonRpcError("Kodi JSON-RPC response ID did not match the request")
         if "result" not in response:
@@ -114,8 +118,7 @@ class KodiUI:
         self.addon.openSettings()
 
     def refresh_kodi_library(self):
-        # Kept as a compatibility no-op: destructive workflows call targeted JSON-RPC methods below.
-        return None
+        raise KodiJsonRpcError("Targeted Kodi JSON-RPC synchronisation requires workflow context")
 
     def sync_deleted_movie(self, selected):
         return self.jsonrpc.remove_movie(getattr(selected, "db_id", 0))
@@ -124,9 +127,19 @@ class KodiUI:
         return self.jsonrpc.remove_tvshow(getattr(selected, "db_id", 0))
 
     def sync_deleted_episodes(self, selected, linked=None):
-        # Kodi only exposes the selected episode DB ID here; linked multi-episode rows are skipped unless
-        # a caller supplies Kodi IDs in future metadata enrichment.
-        return [self.jsonrpc.remove_episode(getattr(selected, "db_id", 0))]
+        ids = []
+        selected_id = int(getattr(selected, "db_id", 0) or 0)
+        if selected_id > 0:
+            ids.append(selected_id)
+        for episode in linked or []:
+            for key in ("kodiDbId", "kodiEpisodeId", "kodi_id"):
+                try:
+                    value = int(episode.get(key) or 0)
+                except Exception:
+                    value = 0
+                if value > 0 and value not in ids:
+                    ids.append(value)
+        return [self.jsonrpc.remove_episode(episode_id) for episode_id in ids] or ["skipped"]
 
     def wait_for_abort(self, seconds):
         return self.xbmc.Monitor().waitForAbort(float(seconds))
@@ -142,10 +155,14 @@ def _tag_value(tag, method, default=""):
 
 
 
-def _first_present(*values):
+def _first_present(*values, invalid=None):
+    invalid_values = {str(value) for value in (invalid or ())}
     for value in values:
-        if value is not None and value != "":
-            return value
+        if value is None or value == "":
+            continue
+        if str(value) in invalid_values:
+            continue
+        return value
     return ""
 
 def selected_item_from_context():
@@ -188,12 +205,12 @@ def selected_item_from_context():
 
     return SelectedItem(
         media_type=str(media_type).lower(),
-        db_id=as_int(_first_present(_tag_value(tag, "getDbId", "") if tag else "", label("ListItem.DBID")), 0),
+        db_id=as_int(_first_present(_tag_value(tag, "getDbId", "") if tag else "", label("ListItem.DBID"), invalid=(0, "0")), 0),
         title=str(title),
-        year=as_int(_first_present(_tag_value(tag, "getYear", "") if tag else "", label("ListItem.Year")), 0),
+        year=as_int(_first_present(_tag_value(tag, "getYear", "") if tag else "", label("ListItem.Year"), invalid=(0, "0")), 0),
         tvshow_title=str(tvshow_title),
-        season=as_int(_first_present(_tag_value(tag, "getSeason", "") if tag else "", label("ListItem.Season")), -1),
-        episode=as_int(_first_present(_tag_value(tag, "getEpisode", "") if tag else "", label("ListItem.Episode")), -1),
+        season=as_int(_first_present(_tag_value(tag, "getSeason", "") if tag else "", label("ListItem.Season"), invalid=(-1, "-1")), -1),
+        episode=as_int(_first_present(_tag_value(tag, "getEpisode", "") if tag else "", label("ListItem.Episode"), invalid=(-1, "-1")), -1),
         file_path=str(file_path),
         unique_ids=unique_ids,
     )

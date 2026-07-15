@@ -17,9 +17,10 @@ class Settings:
     confirm = False
     dry_run = False
     require_blocklist = False
-    path_mapper = PathMapper([])
     poll_timeout = 1
-    protected_paths = []
+    def __init__(self):
+        self.path_mapper = PathMapper([])
+        self.protected_paths = []
     def validate_backend(self): return None
 
 

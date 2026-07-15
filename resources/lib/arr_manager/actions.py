@@ -2,7 +2,7 @@ import posixpath
 import time
 
 from .clients import RadarrClient, SonarrClient
-from .errors import BlocklistError, ResolutionError, SafetyError
+from .errors import ApiError, BlocklistError, ResolutionError, SafetyError
 from .fileops import make_direct_backend
 from .history import match_history, unique_history_matches
 from .resolver import resolve_episode_context, resolve_movie, resolve_series
@@ -305,22 +305,44 @@ class ArrManager:
 
     def _wait_for_movie_file_removed(self, movie_id, file_id):
         deadline = time.monotonic() + self.settings.poll_timeout
+        last_error = None
         while time.monotonic() < deadline:
-            ids = {int(row.get("id") or 0) for row in self.radarr.movie_files(movie_id)}
+            try:
+                ids = {int(row.get("id") or 0) for row in self.radarr.movie_files(movie_id)}
+                last_error = None
+            except Exception as exc:
+                if not self._is_transient_poll_error(exc):
+                    raise
+                last_error = exc
+                self._log_transient_poll_error("Radarr movie-file reconciliation", exc)
+                self._bounded_wait(POLL_INTERVAL_SECONDS)
+                continue
             if file_id not in ids:
                 return
             self._bounded_wait(POLL_INTERVAL_SECONDS)
-        raise SafetyError("Radarr did not clear the deleted movie file after its rescan")
+        detail = f" Last transient error: {last_error}" if last_error else ""
+        raise SafetyError(f"Radarr did not clear the deleted movie file after its rescan.{detail}")
 
     def _wait_for_episode_files_removed(self, series_id, file_ids):
         file_ids = set(file_ids)
         deadline = time.monotonic() + self.settings.poll_timeout
+        last_error = None
         while time.monotonic() < deadline:
-            ids = {int(row.get("id") or 0) for row in self.sonarr.episode_files(series_id)}
+            try:
+                ids = {int(row.get("id") or 0) for row in self.sonarr.episode_files(series_id)}
+                last_error = None
+            except Exception as exc:
+                if not self._is_transient_poll_error(exc):
+                    raise
+                last_error = exc
+                self._log_transient_poll_error("Sonarr episode-file reconciliation", exc)
+                self._bounded_wait(POLL_INTERVAL_SECONDS)
+                continue
             if not (ids & file_ids):
                 return
             self._bounded_wait(POLL_INTERVAL_SECONDS)
-        raise SafetyError("Sonarr did not clear the deleted episode file(s) after its rescan")
+        detail = f" Last transient error: {last_error}" if last_error else ""
+        raise SafetyError(f"Sonarr did not clear the deleted episode file(s) after its rescan.{detail}")
 
 
     def _blocklist_confirmation(self, matches):
@@ -355,15 +377,36 @@ class ArrManager:
             raise SafetyError(f"{description} command was not accepted by Servarr")
         command_id = int(response["id"])
         deadline = time.monotonic() + self.settings.poll_timeout
+        last_error = None
         while time.monotonic() < deadline:
-            state = client.command_status(command_id)
+            try:
+                state = client.command_status(command_id)
+                last_error = None
+            except Exception as exc:
+                if not self._is_transient_poll_error(exc):
+                    raise
+                last_error = exc
+                self._log_transient_poll_error(f"{description} command polling", exc)
+                self._bounded_wait(POLL_INTERVAL_SECONDS)
+                continue
             status = str(state.get("status") or "").lower() if isinstance(state, dict) else ""
             if status in {"completed", "complete"}:
                 return state
             if status in {"failed", "failure", "aborted", "cancelled", "canceled"}:
                 raise SafetyError(f"{description} command failed: {state.get('message') or state.get('errorMessage') or status}")
             self._bounded_wait(POLL_INTERVAL_SECONDS)
-        raise SafetyError(f"{description} command did not complete before timeout")
+        detail = f" Last transient error: {last_error}" if last_error else ""
+        raise SafetyError(f"{description} command did not complete before timeout.{detail}")
+
+
+    def _is_transient_poll_error(self, exc):
+        if isinstance(exc, ApiError):
+            return exc.status is None or exc.status in {408, 429} or int(exc.status or 0) >= 500
+        return isinstance(exc, (ConnectionError, TimeoutError, OSError))
+
+    def _log_transient_poll_error(self, stage, exc):
+        if self.logger:
+            self.logger.warning("Transient %s error; retrying until deadline: %s", stage, exc)
 
     def _bounded_wait(self, seconds):
         waiter = getattr(self.ui, "wait_for_abort", None)
