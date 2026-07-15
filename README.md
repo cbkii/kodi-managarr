@@ -129,7 +129,7 @@ Keep protected paths configured for every storage root that must never be recurs
 
 Host-side CI validates Python 3.8 and 3.12 compatibility, XML and Python compilation, the complete unit-test suite, package construction, Kodi `addon-check` against the extracted release ZIP, archive contents, permissions and integrity.
 
-Physical Android TV testing and live Radarr/Sonarr testing are not performed by CI. The service connection tests and current actions have been validated on the target Kodi environment, but every release should still be checked against the actual media server and network configuration before broad deployment.
+Physical Android TV testing and live Radarr/Sonarr testing are not performed by CI. The service connection tests have been validated on the target Kodi environment; destructive action behavior should still be rechecked after installing a release containing these launcher changes.
 
 SFTP availability depends on a platform- and Kodi-version-compatible `vfs.sftp` add-on. Prefer Servarr API deletion whenever it satisfies the deployment requirements.
 
