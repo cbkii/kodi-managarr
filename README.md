@@ -1,67 +1,65 @@
 # Arr Manager for Kodi
 
-A Kodi Python 3 context-menu add-on for managing Radarr movies and Sonarr series/episodes directly from Kodi's video library.
+Arr Manager is a Python 3 context-menu add-on for managing Radarr movies and Sonarr series or episodes directly from Kodi's video library.
 
 ## Actions
 
 ### Delete & Exclude
 
-- **Movie:** removes the movie from Radarr, deletes its file/folder, and adds a Radarr import-list exclusion.
-- **Series:** removes the series from Sonarr, deletes its files/folder, and adds a Sonarr import-list exclusion.
-- **Episode:** deletes the episode file and unmonitors every episode linked to that file. Sonarr does not provide an episode-level import-list exclusion, so unmonitoring is the safe episode-level equivalent.
+- **Movie:** removes the movie from Radarr, deletes its file or folder, and adds a Radarr import-list exclusion.
+- **Series:** removes the series from Sonarr, deletes its files or folder, and adds a Sonarr import-list exclusion.
+- **Episode:** deletes the episode file and unmonitors every Sonarr episode linked to that file. Sonarr has no episode-level import-list exclusion, so unmonitoring is the conservative episode-level action and may later be changed by series or season monitoring.
 
 ### Delete & Replace
 
-- **Movie:** identifies the imported release, marks that release failed so Radarr blocklists it, deletes the current file, then starts a movie search.
-- **Episode:** handles multi-episode files, blocklists the matched imported release before deletion, deletes the file, then searches for every linked episode.
-- **Series:** preflights every current episode file, blocklists every unique matched release before the first deletion, deletes the files, then starts a full series search.
+- **Movie:** proves the imported release, marks it failed so Radarr blocklists it, deletes the current file, verifies reconciliation, then runs and verifies a movie search.
+- **Episode:** supports multi-episode files, blocklists the matched imported release before deletion, deletes and reconciles the file, then searches for all linked episodes.
+- **Series:** preflights every episode file, blocklists every unique matched release before the first deletion, deletes and reconciles all files, then runs and verifies a full series search.
 
-`Require release-history match before Replace` is enabled by default. If the add-on cannot prove which release created a file, it stops before deleting anything. If you disable strict matching, unmatched files may still be deleted and replaced, but no release is blocklisted for those files and the same release may be reacquired.
+`Require release-history match before Replace` is enabled by default. When the add-on cannot prove which imported release created every required file, it stops before deletion. Non-strict mode may replace unmatched files but clearly reports that no release was blocklisted and the same release may be reacquired.
 
 ## Android TV design
 
-Kodi on Android normally has no usable system `ssh` executable and cannot safely assume desktop Python wheels are available. This add-on therefore:
+Kodi on Android cannot safely assume a system SSH executable or desktop Python wheels. Arr Manager therefore:
 
-1. Uses the **Servarr APIs** as the recommended deletion backend.
-2. Supports **Kodi VFS** using Kodi's own saved SMB or SFTP source credentials.
-3. Uses Kodi's official optional **SFTP support** (`vfs.sftp`) binary add-on for SFTP paths instead of a Python SSH library.
+1. uses the **Servarr API** as the recommended deletion backend;
+2. uses **Kodi VFS** and Kodi-saved credentials for direct SMB or SFTP access;
+3. uses Kodi's optional official **SFTP support** (`vfs.sftp`) binary add-on instead of Paramiko or another Python SSH implementation;
+4. uses Python's standard-library HTTP client and no native Python dependencies.
 
-No Android storage permission is needed to delete Pi-hosted SMB or SFTP files through Kodi's VFS.
+No Android storage permission is required for Pi-hosted SMB or SFTP files accessed through Kodi VFS.
 
 ## Install on Kodi
 
-1. Download the latest `context.arr.manager-<version>.zip` release asset.
-2. Copy it to a location available to Kodi.
-3. In Kodi, enable **Settings → System → Add-ons → Unknown sources** if required.
-4. Open **Add-ons → Install from zip file** and select the archive.
-5. Open **Add-ons → My add-ons → Context menus → Arr Manager → Configure**.
-6. Enter the Radarr and Sonarr base URLs and API keys.
-7. Run both connection tests.
-8. Leave `Dry run` enabled for the first tests.
+1. Download `context.arr.manager-<version>.zip` from the release assets.
+2. In Kodi, enable **Settings → System → Add-ons → Unknown sources** when required.
+3. Open **Add-ons → Install from zip file** and select the archive.
+4. Open **Add-ons → My add-ons → Context menus → Arr Manager → Configure**.
+5. Enter the Radarr and Sonarr base URLs and API keys.
+6. Run both connection tests.
+7. Enable **Dry run** for the first validation pass.
 
-The context menu appears on Kodi **library** movies, TV shows and episodes. Add SMB folders as video sources and scan them into Kodi's library first.
+The context menu is available for Kodi library movies, TV shows and episodes. Media must first be scanned into Kodi's video library.
 
-## Recommended Pi settings
+## Radarr and Sonarr configuration
 
-For the supplied Pi baseline:
+Example LAN endpoints are:
 
 ```text
 Radarr URL: http://192.168.1.50:7878
 Sonarr URL: http://192.168.1.50:8989
 ```
 
-API keys are available in each application under **Settings → General → Security**.
+Use the actual address reachable from the TV; `localhost` refers to the Android TV itself. API keys are available under **Settings → General → Security** in each Servarr application. Runtime defaults intentionally contain no environment-specific IP address.
 
-Use whichever Pi address is reachable from the TV. Avoid `localhost`, because that refers to the Android TV itself.
+## Kodi VFS and path mappings
 
-## Network VFS setup and path mapping
+Add SMB or SFTP locations through Kodi's file manager or video-source setup. For SFTP, install and enable **SFTP support** from Kodi's repository, then create and verify an SSH/SFTP network location in Kodi before enabling direct deletion.
 
-Add the Pi shares to Kodi through **Settings → File manager → Add source** or **Videos → Files → Add videos**. For SFTP, install **SFTP support** from Kodi's repository, then use **Add network location → SSH/SFTP** and let Kodi save and verify the credentials before testing deletion.
-
-The add-on maps paths reported by Radarr/Sonarr to paths Kodi can open. The setting format is:
+Mappings translate paths reported by Radarr or Sonarr into paths Kodi can access:
 
 ```text
-Pi path=>Kodi VFS path;Pi path=>Kodi VFS path
+Servarr path=>Kodi VFS path;Servarr path=>Kodi VFS path
 ```
 
 Example:
@@ -70,93 +68,108 @@ Example:
 /media/mediasmb/Movies=>smb://192.168.1.50/Movies;/media/mediasmb/Shows=>sftp://192.168.1.50:22/media/mediasmb/Shows
 ```
 
-The SMB share names or SFTP paths must match the network location Kodi can access. Avoid embedding passwords in mapping text; use Kodi-managed credentials wherever possible. Kodi's selected library item path can also be used directly for a single movie or episode.
+Every destructive direct-backend path must resolve through exactly one configured mapping. Unmapped direct network URLs and arbitrary selected-item paths are rejected. Mapping syntax, authorities, overlaps, traversal, encoded separators and root boundaries are validated fail-closed. Avoid credentials in mapping text and use Kodi-managed credentials.
 
 ### Deletion backends
 
-- **Servarr API:** recommended. Radarr/Sonarr perform deletion locally on the Pi and update their databases atomically.
-- **Kodi VFS (SMB/SFTP):** Kodi deletes over the authenticated SMB source or official `vfs.sftp` SFTP source, then the add-on queues the appropriate Radarr/Sonarr rescan command, polls that command to completion, and waits for the file record to disappear. SFTP uses Kodi's trust-on-first-use host-key handling rather than add-on-controlled fingerprint pinning.
+- **Servarr API:** recommended. Radarr or Sonarr deletes locally and updates its database.
+- **Kodi VFS (SMB/SFTP):** Kodi deletes through an allowlisted mapped root. Arr Manager preflights the target, verifies accessibility, performs bounded deletion, polls the corresponding Servarr rescan command, and verifies that file records disappear.
+
+Recursive VFS deletion fully plans the tree before the first removal, applies depth and entry limits, rejects unsafe entries and roots, removes bottom-up, and verifies each operation. Unknown or inaccessible VFS state blocks deletion rather than being treated as absence.
 
 ## Safety behaviour
 
-- Destructive confirmation is on by default.
-- Dry-run mode is available.
-- Recursive deletion rejects root/share roots and configured protected paths.
-- Ambiguous Radarr/Sonarr matches fail safely.
-- API keys and credential-bearing network URLs are not written to diagnostics.
-- Replace actions resolve import history and complete all required blocklist calls before deleting.
-- After successful deletions, Kodi library rows are synchronised with targeted JSON-RPC removal calls when Kodi DB IDs are available; failures are reported separately from Servarr/file success.
+- destructive confirmation is enabled by default;
+- dry-run mode is available;
+- replacement blocklisting completes before the first file deletion;
+- multi-file operations preflight all required history and mappings before commit;
+- root, share-root, mapping-root, traversal and protected-path deletion is rejected;
+- malformed, overlapping or ambiguous mappings fail visibly;
+- title-only or contradictory media matches fail closed;
+- season and episode zero remain valid Kodi metadata;
+- runtime polling uses monotonic deadlines and Kodi shutdown-aware waits rather than `time.sleep()`;
+- only safe GET polling retries classified transient failures; mutating requests are never automatically retried;
+- Servarr rescan and replacement-search commands are polled to completion or failure;
+- Kodi library cleanup uses validated, targeted JSON-RPC calls rather than a blind global scan;
+- movie and TV-show rows are identity-checked before removal;
+- multi-episode and series-replacement cleanup resolves and removes affected episode rows while retaining the TV-show row;
+- failures after deletion report that the destructive commit already occurred rather than implying rollback;
+- API keys, credentials and sensitive URL components are excluded from diagnostics and user-facing errors.
 
-Keep the default protected paths and add any other storage roots that must never be recursively removed.
+Keep protected paths configured for every storage root that must never be recursively removed.
 
-## Current limitations
+## Validation status and limitations
 
-- Replace cannot guarantee blocklisting for manually copied/imported files that have no usable Servarr import history; strict mode stops safely, while non-strict mode warns that unmatched releases may be reacquired.
-- Host-side tests were run in this repository; Android device and live Radarr/Sonarr testing must be completed before release promotion.
-- SFTP availability depends on Kodi's optional platform-matched `vfs.sftp` binary add-on. Servarr API should still be preferred.
-- The initial release targets Kodi 19+ (Python 3), including current Android builds.
+Host-side CI validates Python 3.8 and 3.12 compatibility, XML and Python compilation, the complete unit-test suite, package construction, Kodi `addon-check` against the extracted release ZIP, archive contents, permissions and integrity.
+
+Physical Android TV testing and live Radarr/Sonarr testing have not been performed by CI and are not claimed. Before release promotion, validate on a real Kodi Android device with the actual media server and network environment.
+
+SFTP availability depends on a platform- and Kodi-version-compatible `vfs.sftp` add-on. Prefer Servarr API deletion whenever it satisfies the deployment requirements.
 
 ## Android validation checklist
 
-Before a release, verify on a real Android Kodi device: ZIP installation, settings rendering, context-menu visibility for movies/shows/episodes, Radarr and Sonarr connectivity, SMB access, SFTP access with `vfs.sftp` installed and enabled, dry-run output, Delete & Exclude and Delete & Replace for each media type, season-zero specials, multi-episode files, cancellation before deletion, network loss during rescan polling, and Kodi restart/shutdown during a bounded wait.
+Before promoting a release, verify:
+
+- ZIP installation and settings rendering;
+- context-menu visibility for movies, TV shows and episodes;
+- Radarr and Sonarr connection tests;
+- SMB root access;
+- SFTP access with `vfs.sftp` installed and enabled;
+- dry-run output;
+- Delete & Exclude for all three media types;
+- Delete & Replace for all three media types;
+- season-zero specials;
+- multi-episode files;
+- cancellation before deletion;
+- network loss during command or file-state polling;
+- Kodi shutdown or restart during a bounded wait;
+- Kodi library-row cleanup after each successful action.
 
 ## Development
 
 ```bash
+set -euo pipefail
 python3 scripts/validate.py
 python3 -m unittest discover -s tests -v
 python3 scripts/package.py
+rm -rf dist/addon-check
+python3 - <<'PY'
+import xml.etree.ElementTree as ET
+import zipfile
+from pathlib import Path
+root = ET.parse('addon.xml').getroot()
+addon_id = root.attrib['id']
+version = root.attrib['version']
+archive = Path('dist') / f'{addon_id}-{version}.zip'
+with zipfile.ZipFile(archive) as z:
+    z.extractall('dist/addon-check')
+PY
+kodi-addon-checker --branch matrix dist/addon-check/context.arr.manager
 ```
 
-The package command writes a Kodi-installable ZIP to `dist/`. The ZIP always contains the required `context.arr.manager/` top-level directory, regardless of the Git checkout directory name.
+The package always has one `context.arr.manager/` root and deterministic non-executable file permissions. Tests, CI files, documentation, build scripts, caches and compiled Python are excluded.
 
-The code uses only Python's standard library outside Kodi. Kodi runtime modules are imported only at entry points, so matching and path logic can be tested on a normal workstation.
+The runtime uses only Python's standard library outside Kodi. Kodi modules are imported at runtime boundaries so matching, path, HTTP, transaction and JSON-RPC behaviour can be tested with host-side fakes.
 
-## Coding-agent development
+## Coding-agent instructions
 
-Jules, Codex, GitHub Copilot coding agent, Copilot code review, and other autonomous agents must begin with:
+Coding agents must begin with:
 
-- [`AGENTS.md`](AGENTS.md) — shared architecture, safety, implementation, test, review and release contract;
-- [`docs/AGENT_SOURCES.md`](docs/AGENT_SOURCES.md) — authoritative Kodi, Android, Radarr, Sonarr, Prowlarr, API, Debian and battle-tested add-on references;
-- [`.github/copilot-instructions.md`](.github/copilot-instructions.md) — Copilot repository-wide instructions;
-- [`.github/instructions/`](.github/instructions/) — path-specific Kodi and Servarr instructions;
-- [`docs/agents/JULES.md`](docs/agents/JULES.md) and [`docs/agents/CODEX.md`](docs/agents/CODEX.md) — agent-specific execution profiles.
+- [`AGENTS.md`](AGENTS.md);
+- [`docs/AGENT_SOURCES.md`](docs/AGENT_SOURCES.md);
+- [`docs/REFERENCES.md`](docs/REFERENCES.md);
+- [`.github/copilot-instructions.md`](.github/copilot-instructions.md);
+- [`.github/instructions/`](.github/instructions/);
+- [`docs/agents/JULES.md`](docs/agents/JULES.md);
+- [`docs/agents/CODEX.md`](docs/agents/CODEX.md).
 
-The instructions require agents to verify external contracts against live OpenAPI or current upstream source, preserve fail-closed destructive behaviour, add regression tests, run validation/package checks, inspect complete review/CI evidence, and state any Android TV or live Servarr testing gaps.
+These instructions require authoritative Kodi and Servarr contract verification, fail-closed destructive behaviour, regression tests, package validation and truthful statements about device or live-service testing.
 
 ## Publishing a release
 
-The **Build and publish Kodi release** workflow is manual-only and its `workflow_dispatch` fields are authoritative.
+The **Build and publish Kodi release** workflow is manual-only. Its `workflow_dispatch` inputs control the branch, version, release channel, release notes and Latest-release status. The workflow validates, tests, packages, commits selected release metadata, creates the tag and release, and uploads the ZIP and checksum.
 
-Open **Actions → Build and publish Kodi release → Run workflow**, then set:
-
-- **branch:** the branch to package and update, normally `main`;
-- **version:** an exact numeric `x.y.z` version, or leave blank to increment the highest existing patch version automatically;
-- **channel:** `stable`, `prerelease`, or `draft`;
-- **release_notes:** optional release highlights; these are also written into `addon.xml` as the `<news>` entry;
-- **mark_latest:** whether a stable release should become GitHub's Latest release.
-
-Examples:
-
-- Existing highest version `0.1.0`, blank version input → `0.1.1`.
-- Existing highest version `99.99.9`, blank version input → `99.99.10`.
-- Version input `2.0.0` → exactly `2.0.0`.
-
-The workflow:
-
-1. resolves the authoritative version from the dispatch form;
-2. updates `addon.xml` version and news metadata;
-3. validates XML and Python source;
-4. runs unit tests;
-5. builds and verifies the Kodi-installable ZIP;
-6. commits the selected release metadata back to the chosen branch;
-7. creates the tag and GitHub release at that commit;
-8. uploads the ZIP and SHA-256 checksum as release assets and workflow artifacts;
-9. combines supplied highlights, installation guidance, compatibility details, provenance, and GitHub-generated change notes.
-
-It refuses duplicate tags/releases and invalid versions. Because the workflow writes back to the selected branch, that branch must permit GitHub Actions to push with `contents: write` permission.
-
-Run with automatic patch increment:
+For an automatic patch increment on `main`:
 
 ```bash
 gh workflow run release.yml \
@@ -171,39 +184,7 @@ gh workflow run release.yml \
 gh run watch --repo cbkii/kodi-managarr --exit-status
 ```
 
-Run with an explicit version:
-
-```bash
-gh workflow run release.yml \
-  --repo cbkii/kodi-managarr \
-  --ref main \
-  -f branch=main \
-  -f version=2.0.0 \
-  -f channel=stable \
-  -f mark_latest=true
-```
-
-## Repository layout
-
-```text
-AGENTS.md
-addon.xml
-context.py
-default.py
-resources/
-  settings.xml
-  language/
-  lib/arr_manager/
-tests/
-scripts/
-docs/
-  AGENT_SOURCES.md
-  agents/
-.github/
-  copilot-instructions.md
-  instructions/
-  workflows/
-```
+The selected branch must permit the release workflow to push its metadata commit with `contents: write` permission.
 
 ## Licence
 
