@@ -15,7 +15,11 @@ class BrandingTests(unittest.TestCase):
         summary = metadata.findtext("summary", default="")
         description = metadata.findtext("description", default="")
         self.assertEqual(summary, "Manage Radarr and Sonarr media from Kodi.")
-        self.assertIn("Actions:\n• Delete & Exclude\n• Delete & Replace", description)
+        description_lines = [line.strip() for line in description.splitlines() if line.strip()]
+        self.assertEqual(
+            description_lines[-3:],
+            ["Actions:", "• Delete & Exclude", "• Delete & Replace"],
+        )
 
     def test_context_menu_uses_requested_managarr_label(self):
         path = os.path.join(
