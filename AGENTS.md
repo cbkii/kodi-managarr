@@ -1,4 +1,4 @@
-# Kodi Managarr agent instructions
+# Managarr agent instructions
 
 These instructions apply to the entire repository. Jules, Codex, GitHub Copilot coding agent, Copilot code review, and any other autonomous coding agent must follow them. More-specific `AGENTS.md` files may refine these rules for a subtree, but may not weaken the safety, validation, or source-verification requirements here.
 

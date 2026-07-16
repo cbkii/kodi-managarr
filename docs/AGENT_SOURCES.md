@@ -1,6 +1,6 @@
 # Authoritative engineering sources for agents
 
-This file is a curated knowledgebase for Jules, Codex, GitHub Copilot, reviewers, and maintainers working on Kodi Managarr. Use it together with `AGENTS.md`.
+This file is a curated knowledgebase for Jules, Codex, GitHub Copilot, reviewers, and maintainers working on Managarr. Use it together with `AGENTS.md`.
 
 Links are grouped by authority and purpose. Before changing an external contract, open the relevant current source rather than relying on memory or a copied payload.
 
@@ -133,7 +133,7 @@ Important Debian guidance:
 
 - Official manual guidance commonly installs binaries under `/opt/Radarr` and app data under `/var/lib/radarr`.
 - It uses a dedicated `radarr` user and recommends a shared media group with read/write access to media and download paths.
-- These are deployment conventions, not paths that Kodi Managarr should hard-code or modify.
+- These are deployment conventions, not paths that Managarr should hard-code or modify.
 
 ## API and source
 
@@ -199,7 +199,7 @@ Verified contracts central to this project:
 - Imported history uses `DownloadFolderImported` (`eventType=3`) in the supported generation.
 - `POST /api/v3/history/failed/{id}` invokes normal failed-download/blocklist handling.
 
-Sonarr's import-list exclusion is series-level. There is no equivalent episode-level import-list exclusion in the current API model. Kodi Managarr's episode `Delete & Exclude` behaviour therefore unmonitors every episode linked to the deleted physical episode file.
+Sonarr's import-list exclusion is series-level. There is no equivalent episode-level import-list exclusion in the current API model. Managarr's episode `Delete & Exclude` behaviour therefore unmonitors every episode linked to the deleted physical episode file.
 
 ---
 
@@ -289,7 +289,7 @@ Use official repositories to inspect currently accepted manifests, settings sche
 ## Servarr path and permission model
 
 - Servarr system troubleshooting repeatedly emphasises consistent paths, separate download and library roots, correct remote-path mapping, and read/write permissions for the service user/group.
-- Kodi Managarr should surface path mismatches clearly but must not silently repair Linux permissions or rewrite Servarr root folders.
+- Managarr should surface path mismatches clearly but must not silently repair Linux permissions or rewrite Servarr root folders.
 - Direct file deletion over SMB/SFTP creates out-of-band filesystem changes. Always ask Servarr to rescan and verify its file record is reconciled before continuing.
 
 ## Commands are asynchronous

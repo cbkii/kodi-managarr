@@ -338,7 +338,7 @@ jobs:
             echo "1. Download \`$ADDON_ID-$VERSION.zip\` from **Assets** below."
             echo "2. Copy it to a location accessible from Kodi on the Android TV."
             echo "3. In Kodi, open **Add-ons → Install from zip file**."
-            echo "4. Select the downloaded ZIP, then configure the add-on under **My add-ons → Context menus → Arr Manager**."
+            echo "4. Select the downloaded ZIP, then configure the add-on under **My add-ons → Context menus → Managarr**."
             echo
             echo "Do not extract the ZIP before installing it in Kodi."
             echo
@@ -385,7 +385,7 @@ jobs:
             "$CHECKSUM#SHA-256 checksum"
             --repo "$GITHUB_REPOSITORY"
             --target "$TARGET_SHA"
-            --title "Arr Manager v$VERSION"
+            --title "Managarr v$VERSION"
             --generate-notes
             --notes-file "$NOTES_FILE"
           )

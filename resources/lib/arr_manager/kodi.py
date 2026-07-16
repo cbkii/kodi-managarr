@@ -17,7 +17,7 @@ class KodiLogger:
     def _write(self, level, message, *args):
         if args:
             message = message % args
-        self.xbmc.log(f"[Arr Manager] {message}", level)
+        self.xbmc.log(f"[Managarr] {message}", level)
 
     def debug(self, message, *args):
         if self.debug_enabled:

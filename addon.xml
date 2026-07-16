@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<addon id="context.arr.manager" name="Arr Manager" version="0.1.1" provider-name="CB">
+<addon id="context.arr.manager" name="Kodi Managarr" version="0.1.1" provider-name="CB">
   <requires>
     <import addon="xbmc.python" version="3.0.0"/>
   </requires>
@@ -22,12 +22,12 @@
     <provides>executable</provides>
   </extension>
   <extension point="xbmc.addon.metadata">
-    <summary lang="en_GB">Manage Radarr movies and Sonarr series or episodes from Kodi.</summary>
-    <description lang="en_GB">Adds Delete &amp; Exclude and Delete &amp; Replace actions to Kodi's video-library context menu. Supports Servarr API deletion and Kodi VFS deletion over SMB or SFTP.</description>
+    <summary lang="en_GB">Manage Radarr and Sonarr media from Kodi.</summary>
+    <description lang="en_GB">Manage Radarr movies and Sonarr series or episodes from Kodi.&#10;&#10;Actions:&#10;  • Delete &amp; Exclude&#10;  • Delete &amp; Replace</description>
     <platform>all</platform>
     <license>GPL-3.0-or-later</license>
     <source>https://github.com/cbkii/kodi-managarr</source>
-    <news>v0.1.1 (2026-07-15) - Automated release v0.1.1.</news>
+    <news>v0.1.1 (2026-07-15)</news>
     <assets>
       <icon>resources/icon.png</icon>
     </assets>
