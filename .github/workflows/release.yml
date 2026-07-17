@@ -112,7 +112,10 @@ jobs:
           if count != 1:
               raise SystemExit('Could not update version')
           news = escape(f'{tag} ({date.today().isoformat()}) - {notes}')
-          updated, count = re.subn(r'(<news>).*?(</news>)', rf'\g<1>{news}\2', updated, count=1, flags=re.S)
+          updated, count = re.subn(
+              r'(<news>).*?(</news>)',
+              lambda match: f'{match.group(1)}{news}{match.group(2)}',
+              updated, count=1, flags=re.S)
           if count != 1:
               raise SystemExit('Could not update news')
           path.write_text(updated, encoding='utf-8')
@@ -145,7 +148,8 @@ jobs:
           python scripts/validate.py
           ruff check .
           python -m unittest discover -s tests -v
-          export SOURCE_DATE_EPOCH="$(git show -s --format=%ct HEAD)"
+          SOURCE_DATE_EPOCH="$(git show -s --format=%ct HEAD)"
+          export SOURCE_DATE_EPOCH
           python scripts/package.py
           first="$(sha256sum "dist/context.arr.manager-$VERSION.zip" | cut -d' ' -f1)"
           cp "dist/context.arr.manager-$VERSION.zip" "$RUNNER_TEMP/first.zip"

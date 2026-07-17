@@ -106,7 +106,8 @@ def run_script(args):
             _run_action(mode, addon, settings, logger, ui)
             return
         if mode == "settings":
-            ui.open_settings(); return
+            ui.open_settings()
+            return
         if mode == "test_radarr":
             ui.ok(_s(addon, 32710, "Radarr connection"), _test_radarr(settings, logger)); return
         if mode == "test_sonarr":
@@ -186,6 +187,12 @@ def _run_queue_menu(addon, settings, logger, ui):
 
 
 def _change_quality_profile(addon, manager, selected, ui):
+    if selected.media_type == "episode":
+        if not ui.confirm(
+            _s(addon, 32008, "Change quality profile"),
+            _m(addon, "quality_episode_scope_confirm", title=selected.tvshow_title or selected.title),
+        ):
+            return _m(addon, "cancelled")
     profiles = manager.quality_profiles(selected)
     choice = ui.select(_s(addon, 32008, "Change quality profile"), [profile["name"] for profile in profiles])
     if choice < 0:
@@ -296,13 +303,18 @@ def _write_diagnostics(addon, settings, logger):
         sftp_available = bool(xbmc.getCondVisibility("System.HasAddon(vfs.sftp)"))
     except Exception:
         kodi_version = "unknown"; sftp_available = False
-    last_transaction = None
+    last_transaction_status = None
     transaction_path = os.path.join(profile, "last-transaction.json")
     try:
         with open(transaction_path, encoding="utf-8") as handle:
             candidate = json.load(handle)
         if isinstance(candidate, dict):
-            last_transaction = candidate
+            last_transaction_status = {
+                "operation": str(candidate.get("operation", "")),
+                "committed": bool(candidate.get("committed")),
+                "status": str(candidate.get("status", "")),
+                "errorType": str(candidate.get("errorType", "")),
+            }
     except (OSError, ValueError):
         pass
     payload = {
@@ -323,7 +335,7 @@ def _write_diagnostics(addon, settings, logger):
         "pathMappingCount": len(settings.path_mapper.mappings),
         "protectedPathCount": len(settings.protected_paths),
         "sftpAddonAvailable": sftp_available,
-        "lastTransaction": last_transaction,
+        "lastTransactionStatus": last_transaction_status,
     }
     with open(path, "w", encoding="utf-8") as handle:
         json.dump(payload, handle, indent=2, sort_keys=True)

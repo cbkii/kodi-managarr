@@ -43,7 +43,8 @@ def resolve_movie(selected, client, mapper):
             score += 80; reasons.append("title")
         movie_year = _year(movie.get("year"))
         if selected.year and movie_year and movie_year != selected.year and not ({"path", "mapped path"} & set(reasons)):
-            scored.append((0, movie, "year mismatch")); continue
+            scored.append((0, movie, "year mismatch"))
+            continue
         if selected.year and movie_year == selected.year:
             score += 25; reasons.append("year")
         if reasons == ["title"]:
@@ -78,7 +79,8 @@ def resolve_series(selected, client, mapper):
             score += 80; reasons.append("title")
         series_year = _year(series.get("year"))
         if selected.year and series_year and series_year != selected.year and not ({"path", "mapped path"} & set(reasons)):
-            scored.append((0, series, "year mismatch")); continue
+            scored.append((0, series, "year mismatch"))
+            continue
         if selected.year and series_year == selected.year:
             score += 25; reasons.append("year")
         if reasons == ["title"]:

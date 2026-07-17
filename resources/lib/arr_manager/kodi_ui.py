@@ -178,14 +178,17 @@ class KodiUI:
         raise KodiJsonRpcError("Could not safely resolve the Kodi movie row for targeted cleanup")
 
     def _resolve_tvshow_id(self, selected, allow_absent=True):
+        # Prefer the captured parent TV-show ID for episode selections
+        tvshow_db_id = int(getattr(selected, "tvshow_db_id", 0) or 0) if selected.media_type == "episode" else 0
         db_id = int(getattr(selected, "db_id", 0) or 0) if selected.media_type == "tvshow" else 0
-        if db_id > 0:
+        lookup_id = tvshow_db_id or db_id
+        if lookup_id > 0:
             try:
-                details = self.jsonrpc.tvshow_details(db_id)
+                details = self.jsonrpc.tvshow_details(lookup_id)
             except KodiJsonRpcError:
                 details = None
             if details and _tvshow_matches(details, selected, require_strong=False):
-                return int(details.get("tvshowid") or db_id)
+                return int(details.get("tvshowid") or lookup_id)
         candidates = [item for item in self.jsonrpc.tvshows() if _tvshow_matches(item, selected, require_strong=True)]
         if len(candidates) > 1:
             raise KodiJsonRpcError("Multiple Kodi TV show rows matched the deleted media")

@@ -21,6 +21,7 @@ class JsonRpcTests(unittest.TestCase):
         xbmc = Xbmc(result(1, "OK")); client = KodiJsonRpcClient(xbmc)
         self.assertEqual(client.remove_movie(12), "OK")
         self.assertEqual(xbmc.requests[0]["method"], "VideoLibrary.RemoveMovie")
+        self.assertEqual(xbmc.requests[0]["params"], {"movieid": 12})
 
     def test_malformed_and_mismatched_responses_rejected(self):
         for raw in ("not-json", "[]", '"string"', "null"):

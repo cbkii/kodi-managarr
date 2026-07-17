@@ -55,12 +55,20 @@ class Settings:
         self.poll_timeout = as_int(get("rescan_poll_timeout"), 45, 5, 300)
         timeout = as_int(get("http_timeout"), 15, 3, 120)
         self.radarr = ServiceConfig(
-            as_bool(get("radarr_enabled"), True), get("radarr_url").strip(), get("radarr_api_key").strip(),
-            get("radarr_api_version").strip() or "v3", timeout, as_bool(get("radarr_verify_tls"), True)
+            enabled=as_bool(get("radarr_enabled"), True),
+            url=get("radarr_url").strip(),
+            api_key=get("radarr_api_key").strip(),
+            api_version=get("radarr_api_version").strip() or "v3",
+            timeout=timeout,
+            verify_tls=as_bool(get("radarr_verify_tls"), True),
         )
         self.sonarr = ServiceConfig(
-            as_bool(get("sonarr_enabled"), True), get("sonarr_url").strip(), get("sonarr_api_key").strip(),
-            get("sonarr_api_version").strip() or "v3", timeout, as_bool(get("sonarr_verify_tls"), True)
+            enabled=as_bool(get("sonarr_enabled"), True),
+            url=get("sonarr_url").strip(),
+            api_key=get("sonarr_api_key").strip(),
+            api_version=get("sonarr_api_version").strip() or "v3",
+            timeout=timeout,
+            verify_tls=as_bool(get("sonarr_verify_tls"), True),
         )
 
     def validate_backend(self):

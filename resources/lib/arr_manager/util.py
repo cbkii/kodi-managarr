@@ -82,7 +82,9 @@ def normalise_path(value):
         if ":" in host and not host.startswith("["):
             host = f"[{host}]"
         port = parts.port
-        netloc = host if port is None else f"{host}:{port}"
+        authority = host if port is None else f"{host}:{port}"
+        userinfo = parts.netloc.rsplit("@", 1)[0] if "@" in parts.netloc else ""
+        netloc = f"{userinfo}@{authority}" if userinfo else authority
         return urlunsplit((scheme, netloc, path, "", ""))
     if scheme and "://" in raw:
         raise ValueError(f"Unsupported path scheme: {scheme}")

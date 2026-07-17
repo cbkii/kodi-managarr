@@ -73,8 +73,12 @@ class KodiNetworkVFSBackend(FileBackend):
             raise SafetyError(f"Kodi VFS parent listing still contains {path}")
 
     def delete_tree(self, path, plan=None):
-        plan = plan or self.preflight_tree(path)
-        files, dirs = list(plan["files"]), list(plan["dirs"])
+        fresh_plan = self.preflight_tree(path)
+        if plan is not None and set(plan.get("files", [])) != set(fresh_plan["files"]):
+            raise SafetyError(
+                f"Directory contents changed after confirmation; aborting deletion of {path}"
+            )
+        files, dirs = list(fresh_plan["files"]), list(fresh_plan["dirs"])
         deleted_by_parent = {}
         for child in files:
             if not self.vfs.delete(child):

@@ -26,7 +26,10 @@ def match_history(records, file_record, episode_ids=None):
             candidate = normalise_optional_path(data.get(key) or "")
             if candidate and wanted_path and paths_equal(candidate, wanted_path):
                 score += 140; reasons.append(key); break
-        episode_id = int(record.get("episodeId") or 0)
+        try:
+            episode_id = int(record.get("episodeId") or 0)
+        except (TypeError, ValueError):
+            episode_id = 0
         if episode_ids and episode_id in episode_ids:
             score += 35; reasons.append("episode")
         download_id = str(record.get("downloadId") or "")
@@ -55,5 +58,6 @@ def unique_history_matches(matches):
             continue
         key = match.download_id or f"history:{match.history_id}"
         if key not in seen:
-            seen.add(key); output.append(match)
+            seen.add(key)
+            output.append(match)
     return output

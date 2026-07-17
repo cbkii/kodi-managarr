@@ -16,10 +16,14 @@ def _list(value, description):
 
 
 def _id(value, description):
-    try:
-        result = int(value)
-    except (TypeError, ValueError) as exc:
-        raise ApiError(f"{description} did not contain a valid ID") from exc
+    if isinstance(value, bool):
+        raise ApiError(f"{description} did not contain a valid ID")
+    if isinstance(value, int):
+        result = value
+    elif isinstance(value, str) and value.strip().isdigit():
+        result = int(value.strip())
+    else:
+        raise ApiError(f"{description} did not contain a valid ID")
     if result <= 0:
         raise ApiError(f"{description} did not contain a valid ID")
     return result
@@ -46,7 +50,7 @@ class ServarrClient:
         return _object(self.http.request("GET", f"/command/{_id(command_id, 'Command')}"), "Command status")
 
     def quality_profiles(self):
-        return _list(self.http.request("GET", "/qualityprofile") or [], "Quality profiles")
+        return _list(self.http.request("GET", "/qualityprofile"), "Quality profiles")
 
     def remove_queue_item(self, queue_id, remove_from_client=True, blocklist=False):
         return self.http.request(
@@ -58,15 +62,16 @@ class ServarrClient:
     @staticmethod
     def _queue_records(response):
         obj = _object(response, "Queue")
-        return _list(obj.get("records", []), "Queue records")
+        records = obj.get("records")
+        return _list(records, "Queue records")
 
 
 class RadarrClient(ServarrClient):
     def all_movies(self):
-        return _list(self.http.request("GET", "/movie") or [], "Movies")
+        return _list(self.http.request("GET", "/movie"), "Movies")
 
     def movie_by_tmdb(self, tmdb_id):
-        rows = _list(self.http.request("GET", "/movie", params={"tmdbId": int(tmdb_id)}) or [], "Movie lookup")
+        rows = _list(self.http.request("GET", "/movie", params={"tmdbId": int(tmdb_id)}), "Movie lookup")
         if len(rows) > 1:
             raise ApiError("Radarr returned multiple movies for the same TMDb ID")
         return rows[0] if rows else None
@@ -79,7 +84,7 @@ class RadarrClient(ServarrClient):
         return _object(self.http.request("PUT", f"/movie/{_id(movie.get('id'), 'Movie')}", payload=movie), "Movie update")
 
     def movie_files(self, movie_id):
-        return _list(self.http.request("GET", "/movieFile", params={"movieId": _id(movie_id, 'Movie')}) or [], "Movie files")
+        return _list(self.http.request("GET", "/movieFile", params={"movieId": _id(movie_id, 'Movie')}), "Movie files")
 
     def delete_movie(self, movie_id, delete_files=True, add_exclusion=True):
         return self.http.request("DELETE", f"/movie/{_id(movie_id, 'Movie')}", params={"deleteFiles": delete_files, "addImportExclusion": add_exclusion})
@@ -88,10 +93,10 @@ class RadarrClient(ServarrClient):
         return self.http.request("DELETE", f"/movieFile/{_id(file_id, 'Movie file')}")
 
     def movie_history(self, movie_id, event_type=3):
-        return _list(self.http.request("GET", "/history/movie", params={"movieId": _id(movie_id, 'Movie'), "eventType": event_type}) or [], "Movie history")
+        return _list(self.http.request("GET", "/history/movie", params={"movieId": _id(movie_id, 'Movie'), "eventType": event_type}), "Movie history")
 
     def queue(self, movie_id):
-        return self._queue_records(self.http.request("GET", "/queue", params={"page": 1, "pageSize": 100, "includeMovie": True, "movieIds": [_id(movie_id, 'Movie')]}) or {})
+        return self._queue_records(self.http.request("GET", "/queue", params={"page": 1, "pageSize": 100, "includeMovie": True, "movieIds": [_id(movie_id, 'Movie')]}))
 
     def search_movie(self, movie_id):
         return self.command("MoviesSearch", movieIds=[_id(movie_id, 'Movie')])
@@ -102,10 +107,10 @@ class RadarrClient(ServarrClient):
 
 class SonarrClient(ServarrClient):
     def all_series(self):
-        return _list(self.http.request("GET", "/series") or [], "Series")
+        return _list(self.http.request("GET", "/series"), "Series")
 
     def series_by_tvdb(self, tvdb_id):
-        rows = _list(self.http.request("GET", "/series", params={"tvdbId": int(tvdb_id)}) or [], "Series lookup")
+        rows = _list(self.http.request("GET", "/series", params={"tvdbId": int(tvdb_id)}), "Series lookup")
         if len(rows) > 1:
             raise ApiError("Sonarr returned multiple series for the same TVDb ID")
         return rows[0] if rows else None
@@ -121,14 +126,14 @@ class SonarrClient(ServarrClient):
         params = {"seriesId": _id(series_id, 'Series')}
         if season_number is not None and int(season_number) >= 0:
             params["seasonNumber"] = int(season_number)
-        return _list(self.http.request("GET", "/episode", params=params) or [], "Episodes")
+        return _list(self.http.request("GET", "/episode", params=params), "Episodes")
 
     def update_episode(self, episode):
         episode = _object(dict(episode), "Episode update")
         return _object(self.http.request("PUT", f"/episode/{_id(episode.get('id'), 'Episode')}", payload=episode), "Episode update")
 
     def episode_files(self, series_id):
-        return _list(self.http.request("GET", "/episodeFile", params={"seriesId": _id(series_id, 'Series')}) or [], "Episode files")
+        return _list(self.http.request("GET", "/episodeFile", params={"seriesId": _id(series_id, 'Series')}), "Episode files")
 
     def delete_episode_file(self, file_id):
         return self.http.request("DELETE", f"/episodeFile/{_id(file_id, 'Episode file')}")
@@ -141,10 +146,10 @@ class SonarrClient(ServarrClient):
         return self.http.request("DELETE", f"/series/{_id(series_id, 'Series')}", params={"deleteFiles": delete_files, "addImportListExclusion": add_exclusion})
 
     def series_history(self, series_id, season_number=None, event_type=3):
-        return _list(self.http.request("GET", "/history/series", params={"seriesId": _id(series_id, 'Series'), "seasonNumber": season_number, "eventType": event_type}) or [], "Series history")
+        return _list(self.http.request("GET", "/history/series", params={"seriesId": _id(series_id, 'Series'), "seasonNumber": season_number, "eventType": event_type}), "Series history")
 
     def queue(self, series_id):
-        return self._queue_records(self.http.request("GET", "/queue", params={"page": 1, "pageSize": 100, "includeSeries": True, "includeEpisode": True, "seriesIds": [_id(series_id, 'Series')]}) or {})
+        return self._queue_records(self.http.request("GET", "/queue", params={"page": 1, "pageSize": 100, "includeSeries": True, "includeEpisode": True, "seriesIds": [_id(series_id, 'Series')]}))
 
     def search_episodes(self, episode_ids):
         return self.command("EpisodeSearch", episodeIds=[_id(value, 'Episode') for value in episode_ids])

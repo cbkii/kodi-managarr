@@ -10,7 +10,12 @@ class FileSafetyTests(unittest.TestCase):
             with self.subTest(value=value),self.assertRaises(SafetyError): _validate_delete_path(value,protected,folder=True)
         _validate_delete_path('smb://pi/Movies/Film',protected,folder=True)
     def test_case_mismatch_not_treated_as_protected_identity(self):
-        _validate_delete_path('smb://pi/movies/Film',['smb://pi/Movies'],folder=True)
+        with self.assertRaises(SafetyError):
+            _validate_delete_path(
+                'smb://pi/movies',
+                ['smb://pi/Movies'],
+                folder=True,
+            )
     def test_credential_url_blocked(self):
         with self.assertRaises(SafetyError): _validate_delete_path('sftp://user:pass@pi/media/file.mkv',[],False)
 if __name__=='__main__': unittest.main()

@@ -10,6 +10,7 @@ class SelectedItem:
     title: str = ""
     year: int = 0
     tvshow_title: str = ""
+    tvshow_db_id: int = 0
     season: int = -1
     episode: int = -1
     file_path: str = ""

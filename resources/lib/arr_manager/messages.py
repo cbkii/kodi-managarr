@@ -89,6 +89,7 @@ MESSAGES = {
     "backend_movie_unmapped": (32884, "The selected movie folder has no allowlisted Kodi mapping."),
     "backend_series_unmapped": (32885, "The selected series folder has no allowlisted Kodi mapping."),
     "backend_episode_unmapped": (32886, "The selected episode file has no allowlisted Kodi mapping."),
+    "quality_episode_scope_confirm": (32887, "Changing the quality profile for an episode applies to the entire series '{title}'. Continue?"),
 }
 
 

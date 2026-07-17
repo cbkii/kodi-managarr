@@ -188,7 +188,8 @@ class SharedSafetyMixin:
         last_error = None
         while time.monotonic() < deadline:
             try:
-                state = client.command_status(command_id); last_error = None
+                state = client.command_status(command_id)
+                last_error = None
             except Exception as exc:
                 if not self._is_transient_poll_error(exc):
                     raise

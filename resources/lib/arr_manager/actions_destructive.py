@@ -116,10 +116,12 @@ class DestructiveMixin:
                         self.sonarr.update_episode(updated); changed.append(episode)
                 tx.mark("episode monitoring update")
                 if backend is None:
+                    committed = True
                     self.sonarr.delete_episode_file(file_record["id"])
                 else:
+                    committed = True
                     backend.delete_file(path)
-                committed = True; tx.mark("episode file deletion", committed=True)
+                tx.mark("episode file deletion", committed=True)
                 if backend:
                     self._poll_command(self.sonarr, self.sonarr.rescan_series(series["id"]), "Sonarr rescan")
                     self._wait_for_episode_files_removed(series["id"], {int(file_record["id"])})

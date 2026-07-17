@@ -64,7 +64,8 @@ def _validate_context_items(addon):
         if not key[0] or key in seen:
             raise SystemExit(f"Duplicate or invalid context item: {key}")
         seen.add(key)
-        if item.find("visible") is None:
+        visible = item.find("visible")
+        if visible is None or not (visible.text or "").strip():
             raise SystemExit(f"Context item {key} is missing a visible expression")
 
 

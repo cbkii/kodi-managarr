@@ -606,3 +606,8 @@ msgctxt "#32886"
 msgid "The selected episode file has no allowlisted Kodi mapping."
 msgstr "The selected episode file has no allowlisted Kodi mapping."
 
+
+#. quality_episode_scope_confirm
+msgctxt "#32887"
+msgid "Changing the quality profile for an episode applies to the entire series '{title}'. Continue?"
+msgstr "Changing the quality profile for an episode applies to the entire series '{title}'. Continue?"

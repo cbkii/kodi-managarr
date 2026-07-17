@@ -139,6 +139,7 @@ def selected_item_from_context():
         title=str(title),
         year=as_int(_first_present(_tag_value(tag, "getYear", "") if tag else "", label("ListItem.Year"), invalid=(0, "0")), 0),
         tvshow_title=str(tvshow_title),
+        tvshow_db_id=as_int(label("ListItem.TVShowDBID"), 0),
         season=as_int(_first_present(_tag_value(tag, "getSeason", "") if tag else "", label("ListItem.Season"), invalid=(-1, "-1")), -1),
         episode=as_int(_first_present(_tag_value(tag, "getEpisode", "") if tag else "", label("ListItem.Episode"), invalid=(-1, "-1")), -1),
         file_path=str(file_path),
