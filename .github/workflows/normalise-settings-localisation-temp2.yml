@@ -1,0 +1,177 @@
+name: Temporary settings localisation repair v2
+
+on:
+  push:
+    branches: [main]
+    paths: [.github/NORMALISE_SETTINGS_LOCALISATION_TEMP2]
+
+permissions:
+  contents: write
+
+jobs:
+  normalise:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: fix/settings-ui-localisation
+          fetch-depth: 0
+          persist-credentials: true
+      - name: Repair Kodi PO message boundaries and add settings help
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import re
+          from pathlib import Path
+
+          path = Path('resources/language/resource.language.en_gb/strings.po')
+          content = path.read_text(encoding='utf-8').replace('\r\n', '\n').replace('\r', '\n')
+          content = re.sub(
+              r'(?m)^(msgstr ".*")\n(?=msgctxt "#[0-9]+"$)',
+              r'\1\n\n',
+              content,
+          )
+
+          help_entries = '''
+          msgctxt "#32120"
+          msgid "Configure safety checks and shared network behaviour."
+          msgstr "Configure safety checks and shared network behaviour."
+
+          msgctxt "#32121"
+          msgid "Use the Servarr API for normal operation. Choose Kodi VFS only when Kodi must delete files through an SMB or SFTP source."
+          msgstr "Use the Servarr API for normal operation. Choose Kodi VFS only when Kodi must delete files through an SMB or SFTP source."
+
+          msgctxt "#32122"
+          msgid "Ask for confirmation before deletion, queue removal, monitoring changes, searches, or quality-profile changes."
+          msgstr "Ask for confirmation before deletion, queue removal, monitoring changes, searches, or quality-profile changes."
+
+          msgctxt "#32123"
+          msgid "Preview actions without changing Servarr, Kodi, downloads, or media files."
+          msgstr "Preview actions without changing Servarr, Kodi, downloads, or media files."
+
+          msgctxt "#32124"
+          msgid "Require a matching release-history record before Delete & Replace can blocklist and search for another release."
+          msgstr "Require a matching release-history record before Delete & Replace can blocklist and search for another release."
+
+          msgctxt "#32125"
+          msgid "Maximum time for each HTTP request to Radarr or Sonarr. Increase only for slow or remote servers."
+          msgstr "Maximum time for each HTTP request to Radarr or Sonarr. Increase only for slow or remote servers."
+
+          msgctxt "#32220"
+          msgid "Connect Kodi Managarr to Radarr for movie status, searches, monitoring, quality profiles, queue actions, and deletion workflows."
+          msgstr "Connect Kodi Managarr to Radarr for movie status, searches, monitoring, quality profiles, queue actions, and deletion workflows."
+
+          msgctxt "#32221"
+          msgid "Show and run Radarr actions for selected Kodi movies."
+          msgstr "Show and run Radarr actions for selected Kodi movies."
+
+          msgctxt "#32222"
+          msgid "Radarr server URL including scheme and port, for example http://192.168.1.50:7878. Do not include /api/v3."
+          msgstr "Radarr server URL including scheme and port, for example http://192.168.1.50:7878. Do not include /api/v3."
+
+          msgctxt "#32223"
+          msgid "Copy the API key from Radarr Settings → General → Security. The value is stored by Kodi and hidden in this dialog."
+          msgstr "Copy the API key from Radarr Settings → General → Security. The value is stored by Kodi and hidden in this dialog."
+
+          msgctxt "#32224"
+          msgid "Radarr API path version. Keep v3 unless a supported Radarr release requires a different value."
+          msgstr "Radarr API path version. Keep v3 unless a supported Radarr release requires a different value."
+
+          msgctxt "#32225"
+          msgid "Verify the server certificate for HTTPS Radarr URLs. Disable only for a trusted server using a self-signed certificate."
+          msgstr "Verify the server certificate for HTTPS Radarr URLs. Disable only for a trusted server using a self-signed certificate."
+
+          msgctxt "#32226"
+          msgid "Close settings and perform a read-only Radarr connection and API-version test."
+          msgstr "Close settings and perform a read-only Radarr connection and API-version test."
+
+          msgctxt "#32320"
+          msgid "Connect Kodi Managarr to Sonarr for series and episode status, searches, monitoring, quality profiles, queue actions, and deletion workflows."
+          msgstr "Connect Kodi Managarr to Sonarr for series and episode status, searches, monitoring, quality profiles, queue actions, and deletion workflows."
+
+          msgctxt "#32321"
+          msgid "Show and run Sonarr actions for selected Kodi TV shows and episodes."
+          msgstr "Show and run Sonarr actions for selected Kodi TV shows and episodes."
+
+          msgctxt "#32322"
+          msgid "Sonarr server URL including scheme and port, for example http://192.168.1.50:8989. Do not include /api/v3."
+          msgstr "Sonarr server URL including scheme and port, for example http://192.168.1.50:8989. Do not include /api/v3."
+
+          msgctxt "#32323"
+          msgid "Copy the API key from Sonarr Settings → General → Security. The value is stored by Kodi and hidden in this dialog."
+          msgstr "Copy the API key from Sonarr Settings → General → Security. The value is stored by Kodi and hidden in this dialog."
+
+          msgctxt "#32324"
+          msgid "Sonarr API path version. Keep v3 unless a supported Sonarr release requires a different value."
+          msgstr "Sonarr API path version. Keep v3 unless a supported Sonarr release requires a different value."
+
+          msgctxt "#32325"
+          msgid "Verify the server certificate for HTTPS Sonarr URLs. Disable only for a trusted server using a self-signed certificate."
+          msgstr "Verify the server certificate for HTTPS Sonarr URLs. Disable only for a trusted server using a self-signed certificate."
+
+          msgctxt "#32326"
+          msgid "Close settings and perform a read-only Sonarr connection and API-version test."
+          msgstr "Close settings and perform a read-only Sonarr connection and API-version test."
+
+          msgctxt "#32420"
+          msgid "Map Servarr filesystem paths to Kodi SMB or SFTP paths and protect important roots from direct deletion."
+          msgstr "Map Servarr filesystem paths to Kodi SMB or SFTP paths and protect important roots from direct deletion."
+
+          msgctxt "#32421"
+          msgid "Semicolon-separated Servarr=>Kodi mappings, for example /media/Movies=>smb://server/Movies. Required only for Kodi VFS deletion when paths differ."
+          msgstr "Semicolon-separated Servarr=>Kodi mappings, for example /media/Movies=>smb://server/Movies. Required only for Kodi VFS deletion when paths differ."
+
+          msgctxt "#32422"
+          msgid "Semicolon-separated paths that Kodi Managarr must never delete recursively. Keep filesystem, share, and library roots protected."
+          msgstr "Semicolon-separated paths that Kodi Managarr must never delete recursively. Keep filesystem, share, and library roots protected."
+
+          msgctxt "#32423"
+          msgid "Maximum time to wait for Servarr commands, rescans, and post-action state changes to complete."
+          msgstr "Maximum time to wait for Servarr commands, rescans, and post-action state changes to complete."
+
+          msgctxt "#32424"
+          msgid "Close settings and perform a read-only accessibility test using the selected deletion backend and current path mappings."
+          msgstr "Close settings and perform a read-only accessibility test using the selected deletion backend and current path mappings."
+
+          msgctxt "#32620"
+          msgid "Control diagnostic logging and create a support file without API keys or credential-bearing URLs."
+          msgstr "Control diagnostic logging and create a support file without API keys or credential-bearing URLs."
+
+          msgctxt "#32621"
+          msgid "Write additional non-secret troubleshooting detail to kodi.log. Leave disabled during normal operation."
+          msgstr "Write additional non-secret troubleshooting detail to kodi.log. Leave disabled during normal operation."
+
+          msgctxt "#32622"
+          msgid "Close settings and write a redacted diagnostic report containing configuration shape, versions, and recent transaction stages."
+          msgstr "Close settings and write a redacted diagnostic report containing configuration shape, versions, and recent transaction stages."
+          '''.strip()
+
+          help_ids = set(re.findall(r'msgctxt "#([0-9]+)"', help_entries))
+          existing = set(re.findall(r'msgctxt "#([0-9]+)"', content))
+          if help_ids & existing:
+              raise SystemExit(f'Help string ID collision: {sorted(help_ids & existing)}')
+          insertion = content.find('#. continue')
+          if insertion < 0:
+              raise SystemExit('Could not find runtime localisation insertion point')
+          content = content[:insertion].rstrip() + '\n\n' + help_entries + '\n\n' + content[insertion:]
+          path.write_text(content.rstrip() + '\n', encoding='utf-8')
+
+          repaired = path.read_text(encoding='utf-8')
+          blocks = [block for block in re.split(r'\n[ \t]*\n', repaired) if block.strip()]
+          malformed = [re.findall(r'msgctxt "#([0-9]+)"', block) for block in blocks]
+          malformed = [ids for ids in malformed if len(ids) > 1]
+          if malformed:
+              raise SystemExit(f'Malformed PO blocks remain: {malformed}')
+          missing = sorted(help_ids - set(re.findall(r'msgctxt "#([0-9]+)"', repaired)))
+          if missing:
+              raise SystemExit(f'Missing inserted help IDs: {missing}')
+          PY
+      - name: Commit repaired catalogue to PR branch
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add resources/language/resource.language.en_gb/strings.po
+          git commit -m 'Fix Kodi settings localisation catalogue'
+          git push origin HEAD:fix/settings-ui-localisation
