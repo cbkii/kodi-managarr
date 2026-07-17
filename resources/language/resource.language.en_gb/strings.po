@@ -10,36 +10,47 @@ msgstr ""
 msgctxt "#32000"
 msgid "🗑️ Managarr"
 msgstr "🗑️ Managarr"
+
 msgctxt "#32001"
 msgid "Delete & Exclude"
 msgstr "Delete & Exclude"
+
 msgctxt "#32002"
 msgid "Delete & Replace"
 msgstr "Delete & Replace"
+
 msgctxt "#32003"
 msgid "Status"
 msgstr "Status"
+
 msgctxt "#32004"
 msgid "Search & download now"
 msgstr "Search & download now"
+
 msgctxt "#32005"
 msgid "Monitoring"
 msgstr "Monitoring"
+
 msgctxt "#32006"
 msgid "Monitor"
 msgstr "Monitor"
+
 msgctxt "#32007"
 msgid "Unmonitor"
 msgstr "Unmonitor"
+
 msgctxt "#32008"
 msgid "Change quality profile"
 msgstr "Change quality profile"
+
 msgctxt "#32009"
 msgid "Download queue"
 msgstr "Download queue"
+
 msgctxt "#32010"
 msgid "View status"
 msgstr "View status"
+
 msgctxt "#32011"
 msgid "Remove"
 msgstr "Remove"
@@ -47,24 +58,31 @@ msgstr "Remove"
 msgctxt "#32100"
 msgid "General"
 msgstr "General"
+
 msgctxt "#32101"
 msgid "Deletion backend"
 msgstr "Deletion backend"
+
 msgctxt "#32102"
 msgid "Confirm destructive actions"
 msgstr "Confirm destructive actions"
+
 msgctxt "#32103"
 msgid "Dry run (make no changes)"
 msgstr "Dry run (make no changes)"
+
 msgctxt "#32104"
 msgid "Require release-history match before Replace"
 msgstr "Require release-history match before Replace"
+
 msgctxt "#32106"
 msgid "HTTP timeout (seconds)"
 msgstr "HTTP timeout (seconds)"
+
 msgctxt "#32110"
 msgid "Servarr API (recommended)"
 msgstr "Servarr API (recommended)"
+
 msgctxt "#32111"
 msgid "Kodi VFS (SMB/SFTP)"
 msgstr "Kodi VFS (SMB/SFTP)"
@@ -72,21 +90,27 @@ msgstr "Kodi VFS (SMB/SFTP)"
 msgctxt "#32200"
 msgid "Radarr"
 msgstr "Radarr"
+
 msgctxt "#32201"
 msgid "Enable Radarr"
 msgstr "Enable Radarr"
+
 msgctxt "#32202"
 msgid "Radarr base URL"
 msgstr "Radarr base URL"
+
 msgctxt "#32203"
 msgid "Radarr API key"
 msgstr "Radarr API key"
+
 msgctxt "#32204"
 msgid "Radarr API version"
 msgstr "Radarr API version"
+
 msgctxt "#32205"
 msgid "Verify Radarr HTTPS certificate"
 msgstr "Verify Radarr HTTPS certificate"
+
 msgctxt "#32206"
 msgid "Test Radarr connection"
 msgstr "Test Radarr connection"
@@ -94,21 +118,27 @@ msgstr "Test Radarr connection"
 msgctxt "#32300"
 msgid "Sonarr"
 msgstr "Sonarr"
+
 msgctxt "#32301"
 msgid "Enable Sonarr"
 msgstr "Enable Sonarr"
+
 msgctxt "#32302"
 msgid "Sonarr base URL"
 msgstr "Sonarr base URL"
+
 msgctxt "#32303"
 msgid "Sonarr API key"
 msgstr "Sonarr API key"
+
 msgctxt "#32304"
 msgid "Sonarr API version"
 msgstr "Sonarr API version"
+
 msgctxt "#32305"
 msgid "Verify Sonarr HTTPS certificate"
 msgstr "Verify Sonarr HTTPS certificate"
+
 msgctxt "#32306"
 msgid "Test Sonarr connection"
 msgstr "Test Sonarr connection"
@@ -116,15 +146,19 @@ msgstr "Test Sonarr connection"
 msgctxt "#32400"
 msgid "Network VFS / path mapping"
 msgstr "Network VFS / path mapping"
+
 msgctxt "#32401"
 msgid "Mappings: Servarr path=>Kodi VFS path; separate with ;"
 msgstr "Mappings: Servarr path=>Kodi VFS path; separate with ;"
+
 msgctxt "#32402"
 msgid "Protected paths; separate with ;"
 msgstr "Protected paths; separate with ;"
+
 msgctxt "#32403"
 msgid "Command and rescan timeout (seconds)"
 msgstr "Command and rescan timeout (seconds)"
+
 msgctxt "#32404"
 msgid "Test selected file backend (read-only)"
 msgstr "Test selected file backend (read-only)"
@@ -132,18 +166,23 @@ msgstr "Test selected file backend (read-only)"
 msgctxt "#32500"
 msgid "Tools & settings"
 msgstr "Tools & settings"
+
 msgctxt "#32501"
 msgid "Open settings"
 msgstr "Open settings"
+
 msgctxt "#32502"
 msgid "Test Radarr"
 msgstr "Test Radarr"
+
 msgctxt "#32503"
 msgid "Test Sonarr"
 msgstr "Test Sonarr"
+
 msgctxt "#32504"
 msgid "Test file backend"
 msgstr "Test file backend"
+
 msgctxt "#32505"
 msgid "Write diagnostics"
 msgstr "Write diagnostics"
@@ -151,9 +190,11 @@ msgstr "Write diagnostics"
 msgctxt "#32600"
 msgid "Diagnostics"
 msgstr "Diagnostics"
+
 msgctxt "#32601"
 msgid "Debug logging"
 msgstr "Debug logging"
+
 msgctxt "#32602"
 msgid "Write non-secret diagnostics file"
 msgstr "Write non-secret diagnostics file"
@@ -161,15 +202,130 @@ msgstr "Write non-secret diagnostics file"
 msgctxt "#32710"
 msgid "Radarr connection"
 msgstr "Radarr connection"
+
 msgctxt "#32711"
 msgid "Sonarr connection"
 msgstr "Sonarr connection"
+
 msgctxt "#32712"
 msgid "File backend"
 msgstr "File backend"
+
 msgctxt "#32720"
 msgid "No matching downloads are in the queue."
 msgstr "No matching downloads are in the queue."
+
+msgctxt "#32120"
+msgid "Configure safety checks and shared network behaviour."
+msgstr "Configure safety checks and shared network behaviour."
+
+msgctxt "#32121"
+msgid "Use the Servarr API for normal operation. Choose Kodi VFS only when Kodi must delete files through an SMB or SFTP source."
+msgstr "Use the Servarr API for normal operation. Choose Kodi VFS only when Kodi must delete files through an SMB or SFTP source."
+
+msgctxt "#32122"
+msgid "Ask for confirmation before deletion, queue removal, monitoring changes, searches, or quality-profile changes."
+msgstr "Ask for confirmation before deletion, queue removal, monitoring changes, searches, or quality-profile changes."
+
+msgctxt "#32123"
+msgid "Preview actions without changing Servarr, Kodi, downloads, or media files."
+msgstr "Preview actions without changing Servarr, Kodi, downloads, or media files."
+
+msgctxt "#32124"
+msgid "Require a matching release-history record before Delete & Replace can blocklist and search for another release."
+msgstr "Require a matching release-history record before Delete & Replace can blocklist and search for another release."
+
+msgctxt "#32125"
+msgid "Maximum time for each HTTP request to Radarr or Sonarr. Increase only for slow or remote servers."
+msgstr "Maximum time for each HTTP request to Radarr or Sonarr. Increase only for slow or remote servers."
+
+msgctxt "#32220"
+msgid "Connect Kodi Managarr to Radarr for movie status, searches, monitoring, quality profiles, queue actions, and deletion workflows."
+msgstr "Connect Kodi Managarr to Radarr for movie status, searches, monitoring, quality profiles, queue actions, and deletion workflows."
+
+msgctxt "#32221"
+msgid "Show and run Radarr actions for selected Kodi movies."
+msgstr "Show and run Radarr actions for selected Kodi movies."
+
+msgctxt "#32222"
+msgid "Radarr server URL including scheme and port, for example http://192.168.1.50:7878. Do not include /api/v3."
+msgstr "Radarr server URL including scheme and port, for example http://192.168.1.50:7878. Do not include /api/v3."
+
+msgctxt "#32223"
+msgid "Copy the API key from Radarr Settings → General → Security. The value is stored by Kodi and hidden in this dialog."
+msgstr "Copy the API key from Radarr Settings → General → Security. The value is stored by Kodi and hidden in this dialog."
+
+msgctxt "#32224"
+msgid "Radarr API path version. Keep v3 unless a supported Radarr release requires a different value."
+msgstr "Radarr API path version. Keep v3 unless a supported Radarr release requires a different value."
+
+msgctxt "#32225"
+msgid "Verify the server certificate for HTTPS Radarr URLs. Disable only for a trusted server using a self-signed certificate."
+msgstr "Verify the server certificate for HTTPS Radarr URLs. Disable only for a trusted server using a self-signed certificate."
+
+msgctxt "#32226"
+msgid "Close settings and perform a read-only Radarr connection and API-version test."
+msgstr "Close settings and perform a read-only Radarr connection and API-version test."
+
+msgctxt "#32320"
+msgid "Connect Kodi Managarr to Sonarr for series and episode status, searches, monitoring, quality profiles, queue actions, and deletion workflows."
+msgstr "Connect Kodi Managarr to Sonarr for series and episode status, searches, monitoring, quality profiles, queue actions, and deletion workflows."
+
+msgctxt "#32321"
+msgid "Show and run Sonarr actions for selected Kodi TV shows and episodes."
+msgstr "Show and run Sonarr actions for selected Kodi TV shows and episodes."
+
+msgctxt "#32322"
+msgid "Sonarr server URL including scheme and port, for example http://192.168.1.50:8989. Do not include /api/v3."
+msgstr "Sonarr server URL including scheme and port, for example http://192.168.1.50:8989. Do not include /api/v3."
+
+msgctxt "#32323"
+msgid "Copy the API key from Sonarr Settings → General → Security. The value is stored by Kodi and hidden in this dialog."
+msgstr "Copy the API key from Sonarr Settings → General → Security. The value is stored by Kodi and hidden in this dialog."
+
+msgctxt "#32324"
+msgid "Sonarr API path version. Keep v3 unless a supported Sonarr release requires a different value."
+msgstr "Sonarr API path version. Keep v3 unless a supported Sonarr release requires a different value."
+
+msgctxt "#32325"
+msgid "Verify the server certificate for HTTPS Sonarr URLs. Disable only for a trusted server using a self-signed certificate."
+msgstr "Verify the server certificate for HTTPS Sonarr URLs. Disable only for a trusted server using a self-signed certificate."
+
+msgctxt "#32326"
+msgid "Close settings and perform a read-only Sonarr connection and API-version test."
+msgstr "Close settings and perform a read-only Sonarr connection and API-version test."
+
+msgctxt "#32420"
+msgid "Map Servarr filesystem paths to Kodi SMB or SFTP paths and protect important roots from direct deletion."
+msgstr "Map Servarr filesystem paths to Kodi SMB or SFTP paths and protect important roots from direct deletion."
+
+msgctxt "#32421"
+msgid "Semicolon-separated Servarr=>Kodi mappings, for example /media/Movies=>smb://server/Movies. Required only for Kodi VFS deletion when paths differ."
+msgstr "Semicolon-separated Servarr=>Kodi mappings, for example /media/Movies=>smb://server/Movies. Required only for Kodi VFS deletion when paths differ."
+
+msgctxt "#32422"
+msgid "Semicolon-separated paths that Kodi Managarr must never delete recursively. Keep filesystem, share, and library roots protected."
+msgstr "Semicolon-separated paths that Kodi Managarr must never delete recursively. Keep filesystem, share, and library roots protected."
+
+msgctxt "#32423"
+msgid "Maximum time to wait for Servarr commands, rescans, and post-action state changes to complete."
+msgstr "Maximum time to wait for Servarr commands, rescans, and post-action state changes to complete."
+
+msgctxt "#32424"
+msgid "Close settings and perform a read-only accessibility test using the selected deletion backend and current path mappings."
+msgstr "Close settings and perform a read-only accessibility test using the selected deletion backend and current path mappings."
+
+msgctxt "#32620"
+msgid "Control diagnostic logging and create a support file without API keys or credential-bearing URLs."
+msgstr "Control diagnostic logging and create a support file without API keys or credential-bearing URLs."
+
+msgctxt "#32621"
+msgid "Write additional non-secret troubleshooting detail to kodi.log. Leave disabled during normal operation."
+msgstr "Write additional non-secret troubleshooting detail to kodi.log. Leave disabled during normal operation."
+
+msgctxt "#32622"
+msgid "Close settings and write a redacted diagnostic report containing configuration shape, versions, and recent transaction stages."
+msgstr "Close settings and write a redacted diagnostic report containing configuration shape, versions, and recent transaction stages."
 
 #. continue
 msgctxt "#32800"
