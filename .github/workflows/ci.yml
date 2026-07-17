@@ -82,6 +82,7 @@ jobs:
           second="$(sha256sum dist/context.arr.manager-*.zip | cut -d' ' -f1)"
           test "$first" = "$second"
       - name: Extract package for Kodi validation
+        if: matrix.python-version == '3.12'
         run: |
           set -euo pipefail
           python - <<'PY'
@@ -95,6 +96,8 @@ jobs:
               handle.extractall(target)
           PY
       - name: Run Kodi addon checker
+        if: matrix.python-version == '3.12'
+        timeout-minutes: 5
         run: kodi-addon-checker --branch matrix dist/addon-check/context.arr.manager
       - name: Inspect package
         run: |
