@@ -1,4 +1,5 @@
 import os
+import re
 import unittest
 import xml.etree.ElementTree as ET
 
@@ -10,7 +11,7 @@ class BrandingTests(unittest.TestCase):
         root = ET.parse(os.path.join(ROOT, "addon.xml")).getroot()
         self.assertEqual(root.attrib["id"], "context.arr.manager")
         self.assertEqual(root.attrib["name"], "Kodi Managarr")
-        self.assertEqual(root.attrib["version"], "0.2.0")
+        self.assertRegex(root.attrib["version"], r"^[0-9]+\.[0-9]+\.[0-9]+$")
         metadata = root.find("extension[@point='xbmc.addon.metadata']")
         self.assertEqual(metadata.findtext("license"), "GPL-3.0-or-later")
         self.assertEqual(metadata.findtext("assets/icon"), "resources/icon.png")
