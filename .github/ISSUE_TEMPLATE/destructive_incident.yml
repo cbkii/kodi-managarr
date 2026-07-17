@@ -1,0 +1,25 @@
+name: Destructive-operation incident
+description: Report an unintended or partially completed deletion
+labels: [safety]
+body:
+  - type: markdown
+    attributes:
+      value: Stop retrying the operation until the committed stages are understood. Never paste API keys or credential-bearing URLs.
+  - type: textarea
+    id: stages
+    attributes:
+      label: Completed transaction stages shown by Managarr
+    validations:
+      required: true
+  - type: textarea
+    id: state
+    attributes:
+      label: Current Kodi, filesystem and Servarr state
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Add-on, Kodi and Servarr versions
+    validations:
+      required: true

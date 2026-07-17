@@ -1,59 +1,48 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 from .models import HistoryMatch
-from .util import normalise_path, normalise_release
+from .util import normalise_optional_path, normalise_release, paths_equal
 
 
 def match_history(records, file_record, episode_ids=None):
-    """Find the imported-history event most likely to represent a current file."""
-    episode_ids = {int(x) for x in (episode_ids or [])}
+    episode_ids = {int(value) for value in (episode_ids or [])}
     relative = file_record.get("relativePath") or file_record.get("path") or ""
     scene_name = file_record.get("sceneName") or ""
     wanted_names = {normalise_release(relative), normalise_release(scene_name)} - {""}
-    wanted_path = normalise_path(file_record.get("path") or relative)
+    wanted_path = normalise_optional_path(file_record.get("path") or "")
     matches = []
-
     for record in records or []:
-        score = 0
-        reasons = []
-        data = record.get("data") or {}
+        if not isinstance(record, dict):
+            continue
+        score, reasons = 0, []
+        data = record.get("data") if isinstance(record.get("data"), dict) else {}
         source_title = record.get("sourceTitle") or ""
         record_names = {
-            normalise_release(source_title),
-            normalise_release(data.get("importedPath")),
-            normalise_release(data.get("droppedPath")),
-            normalise_release(data.get("relativePath")),
+            normalise_release(source_title), normalise_release(data.get("importedPath")),
+            normalise_release(data.get("droppedPath")), normalise_release(data.get("relativePath")),
         } - {""}
-        if wanted_names & record_names:
-            score += 120
-            reasons.append("release/file name")
-
+        if wanted_names and wanted_names & record_names:
+            score += 120; reasons.append("release/file name")
         for key in ("importedPath", "droppedPath", "path"):
-            candidate = normalise_path(data.get(key) or "")
-            if candidate and wanted_path and (candidate == wanted_path or candidate.endswith("/" + wanted_path.split("/")[-1])):
-                score += 100
-                reasons.append(key)
-                break
-
-        episode_id = int(record.get("episodeId") or 0)
+            candidate = normalise_optional_path(data.get(key) or "")
+            if candidate and wanted_path and paths_equal(candidate, wanted_path):
+                score += 140; reasons.append(key); break
+        try:
+            episode_id = int(record.get("episodeId") or 0)
+        except (TypeError, ValueError):
+            episode_id = 0
         if episode_ids and episode_id in episode_ids:
-            score += 35
-            reasons.append("episode")
-        if record.get("downloadId"):
-            score += 10
-            reasons.append("download ID")
+            score += 35; reasons.append("episode")
+        download_id = str(record.get("downloadId") or "")
+        if download_id:
+            score += 10; reasons.append("download ID")
         if source_title:
             score += 5
-
-        if score:
-            matches.append(
-                HistoryMatch(
-                    history_id=int(record["id"]),
-                    source_title=source_title or "Unknown release",
-                    download_id=str(record.get("downloadId") or ""),
-                    score=score,
-                    reason=", ".join(reasons),
-                )
-            )
-
+        try:
+            history_id = int(record.get("id") or 0)
+        except (TypeError, ValueError):
+            history_id = 0
+        if score and history_id > 0:
+            matches.append(HistoryMatch(history_id, source_title or "Unknown release", download_id, score, ", ".join(reasons)))
     matches.sort(key=lambda match: match.score, reverse=True)
     if not matches or matches[0].score < 80:
         return None
@@ -63,14 +52,12 @@ def match_history(records, file_record, episode_ids=None):
 
 
 def unique_history_matches(matches):
-    output = []
-    seen = set()
+    output, seen = [], set()
     for match in matches:
         if not match:
             continue
         key = match.download_id or f"history:{match.history_id}"
-        if key in seen:
-            continue
-        seen.add(key)
-        output.append(match)
+        if key not in seen:
+            seen.add(key)
+            output.append(match)
     return output

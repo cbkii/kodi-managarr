@@ -1,10 +1,10 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 from dataclasses import dataclass
 
 from .errors import ConfigurationError
 from .util import PathMapper, as_bool, as_int, normalise_path, parse_mappings
 
-
-BACKENDS = {"0": "api", "1": "vfs", "2": "vfs", "api": "api", "vfs": "vfs", "ssh": "vfs"}
+BACKENDS = {"0": "api", "1": "vfs", "api": "api", "vfs": "vfs", "ssh": "vfs", "2": "vfs"}
 
 
 @dataclass
@@ -39,17 +39,20 @@ class Settings:
         except ValueError as exc:
             raise ConfigurationError(str(exc)) from exc
         self.path_mapper = PathMapper(mappings)
-        self.protected_paths = []
+        protected = []
         for raw_path in get("protected_paths").replace("\n", ";").split(";"):
             raw_path = raw_path.strip()
             if not raw_path:
                 continue
             try:
-                self.protected_paths.append(normalise_path(raw_path))
+                protected.append(normalise_path(raw_path))
             except ValueError as exc:
                 raise ConfigurationError(f"Invalid protected path: {exc}") from exc
+        for root in self.path_mapper.kodi_roots:
+            if root not in protected:
+                protected.append(root)
+        self.protected_paths = protected
         self.poll_timeout = as_int(get("rescan_poll_timeout"), 45, 5, 300)
-
         timeout = as_int(get("http_timeout"), 15, 3, 120)
         self.radarr = ServiceConfig(
             enabled=as_bool(get("radarr_enabled"), True),

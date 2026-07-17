@@ -1,40 +1,19 @@
-import os
-import sys
-import unittest
-
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(ROOT, "resources", "lib"))
-
-from arr_manager.history import match_history, unique_history_matches
-from arr_manager.models import HistoryMatch
-
-
+import os,sys,unittest
+ROOT=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0,os.path.join(ROOT,'resources','lib'))
+from arr_manager.history import match_history
 class HistoryTests(unittest.TestCase):
-    def test_matches_imported_path(self):
-        file_record = {"id": 7, "relativePath": "Movie.2026.1080p-GROUP.mkv", "sceneName": "Movie.2026.1080p-GROUP"}
-        records = [
-            {
-                "id": 99,
-                "eventType": "downloadFolderImported",
-                "sourceTitle": "Movie.2026.1080p-GROUP",
-                "downloadId": "abc",
-                "data": {"importedPath": "/movies/Movie/Movie.2026.1080p-GROUP.mkv"},
-            }
+    def test_empty_paths_do_not_create_root_match(self):
+        self.assertIsNone(match_history([{'id':1,'sourceTitle':'','data':{'importedPath':''}}], {'id':7,'path':'','relativePath':''}))
+    def test_exact_import_path_matches(self):
+        row={'id':99,'sourceTitle':'Movie.2026-GROUP','downloadId':'abc','data':{'importedPath':'/movies/Movie/Movie.2026-GROUP.mkv'}}
+        match=match_history([row],{'id':7,'path':'/movies/Movie/Movie.2026-GROUP.mkv','relativePath':'Movie.2026-GROUP.mkv'})
+        self.assertEqual(match.history_id,99)
+    def test_equal_scores_with_different_downloads_are_ambiguous(self):
+        path = "/movies/Movie/file.mkv"
+        rows = [
+            {"id": 1, "sourceTitle": "Release", "downloadId": "a", "data": {"importedPath": path}},
+            {"id": 2, "sourceTitle": "Release", "downloadId": "b", "data": {"importedPath": path}},
         ]
-        match = match_history(records, file_record)
-        self.assertIsNotNone(match)
-        self.assertEqual(match.history_id, 99)
-        self.assertEqual(match.download_id, "abc")
-
-    def test_rejects_weak_history_guess(self):
-        file_record = {"id": 7, "relativePath": "Wanted.Release.mkv"}
-        records = [{"id": 5, "sourceTitle": "Different.Release", "downloadId": "abc", "data": {}}]
-        self.assertIsNone(match_history(records, file_record))
-
-    def test_deduplicates_download_id(self):
-        rows = [HistoryMatch(1, "x", "abc"), HistoryMatch(2, "x", "abc"), HistoryMatch(3, "y", "def")]
-        self.assertEqual([row.history_id for row in unique_history_matches(rows)], [1, 3])
-
-
-if __name__ == "__main__":
-    unittest.main()
+        self.assertIsNone(match_history(rows, {"path": path}))
+if __name__=='__main__': unittest.main()

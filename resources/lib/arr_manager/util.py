@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 import os
 import posixpath
 import re
@@ -6,6 +7,10 @@ from urllib.parse import unquote, urlsplit, urlunsplit
 
 SUPPORTED_KODI_NETWORK_SCHEMES = {"smb", "sftp", "ssh"}
 SFTP_NETWORK_SCHEMES = {"sftp", "ssh"}
+_UNSUPPORTED_KODI_SCHEMES = {"videodb", "stack", "plugin", "special", "zip", "rar", "bluray", "dvd"}
+_ENCODED_SEPARATOR_RE = re.compile(r"%(?:2f|5c)", re.I)
+_ENCODED_DOT_RE = re.compile(r"%(?:2e)", re.I)
+_PERCENT_RE = re.compile(r"%(?![0-9a-fA-F]{2})")
 
 
 def as_bool(value, default=False):
@@ -39,14 +44,7 @@ def normalise_release(value):
     return normalise_title(value)
 
 
-_ENCODED_SEPARATOR_RE = re.compile(r"%(?:2f|5c)", re.I)
-_ENCODED_DOT_RE = re.compile(r"%(?:2e)", re.I)
-_PERCENT_RE = re.compile(r"%(?![0-9a-fA-F]{2})")
-_UNSUPPORTED_KODI_SCHEMES = {"videodb", "stack", "plugin", "special", "zip", "rar", "bluray", "dvd"}
-
-
 def _has_encoded_traversal(value):
-    """Detect encoded separators or dot traversal without changing path identity."""
     text = value or ""
     if _PERCENT_RE.search(text):
         raise ValueError("Malformed percent encoding is not safe for destructive paths")
@@ -55,40 +53,52 @@ def _has_encoded_traversal(value):
             raise ValueError("Encoded separators or dot segments are not safe for destructive paths")
         decoded = unquote(text)
         if decoded == text:
-            return False
+            return
         text = decoded
     if "%" in text:
         raise ValueError("Repeatedly encoded paths are not safe for destructive paths")
-    return False
 
 
 def normalise_path(value):
-    value = (value or "").strip().replace("\\", "/")
-    _has_encoded_traversal(value)
-    parts = urlsplit(value)
+    raw = (value or "").strip()
+    if not raw:
+        raise ValueError("Path is empty")
+    raw = raw.replace("\\", "/")
+    _has_encoded_traversal(raw)
+    parts = urlsplit(raw)
     scheme = parts.scheme.lower()
     if scheme in _UNSUPPORTED_KODI_SCHEMES:
         raise ValueError(f"Unsupported Kodi path scheme: {scheme}")
     if scheme in SUPPORTED_KODI_NETWORK_SCHEMES:
         if not parts.netloc or not parts.hostname:
             raise ValueError("Network paths require a host")
-        if scheme == "smb":
-            segments = [segment for segment in parts.path.split("/") if segment]
-            if not segments:
-                raise ValueError("SMB paths require a share")
         path = re.sub(r"/+", "/", parts.path).rstrip("/")
         segments = [segment for segment in path.split("/") if segment]
+        if scheme == "smb" and not segments:
+            raise ValueError("SMB paths require a share")
         if any(segment in {".", "..", "~"} for segment in segments):
             raise ValueError("Path traversal segments are not safe")
-        netloc = parts.netloc.rsplit("@", 1)[-1].lower()
+        host = parts.hostname.lower()
+        if ":" in host and not host.startswith("["):
+            host = f"[{host}]"
+        port = parts.port
+        authority = host if port is None else f"{host}:{port}"
+        userinfo = parts.netloc.rsplit("@", 1)[0] if "@" in parts.netloc else ""
+        netloc = f"{userinfo}@{authority}" if userinfo else authority
         return urlunsplit((scheme, netloc, path, "", ""))
-    if scheme and "://" in value:
+    if scheme and "://" in raw:
         raise ValueError(f"Unsupported path scheme: {scheme}")
-    value = re.sub(r"/+", "/", value)
-    segments = [segment for segment in value.split("/") if segment]
+    raw = re.sub(r"/+", "/", raw)
+    segments = [segment for segment in raw.split("/") if segment]
     if any(segment in {".", "..", "~"} for segment in segments):
         raise ValueError("Path traversal segments are not safe")
-    return value.rstrip("/") or "/"
+    return raw.rstrip("/") or "/"
+
+
+def normalise_optional_path(value):
+    if not value or not str(value).strip():
+        return ""
+    return normalise_path(value)
 
 
 def network_scheme(value):
@@ -108,16 +118,13 @@ def redact_url(value):
         return value
     try:
         parts = urlsplit(value)
-        if "@" in parts.netloc:
-            host = parts.netloc.split("@", 1)[1]
-            return urlunsplit((parts.scheme, "***@" + host, parts.path, parts.query, parts.fragment))
+        host = parts.netloc.rsplit("@", 1)[-1]
+        return urlunsplit((parts.scheme, host, parts.path, "", ""))
     except Exception:
-        pass
-    return value
+        return "<redacted-url>"
 
 
 def _path_identity(value):
-    """Return a scheme-aware identity tuple and path segments for containment."""
     normal = normalise_path(value)
     parts = urlsplit(normal)
     scheme = parts.scheme.lower()
@@ -128,10 +135,8 @@ def _path_identity(value):
             if port == 22:
                 port = None
             scheme = "sftp"
-        path_segments = tuple(segment for segment in parts.path.split("/") if segment)
-        if scheme == "smb":
-            path_segments = tuple(segment.lower() for segment in path_segments)
-        return (scheme, host, port), path_segments, normal
+        segments = tuple(segment for segment in parts.path.split("/") if segment)
+        return (scheme, host, port), segments, normal
     return ("posix", "", None), tuple(segment for segment in normal.split("/") if segment), normal
 
 
@@ -140,7 +145,7 @@ def is_path_under(path, parent):
     parent_identity, parent_segments, _ = _path_identity(parent)
     if path_identity != parent_identity:
         return False
-    return path_segments == parent_segments or path_segments[:len(parent_segments)] == parent_segments
+    return path_segments == parent_segments or path_segments[: len(parent_segments)] == parent_segments
 
 
 def paths_equal(left, right):
@@ -150,20 +155,16 @@ def paths_equal(left, right):
 
 
 def path_suffix(path, parent):
-    """Return the raw child suffix when ``path`` is under ``parent``."""
     if not is_path_under(path, parent):
         return ""
     normal = normalise_path(path)
     path_identity, path_segments, _ = _path_identity(path)
     _, parent_segments, _ = _path_identity(parent)
-    suffix_segments = path_segments[len(parent_segments):]
+    suffix_segments = path_segments[len(parent_segments) :]
     if not suffix_segments:
         return ""
-    if path_identity[0] == "posix":
-        raw_segments = [segment for segment in normal.split("/") if segment]
-    else:
-        raw_segments = [segment for segment in urlsplit(normal).path.split("/") if segment]
-    return "/".join(raw_segments[-len(suffix_segments):])
+    raw_segments = [segment for segment in (normal if path_identity[0] == "posix" else urlsplit(normal).path).split("/") if segment]
+    return "/".join(raw_segments[-len(suffix_segments) :])
 
 
 def join_path(base, relative):
@@ -173,7 +174,6 @@ def join_path(base, relative):
 
 
 def parse_mappings(raw):
-    """Parse strict `remote=>kodi` entries separated by semicolons or new lines."""
     mappings = []
     seen = set()
     for entry in re.split(r"[;\n]+", raw or ""):
@@ -203,19 +203,28 @@ class PathMapper:
     def __init__(self, mappings):
         self.mappings = list(mappings or [])
 
+    @property
+    def kodi_roots(self):
+        return [target for _, target in self.mappings]
+
     def remote_to_kodi(self, remote_path):
         remote = normalise_path(remote_path)
+        matches = []
         for source, target in self.mappings:
             if is_path_under(remote, source):
                 suffix = path_suffix(remote, source)
-                return join_path(target, suffix) if suffix else target
-        return ""
+                matches.append(join_path(target, suffix) if suffix else target)
+        if len(matches) > 1:
+            raise ValueError("Multiple path mappings matched the remote path")
+        return matches[0] if matches else ""
 
     def kodi_to_remote(self, kodi_path):
         kodi = normalise_path(kodi_path)
-        reverse = sorted(((target, source) for source, target in self.mappings), key=lambda pair: len(pair[0]), reverse=True)
-        for source, target in reverse:
+        matches = []
+        for source, target in ((target, source) for source, target in self.mappings):
             if is_path_under(kodi, source):
                 suffix = path_suffix(kodi, source)
-                return join_path(target, suffix) if suffix else target
-        return ""
+                matches.append(join_path(target, suffix) if suffix else target)
+        if len(matches) > 1:
+            raise ValueError("Multiple path mappings matched the Kodi path")
+        return matches[0] if matches else ""

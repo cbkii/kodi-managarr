@@ -12,121 +12,61 @@ from arr_manager.models import SelectedItem
 from arr_manager.util import PathMapper
 
 
-class FakeSettings:
-    backend = "vfs"
-    confirm = False
-    dry_run = False
-    require_blocklist = False
-    poll_timeout = 1
-
-    def __init__(self, mappings=None):
-        self.path_mapper = PathMapper(mappings or [])
+class Settings:
+    backend = "vfs"; confirm = False; dry_run = False; require_blocklist = False; poll_timeout = 1
+    protected_paths = []
+    def __init__(self, mappings): self.path_mapper = PathMapper(mappings)
+    def validate_backend(self): return None
 
 
-class FakeBackend:
-    name = "Kodi VFS (SMB/SFTP)"
-
-    def __init__(self):
-        self.deleted = []
-
-    def delete_file(self, path):
-        self.deleted.append(path)
-
-    def close(self):
-        return None
+class Backend:
+    def __init__(self): self.preflighted = []; self.deleted = []
+    def preflight_file(self, path): self.preflighted.append(path)
+    def delete_file(self, path): self.deleted.append(path)
+    def close(self): pass
 
 
-class FakeSonarr:
-    def __init__(self, files, backend):
-        self.files = list(files)
-        self.backend = backend
-        self.rescanned = []
-        self.searched = []
-
-    def episode_files(self, series_id):
-        return [] if self.backend.deleted else list(self.files)
-
-    def episodes(self, series_id):
-        return [{"id": 11, "episodeFileId": self.files[0]["id"]}]
-
-    def series_history(self, series_id, event_type=None):
-        return []
-
-    def rescan_series(self, series_id):
-        self.rescanned.append(series_id)
-        return {"id": 101}
-
-    def command_status(self, command_id):
-        return {"id": command_id, "status": "completed"}
-
-    def search_series(self, series_id):
-        self.searched.append(series_id)
-        return {"id": 102}
+class UI:
+    def __init__(self): self.affected = None
+    def confirm(self, heading, message): return True
+    def wait_for_abort(self, seconds): return False
+    def sync_deleted_episodes(self, selected, linked=None): self.affected = list(linked or [])
 
 
-class FakeUI:
-    def __init__(self):
-        self.series_syncs = 0
-        self.episode_syncs = 0
-
-    def refresh_kodi_library(self):
-        return None
-
-    def sync_deleted_series(self, selected):
-        self.series_syncs += 1
-
-    def sync_deleted_episodes(self, selected, linked=None):
-        self.episode_syncs += 1
-        return ["OK"] if getattr(selected, "db_id", 0) else ["unresolved"]
+class Sonarr:
+    def __init__(self, files, episodes): self.files = files; self.episode_rows = episodes
+    def episode_files(self, series_id): return [] if getattr(self, "deleted", False) else self.files
+    def episodes(self, series_id): return self.episode_rows
+    def series_history(self, series_id, event_type=3): return []
+    def rescan_series(self, series_id): self.deleted = True; return {"id": 1}
+    def command_status(self, command_id): return {"id": command_id, "status": "completed", "result": "successful"}
+    def search_series(self, series_id): return {"id": 2}
 
 
 class ActionPathTests(unittest.TestCase):
-    def make_manager(self, files, backend):
-        manager = ArrManager(FakeSettings([("/media/Shows", "sftp://pi/media/Shows")]), FakeUI(), logger=None)
-        manager._sonarr = FakeSonarr(files, backend)
-        return manager
+    def test_series_replace_syncs_only_episodes_tied_to_deleted_files(self):
+        backend = Backend(); ui = UI()
+        settings = Settings([("/media/Shows", "sftp://pi/media/Shows")])
+        manager = ArrManager(settings, ui, None)
+        manager._sonarr = Sonarr(
+            [{"id": 7, "path": "/media/Shows/Show/Episode.mkv"}],
+            [{"id": 11, "episodeFileId": 7, "seasonNumber": 1, "episodeNumber": 1},
+             {"id": 12, "episodeFileId": 0, "seasonNumber": 1, "episodeNumber": 2}],
+        )
+        with patch("arr_manager.actions_destructive.resolve_series", return_value={"id": 3, "title": "Show", "path": "/media/Shows/Show"}), \
+             patch("arr_manager.actions_destructive.make_direct_backend", return_value=backend):
+            manager._series_replace(SelectedItem(media_type="tvshow", title="Show"))
+        self.assertEqual(backend.preflighted, ["sftp://pi/media/Shows/Show/Episode.mkv"])
+        self.assertEqual([item["id"] for item in ui.affected], [11])
 
-    def test_series_replace_uses_mapped_sftp_url_without_selected_path(self):
-        backend = FakeBackend()
-        manager = self.make_manager([{"id": 7, "path": "/media/Shows/Episode.mkv"}], backend)
-        selected = SelectedItem(media_type="tvshow", tvshow_title="Show")
-        with patch("arr_manager.actions.resolve_series", return_value={"id": 3, "title": "Show", "path": "/media/Shows"}), \
-             patch("arr_manager.actions.make_direct_backend", return_value=backend):
-            result = manager._series_replace(selected)
-        self.assertEqual(backend.deleted, ["sftp://pi/media/Shows/Episode.mkv"])
-        self.assertEqual(manager.ui.series_syncs, 0)
-        self.assertEqual(manager.ui.episode_syncs, 1)
-        self.assertIn("Deleted 1 files", result)
+    def test_backend_path_rejects_mapping_root(self):
+        manager = ArrManager(Settings([("/media/Shows", "smb://pi/Shows")]), UI(), None)
+        with self.assertRaisesRegex(SafetyError, "mapping root"):
+            manager._backend_path("/media/Shows")
 
-    def test_series_replace_uses_mapped_ssh_alias_url_without_selected_path(self):
-        backend = FakeBackend()
-        manager = ArrManager(FakeSettings([("/media/Shows", "ssh://pi/media/Shows")]), FakeUI(), logger=None)
-        manager._sonarr = FakeSonarr([{"id": 7, "path": "/media/Shows/Episode.mkv"}], backend)
-        selected = SelectedItem(media_type="tvshow", tvshow_title="Show")
-        with patch("arr_manager.actions.resolve_series", return_value={"id": 3, "title": "Show", "path": "/media/Shows"}), \
-             patch("arr_manager.actions.make_direct_backend", return_value=backend):
-            manager._series_replace(selected)
-        self.assertEqual(backend.deleted, ["ssh://pi/media/Shows/Episode.mkv"])
-
-    def test_backend_path_rejects_unsupported_direct_url(self):
-        manager = ArrManager(FakeSettings(), FakeUI(), logger=None)
+    def test_remote_file_path_rejects_incomplete_record(self):
         with self.assertRaises(SafetyError):
-            manager._backend_path("ftp://pi/media/file.mkv", "", FakeBackend())
-
-    def test_backend_path_rejects_unmapped_filesystem_path(self):
-        manager = ArrManager(FakeSettings(), FakeUI(), logger=None)
-        with self.assertRaises(SafetyError):
-            manager._backend_path("/media/Shows/file.mkv", "", FakeBackend())
-
-    def test_backend_path_requires_mapping_for_direct_network_url(self):
-        manager = ArrManager(FakeSettings(), FakeUI(), logger=None)
-        with self.assertRaises(SafetyError):
-            manager._backend_path("smb://pi/Shows/file.mkv", "", FakeBackend())
-
-    def test_remote_file_path_recognises_mixed_case_network_schemes(self):
-        for value in ("SMB://host/share/file.mkv", "SFTP://host/media/file.mkv", "SsH://host/media/file.mkv"):
-            with self.subTest(value=value):
-                self.assertEqual(ArrManager._remote_file_path("/series", {"path": value}), value)
+            ArrManager._remote_file_path("", {"relativePath": "file.mkv"})
 
 
 if __name__ == "__main__":

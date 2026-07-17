@@ -1,0 +1,4 @@
+Pillow>=10.4,<11; python_version < "3.9"
+Pillow>=11,<13; python_version >= "3.9"
+kodi-addon-checker>=0.0.34,<1
+ruff>=0.9,<1

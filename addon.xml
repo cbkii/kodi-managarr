@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<addon id="context.arr.manager" name="Kodi Managarr" version="0.1.1" provider-name="CB">
+<addon id="context.arr.manager" name="Kodi Managarr" version="0.2.0" provider-name="CB">
   <requires>
     <import addon="xbmc.python" version="3.0.0"/>
   </requires>
@@ -7,14 +7,21 @@
     <menu id="kodi.core.main">
       <menu>
         <label>32000</label>
-        <item library="context.py" args="delete_exclude">
-          <label>32001</label>
-          <visible>String.IsEqual(ListItem.DBType,movie) | String.IsEqual(ListItem.DBType,tvshow) | String.IsEqual(ListItem.DBType,episode)</visible>
-        </item>
-        <item library="context.py" args="delete_replace">
-          <label>32002</label>
-          <visible>String.IsEqual(ListItem.DBType,movie) | String.IsEqual(ListItem.DBType,tvshow) | String.IsEqual(ListItem.DBType,episode)</visible>
-        </item>
+        <item library="context.py" args="status"><label>32003</label><visible>String.IsEqual(ListItem.DBType,movie) | String.IsEqual(ListItem.DBType,tvshow) | String.IsEqual(ListItem.DBType,episode)</visible></item>
+        <item library="context.py" args="search_now"><label>32004</label><visible>String.IsEqual(ListItem.DBType,movie) | String.IsEqual(ListItem.DBType,tvshow) | String.IsEqual(ListItem.DBType,episode)</visible></item>
+        <menu>
+          <label>32005</label>
+          <item library="context.py" args="monitor"><label>32006</label><visible>String.IsEqual(ListItem.DBType,movie) | String.IsEqual(ListItem.DBType,tvshow) | String.IsEqual(ListItem.DBType,episode)</visible></item>
+          <item library="context.py" args="unmonitor"><label>32007</label><visible>String.IsEqual(ListItem.DBType,movie) | String.IsEqual(ListItem.DBType,tvshow) | String.IsEqual(ListItem.DBType,episode)</visible></item>
+          <item library="context.py" args="change_quality_profile"><label>32008</label><visible>String.IsEqual(ListItem.DBType,movie) | String.IsEqual(ListItem.DBType,tvshow) | String.IsEqual(ListItem.DBType,episode)</visible></item>
+        </menu>
+        <menu>
+          <label>32009</label>
+          <item library="context.py" args="queue_view"><label>32010</label><visible>String.IsEqual(ListItem.DBType,movie) | String.IsEqual(ListItem.DBType,tvshow) | String.IsEqual(ListItem.DBType,episode)</visible></item>
+          <item library="context.py" args="queue_remove"><label>32011</label><visible>String.IsEqual(ListItem.DBType,movie) | String.IsEqual(ListItem.DBType,tvshow) | String.IsEqual(ListItem.DBType,episode)</visible></item>
+        </menu>
+        <item library="context.py" args="delete_exclude"><label>32001</label><visible>String.IsEqual(ListItem.DBType,movie) | String.IsEqual(ListItem.DBType,tvshow) | String.IsEqual(ListItem.DBType,episode)</visible></item>
+        <item library="context.py" args="delete_replace"><label>32002</label><visible>String.IsEqual(ListItem.DBType,movie) | String.IsEqual(ListItem.DBType,tvshow) | String.IsEqual(ListItem.DBType,episode)</visible></item>
       </menu>
     </menu>
   </extension>
@@ -23,13 +30,15 @@
   </extension>
   <extension point="xbmc.addon.metadata">
     <summary lang="en_GB">Manage Radarr and Sonarr media from Kodi.</summary>
-    <description lang="en_GB">Manage Radarr movies and Sonarr series or episodes from Kodi.&#10;&#10;Actions:&#10;  • Delete &amp; Exclude&#10;  • Delete &amp; Replace</description>
+    <description lang="en_GB">Kodi-native status, search, monitoring, quality-profile, download-queue, delete, exclude and replacement controls for Radarr movies and Sonarr series or episodes.</description>
     <platform>all</platform>
     <license>GPL-3.0-or-later</license>
     <source>https://github.com/cbkii/kodi-managarr</source>
-    <news>v0.1.1 (2026-07-15)</news>
+    <website>https://github.com/cbkii/kodi-managarr</website>
+    <news>v0.2.0 (2026-07-17) - Release-readiness hardening and complete Kodi-native management menus.</news>
     <assets>
       <icon>resources/icon.png</icon>
+      <fanart>resources/fanart.jpg</fanart>
     </assets>
   </extension>
 </addon>

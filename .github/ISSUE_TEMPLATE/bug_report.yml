@@ -1,0 +1,34 @@
+name: Bug report
+description: Report a reproducible Kodi Managarr problem
+title: "[Bug]: "
+body:
+  - type: textarea
+    id: behaviour
+    attributes:
+      label: What happened?
+      description: Include the exact selected media type and action. Remove API keys and private URLs.
+    validations:
+      required: true
+  - type: input
+    id: kodi
+    attributes:
+      label: Kodi and platform version
+    validations:
+      required: true
+  - type: input
+    id: servarr
+    attributes:
+      label: Radarr or Sonarr version
+    validations:
+      required: true
+  - type: dropdown
+    id: backend
+    attributes:
+      label: Deletion backend
+      options: [Servarr API, Kodi VFS SMB, Kodi VFS SFTP, Not applicable]
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Redacted diagnostics and transaction stage
