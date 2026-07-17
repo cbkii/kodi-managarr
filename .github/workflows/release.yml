@@ -127,27 +127,41 @@ jobs:
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.8'
-      - name: Validate on Python 3.8
+      - name: Install validation tools on Python 3.8
         run: |
+          set -euxo pipefail
+          python --version
           python -m pip install --disable-pip-version-check -r requirements-dev.txt
-          python scripts/validate.py
-          ruff check .
-          python -m unittest discover -s tests -v
+          python -m pip check
+      - name: Validate XML, metadata, images and Python on Python 3.8
+        run: python scripts/validate.py
+      - name: Run static checks on Python 3.8
+        run: python -m ruff check .
+      - name: Run unit tests on Python 3.8
+        run: python -m unittest discover -s tests -v
 
       - name: Set up Python 3.12
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.12'
-      - name: Validate and package on Python 3.12
+      - name: Install validation tools on Python 3.12
+        run: |
+          set -euxo pipefail
+          python --version
+          python -m pip install --disable-pip-version-check -r requirements-dev.txt
+          python -m pip check
+      - name: Validate XML, metadata, images and Python on Python 3.12
+        run: python scripts/validate.py
+      - name: Run static checks on Python 3.12
+        run: python -m ruff check .
+      - name: Run unit tests on Python 3.12
+        run: python -m unittest discover -s tests -v
+      - name: Build reproducible Kodi package
         id: package
         env:
           VERSION: ${{ steps.metadata.outputs.version }}
         run: |
           set -euo pipefail
-          python -m pip install --disable-pip-version-check -r requirements-dev.txt
-          python scripts/validate.py
-          ruff check .
-          python -m unittest discover -s tests -v
           SOURCE_DATE_EPOCH="$(git show -s --format=%ct HEAD)"
           export SOURCE_DATE_EPOCH
           python scripts/package.py
@@ -166,9 +180,11 @@ jobs:
               archive.extractall('dist/addon-check')
               assert archive.testzip() is None
           PY
-          kodi-addon-checker --branch matrix dist/addon-check/context.arr.manager
           echo "asset=dist/context.arr.manager-$VERSION.zip" >> "$GITHUB_OUTPUT"
           echo "checksum=dist/context.arr.manager-$VERSION.zip.sha256" >> "$GITHUB_OUTPUT"
+      - name: Run Kodi addon checker
+        timeout-minutes: 5
+        run: kodi-addon-checker --branch matrix dist/addon-check/context.arr.manager
 
       - name: Commit authoritative release metadata
         id: commit

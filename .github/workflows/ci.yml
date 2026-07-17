@@ -37,13 +37,40 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install validation tools
-        run: python -m pip install --disable-pip-version-check -r requirements-dev.txt
+        run: |
+          set -euxo pipefail
+          python --version
+          python -m pip install --disable-pip-version-check -r requirements-dev.txt
+          python -m pip check
       - name: Validate XML, metadata, images and Python
         run: python scripts/validate.py
       - name: Run static checks
-        run: ruff check .
+        run: python -m ruff check .
       - name: Run unit tests
         run: python -m unittest discover -s tests -v
+      - name: Validate workflow-selected release version
+        run: |
+          set -euo pipefail
+          cp addon.xml "$RUNNER_TEMP/addon.xml.original"
+          trap 'cp "$RUNNER_TEMP/addon.xml.original" addon.xml' EXIT
+          python - <<'PY'
+          import re
+          from pathlib import Path
+
+          path = Path("addon.xml")
+          content = path.read_text(encoding="utf-8")
+          updated, count = re.subn(
+              r'(<addon\b[^>]*\bversion=")[^"]+("[^>]*>)',
+              r'\g<1>99.99.10\2',
+              content,
+              count=1,
+          )
+          if count != 1:
+              raise SystemExit("Could not update addon.xml version for release regression test")
+          path.write_text(updated, encoding="utf-8")
+          PY
+          python scripts/validate.py
+          python -m unittest discover -s tests -p 'test_branding.py' -v
       - name: Build reproducible package
         run: |
           set -euo pipefail
@@ -55,6 +82,7 @@ jobs:
           second="$(sha256sum dist/context.arr.manager-*.zip | cut -d' ' -f1)"
           test "$first" = "$second"
       - name: Extract package for Kodi validation
+        if: matrix.python-version == '3.12'
         run: |
           set -euo pipefail
           python - <<'PY'
@@ -68,6 +96,8 @@ jobs:
               handle.extractall(target)
           PY
       - name: Run Kodi addon checker
+        if: matrix.python-version == '3.12'
+        timeout-minutes: 5
         run: kodi-addon-checker --branch matrix dist/addon-check/context.arr.manager
       - name: Inspect package
         run: |
