@@ -17,6 +17,10 @@ jobs:
       TAG: v1.0.0
       ASSET: context.arr.manager-1.0.0.zip
     steps:
+      - name: Check out repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: true
       - name: Download published Kodi package
         run: |
           set -euo pipefail
@@ -37,3 +41,13 @@ jobs:
           gh release upload "$TAG" "dist/$ASSET.sha256#SHA-256 checksum" \
             --repo "$GITHUB_REPOSITORY" \
             --clobber
+      - name: Record verified repair
+        run: |
+          set -euo pipefail
+          checksum="$(cat "dist/$ASSET.sha256")"
+          printf '%s\n' "$checksum" > .github/REPAIR_V1_CHECKSUM_DONE
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .github/REPAIR_V1_CHECKSUM_DONE
+          git commit -m 'chore: record v1.0.0 checksum repair'
+          git push origin HEAD:main
