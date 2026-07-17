@@ -1,0 +1,39 @@
+name: Repair v1.0.0 checksum asset
+
+on:
+  push:
+    branches: [main]
+    paths: [.github/REPAIR_V1_CHECKSUM]
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: v1.0.0
+      ASSET: context.arr.manager-1.0.0.zip
+    steps:
+      - name: Download published Kodi package
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          gh release download "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern "$ASSET" \
+            --dir dist
+      - name: Replace checksum asset with portable checksum
+        run: |
+          set -euo pipefail
+          (
+            cd dist
+            sha256sum "$ASSET" > "$ASSET.sha256"
+            sha256sum --check "$ASSET.sha256"
+            test "$(awk '{print $2}' "$ASSET.sha256")" = "$ASSET"
+          )
+          gh release upload "$TAG" "dist/$ASSET.sha256#SHA-256 checksum" \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber
