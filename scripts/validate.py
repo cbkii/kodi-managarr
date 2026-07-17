@@ -69,22 +69,65 @@ def _validate_context_items(addon):
             raise SystemExit(f"Context item {key} is missing a visible expression")
 
 
-def _po_ids(path):
+def _po_entries(path):
     content = path.read_text(encoding="utf-8")
-    values = [int(value) for value in re.findall(r'msgctxt "#([0-9]+)"', content)]
+    if "\r" in content:
+        raise SystemExit("strings.po must use Unix line endings")
+    blocks = [block for block in re.split(r"\n[ \t]*\n", content) if block.strip()]
+    entries = []
+    for index, block in enumerate(blocks):
+        contexts = re.findall(r'^msgctxt "#([0-9]+)"$', block, flags=re.M)
+        if not contexts:
+            if index == 0 and re.search(r'^msgid ""$', block, flags=re.M):
+                continue
+            raise SystemExit("strings.po contains a block without a numeric msgctxt")
+        if len(contexts) != 1:
+            joined = ", ".join(contexts)
+            raise SystemExit(
+                "strings.po entries must be separated by a blank line; "
+                f"one block contains IDs: {joined}"
+            )
+        msgids = re.findall(r'^msgid "(.*)"$', block, flags=re.M)
+        if not msgids or not msgids[0]:
+            raise SystemExit(f"Language string #{contexts[0]} has an empty or missing msgid")
+        entries.append((int(contexts[0]), block))
+    if not entries:
+        raise SystemExit("strings.po contains no localised strings")
+    return entries
+
+
+def _po_ids(path):
+    values = [string_id for string_id, _ in _po_entries(path)]
     duplicates = sorted({value for value in values if values.count(value) > 1})
     if duplicates:
         raise SystemExit(f"Duplicate language string IDs: {duplicates}")
     return set(values)
 
 
+def _setting_string_id(node, attribute):
+    value = node.attrib.get(attribute, "").strip()
+    if not value.isdigit() or int(value) < 30000:
+        raise SystemExit(
+            f"Settings {node.tag} '{node.attrib.get('id', '')}' must define a localised {attribute} ID"
+        )
+    return int(value)
+
+
 def _validate_strings(addon, settings):
     ids = _po_ids(ROOT / "resources/language/resource.language.en_gb/strings.po")
     referenced = set()
-    for node in list(addon.iter("label")) + list(settings.iter()):
-        value = node.text if node.tag == "label" else node.attrib.get("label")
-        if value and str(value).isdigit() and int(value) >= 30000:
+    for node in addon.iter("label"):
+        value = (node.text or "").strip()
+        if value.isdigit() and int(value) >= 30000:
             referenced.add(int(value))
+    for node in settings.iter():
+        for attribute in ("label", "help"):
+            value = node.attrib.get(attribute, "").strip()
+            if value.isdigit() and int(value) >= 30000:
+                referenced.add(int(value))
+    for node in settings.findall(".//category") + settings.findall(".//setting"):
+        referenced.add(_setting_string_id(node, "label"))
+        referenced.add(_setting_string_id(node, "help"))
     spec = importlib.util.spec_from_file_location(
         "arr_manager_messages", ROOT / "resources/lib/arr_manager/messages.py"
     )
