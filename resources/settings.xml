@@ -1,43 +1,58 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<settings>
-  <category label="32100">
-    <setting id="deletion_backend" type="enum" label="32101" values="Servarr API (recommended)|Kodi VFS (SMB/SFTP)" default="0"/>
-    <setting id="confirm_actions" type="bool" label="32102" default="true"/>
-    <setting id="dry_run" type="bool" label="32103" default="false"/>
-    <setting id="require_blocklist" type="bool" label="32104" default="true"/>
-    <setting id="http_timeout" type="slider" label="32106" default="15" range="3,1,120" option="int"/>
-  </category>
-
-  <category label="32200">
-    <setting id="radarr_enabled" type="bool" label="32201" default="true"/>
-    <setting id="radarr_url" type="text" label="32202" default=""/>
-    <setting id="radarr_api_key" type="text" label="32203" option="hidden" default=""/>
-    <setting id="radarr_api_version" type="text" label="32204" default="v3"/>
-    <setting id="radarr_verify_tls" type="bool" label="32205" default="true"/>
-    <setting type="sep"/>
-    <setting type="action" label="32206" action="RunScript(context.arr.manager,mode=test_radarr)" option="close"/>
-  </category>
-
-  <category label="32300">
-    <setting id="sonarr_enabled" type="bool" label="32301" default="true"/>
-    <setting id="sonarr_url" type="text" label="32302" default=""/>
-    <setting id="sonarr_api_key" type="text" label="32303" option="hidden" default=""/>
-    <setting id="sonarr_api_version" type="text" label="32304" default="v3"/>
-    <setting id="sonarr_verify_tls" type="bool" label="32305" default="true"/>
-    <setting type="sep"/>
-    <setting type="action" label="32306" action="RunScript(context.arr.manager,mode=test_sonarr)" option="close"/>
-  </category>
-
-  <category label="32400">
-    <setting id="path_mappings" type="text" label="32401" default=""/>
-    <setting id="protected_paths" type="text" label="32402" default="/;/media/mediasmb"/>
-    <setting id="rescan_poll_timeout" type="slider" label="32403" default="45" range="5,5,300" option="int"/>
-    <setting type="sep"/>
-    <setting type="action" label="32404" action="RunScript(context.arr.manager,mode=test_backend)" option="close"/>
-  </category>
-
-  <category label="32600">
-    <setting id="debug" type="bool" label="32601" default="false"/>
-    <setting type="action" label="32602" action="RunScript(context.arr.manager,mode=diagnostics)" option="close"/>
-  </category>
+<settings version="1">
+  <section id="context.arr.manager">
+    <category id="general" label="32100" help="">
+      <group id="1" label="">
+        <setting id="deletion_backend" type="integer" label="32101" help="">
+          <level>0</level><default>0</default>
+          <constraints><options><option label="32110">0</option><option label="32111">1</option></options></constraints>
+          <control type="spinner" format="string"/>
+        </setting>
+        <setting id="confirm_actions" type="boolean" label="32102" help=""><level>0</level><default>true</default><control type="toggle"/></setting>
+        <setting id="dry_run" type="boolean" label="32103" help=""><level>0</level><default>false</default><control type="toggle"/></setting>
+        <setting id="require_blocklist" type="boolean" label="32104" help=""><level>1</level><default>true</default><control type="toggle"/></setting>
+        <setting id="http_timeout" type="integer" label="32106" help=""><level>1</level><default>15</default><constraints><minimum>3</minimum><step>1</step><maximum>120</maximum></constraints><control type="slider" format="integer"><popup>false</popup></control></setting>
+      </group>
+    </category>
+    <category id="radarr" label="32200" help="">
+      <group id="1" label="">
+        <setting id="radarr_enabled" type="boolean" label="32201" help=""><level>0</level><default>true</default><control type="toggle"/></setting>
+        <setting id="radarr_url" type="string" label="32202" help=""><level>0</level><default/><constraints><allowempty>true</allowempty></constraints><control type="edit" format="string"><heading>32202</heading></control></setting>
+        <setting id="radarr_api_key" type="string" label="32203" help=""><level>0</level><default/><constraints><allowempty>true</allowempty></constraints><control type="edit" format="string"><heading>32203</heading><hidden>true</hidden></control></setting>
+        <setting id="radarr_api_version" type="string" label="32204" help=""><level>2</level><default>v3</default><control type="edit" format="string"><heading>32204</heading></control></setting>
+        <setting id="radarr_verify_tls" type="boolean" label="32205" help=""><level>1</level><default>true</default><control type="toggle"/></setting>
+      </group>
+      <group id="2" label="">
+        <setting id="test_radarr" type="action" label="32206" help=""><level>0</level><data>RunScript(context.arr.manager,mode=test_radarr)</data><control type="button" format="action"><close>true</close></control></setting>
+      </group>
+    </category>
+    <category id="sonarr" label="32300" help="">
+      <group id="1" label="">
+        <setting id="sonarr_enabled" type="boolean" label="32301" help=""><level>0</level><default>true</default><control type="toggle"/></setting>
+        <setting id="sonarr_url" type="string" label="32302" help=""><level>0</level><default/><constraints><allowempty>true</allowempty></constraints><control type="edit" format="string"><heading>32302</heading></control></setting>
+        <setting id="sonarr_api_key" type="string" label="32303" help=""><level>0</level><default/><constraints><allowempty>true</allowempty></constraints><control type="edit" format="string"><heading>32303</heading><hidden>true</hidden></control></setting>
+        <setting id="sonarr_api_version" type="string" label="32304" help=""><level>2</level><default>v3</default><control type="edit" format="string"><heading>32304</heading></control></setting>
+        <setting id="sonarr_verify_tls" type="boolean" label="32305" help=""><level>1</level><default>true</default><control type="toggle"/></setting>
+      </group>
+      <group id="2" label="">
+        <setting id="test_sonarr" type="action" label="32306" help=""><level>0</level><data>RunScript(context.arr.manager,mode=test_sonarr)</data><control type="button" format="action"><close>true</close></control></setting>
+      </group>
+    </category>
+    <category id="paths" label="32400" help="">
+      <group id="1" label="">
+        <setting id="path_mappings" type="string" label="32401" help=""><level>1</level><default/><constraints><allowempty>true</allowempty></constraints><control type="edit" format="string"><heading>32401</heading></control></setting>
+        <setting id="protected_paths" type="string" label="32402" help=""><level>1</level><default>/;/media/mediasmb</default><constraints><allowempty>true</allowempty></constraints><control type="edit" format="string"><heading>32402</heading></control></setting>
+        <setting id="rescan_poll_timeout" type="integer" label="32403" help=""><level>1</level><default>45</default><constraints><minimum>5</minimum><step>5</step><maximum>300</maximum></constraints><control type="slider" format="integer"><popup>false</popup></control></setting>
+      </group>
+      <group id="2" label="">
+        <setting id="test_backend" type="action" label="32404" help=""><level>0</level><data>RunScript(context.arr.manager,mode=test_backend)</data><control type="button" format="action"><close>true</close></control></setting>
+      </group>
+    </category>
+    <category id="diagnostics" label="32600" help="">
+      <group id="1" label="">
+        <setting id="debug" type="boolean" label="32601" help=""><level>2</level><default>false</default><control type="toggle"/></setting>
+        <setting id="diagnostics" type="action" label="32602" help=""><level>0</level><data>RunScript(context.arr.manager,mode=diagnostics)</data><control type="button" format="action"><close>true</close></control></setting>
+      </group>
+    </category>
+  </section>
 </settings>

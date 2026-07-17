@@ -1,72 +1,92 @@
 # Kodi Media Center language file
-# Addon Name: Managarr
+# Addon Name: Kodi Managarr
 # Addon id: context.arr.manager
 msgid ""
 msgstr ""
-"Project-Id-Version: Managarr\n"
+"Project-Id-Version: Kodi Managarr\n"
 "Language: en_GB\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 
 msgctxt "#32000"
 msgid "🗑️ Managarr"
 msgstr "🗑️ Managarr"
-
 msgctxt "#32001"
 msgid "Delete & Exclude"
 msgstr "Delete & Exclude"
-
 msgctxt "#32002"
 msgid "Delete & Replace"
 msgstr "Delete & Replace"
+msgctxt "#32003"
+msgid "Status"
+msgstr "Status"
+msgctxt "#32004"
+msgid "Search & download now"
+msgstr "Search & download now"
+msgctxt "#32005"
+msgid "Monitoring"
+msgstr "Monitoring"
+msgctxt "#32006"
+msgid "Monitor"
+msgstr "Monitor"
+msgctxt "#32007"
+msgid "Unmonitor"
+msgstr "Unmonitor"
+msgctxt "#32008"
+msgid "Change quality profile"
+msgstr "Change quality profile"
+msgctxt "#32009"
+msgid "Download queue"
+msgstr "Download queue"
+msgctxt "#32010"
+msgid "View status"
+msgstr "View status"
+msgctxt "#32011"
+msgid "Remove"
+msgstr "Remove"
 
 msgctxt "#32100"
 msgid "General"
 msgstr "General"
-
 msgctxt "#32101"
 msgid "Deletion backend"
 msgstr "Deletion backend"
-
 msgctxt "#32102"
 msgid "Confirm destructive actions"
 msgstr "Confirm destructive actions"
-
 msgctxt "#32103"
 msgid "Dry run (make no changes)"
 msgstr "Dry run (make no changes)"
-
 msgctxt "#32104"
 msgid "Require release-history match before Replace"
 msgstr "Require release-history match before Replace"
-
 msgctxt "#32106"
 msgid "HTTP timeout (seconds)"
 msgstr "HTTP timeout (seconds)"
+msgctxt "#32110"
+msgid "Servarr API (recommended)"
+msgstr "Servarr API (recommended)"
+msgctxt "#32111"
+msgid "Kodi VFS (SMB/SFTP)"
+msgstr "Kodi VFS (SMB/SFTP)"
 
 msgctxt "#32200"
 msgid "Radarr"
 msgstr "Radarr"
-
 msgctxt "#32201"
 msgid "Enable Radarr"
 msgstr "Enable Radarr"
-
 msgctxt "#32202"
 msgid "Radarr base URL"
 msgstr "Radarr base URL"
-
 msgctxt "#32203"
 msgid "Radarr API key"
 msgstr "Radarr API key"
-
 msgctxt "#32204"
 msgid "Radarr API version"
 msgstr "Radarr API version"
-
 msgctxt "#32205"
 msgid "Verify Radarr HTTPS certificate"
 msgstr "Verify Radarr HTTPS certificate"
-
 msgctxt "#32206"
 msgid "Test Radarr connection"
 msgstr "Test Radarr connection"
@@ -74,27 +94,21 @@ msgstr "Test Radarr connection"
 msgctxt "#32300"
 msgid "Sonarr"
 msgstr "Sonarr"
-
 msgctxt "#32301"
 msgid "Enable Sonarr"
 msgstr "Enable Sonarr"
-
 msgctxt "#32302"
 msgid "Sonarr base URL"
 msgstr "Sonarr base URL"
-
 msgctxt "#32303"
 msgid "Sonarr API key"
 msgstr "Sonarr API key"
-
 msgctxt "#32304"
 msgid "Sonarr API version"
 msgstr "Sonarr API version"
-
 msgctxt "#32305"
 msgid "Verify Sonarr HTTPS certificate"
 msgstr "Verify Sonarr HTTPS certificate"
-
 msgctxt "#32306"
 msgid "Test Sonarr connection"
 msgstr "Test Sonarr connection"
@@ -102,43 +116,34 @@ msgstr "Test Sonarr connection"
 msgctxt "#32400"
 msgid "Network VFS / path mapping"
 msgstr "Network VFS / path mapping"
-
 msgctxt "#32401"
-msgid "Mappings: Pi path=>Kodi VFS path; separate with ;"
-msgstr "Mappings: Pi path=>Kodi VFS path; separate with ;"
-
+msgid "Mappings: Servarr path=>Kodi VFS path; separate with ;"
+msgstr "Mappings: Servarr path=>Kodi VFS path; separate with ;"
 msgctxt "#32402"
 msgid "Protected paths; separate with ;"
 msgstr "Protected paths; separate with ;"
-
 msgctxt "#32403"
-msgid "Direct-delete rescan timeout (seconds)"
-msgstr "Direct-delete rescan timeout (seconds)"
-
+msgid "Command and rescan timeout (seconds)"
+msgstr "Command and rescan timeout (seconds)"
 msgctxt "#32404"
-msgid "Test selected file backend"
-msgstr "Test selected file backend"
+msgid "Test selected file backend (read-only)"
+msgstr "Test selected file backend (read-only)"
 
 msgctxt "#32500"
 msgid "Tools & settings"
 msgstr "Tools & settings"
-
 msgctxt "#32501"
 msgid "Open settings"
 msgstr "Open settings"
-
 msgctxt "#32502"
 msgid "Test Radarr"
 msgstr "Test Radarr"
-
 msgctxt "#32503"
 msgid "Test Sonarr"
 msgstr "Test Sonarr"
-
 msgctxt "#32504"
 msgid "Test file backend"
 msgstr "Test file backend"
-
 msgctxt "#32505"
 msgid "Write diagnostics"
 msgstr "Write diagnostics"
@@ -146,11 +151,458 @@ msgstr "Write diagnostics"
 msgctxt "#32600"
 msgid "Diagnostics"
 msgstr "Diagnostics"
-
 msgctxt "#32601"
 msgid "Debug logging"
 msgstr "Debug logging"
-
 msgctxt "#32602"
 msgid "Write non-secret diagnostics file"
 msgstr "Write non-secret diagnostics file"
+
+msgctxt "#32710"
+msgid "Radarr connection"
+msgstr "Radarr connection"
+msgctxt "#32711"
+msgid "Sonarr connection"
+msgstr "Sonarr connection"
+msgctxt "#32712"
+msgid "File backend"
+msgstr "File backend"
+msgctxt "#32720"
+msgid "No matching downloads are in the queue."
+msgstr "No matching downloads are in the queue."
+
+#. continue
+msgctxt "#32800"
+msgid "Continue"
+msgstr "Continue"
+
+#. cancel
+msgctxt "#32801"
+msgid "Cancel"
+msgstr "Cancel"
+
+#. cancelled
+msgctxt "#32802"
+msgid "Cancelled"
+msgstr "Cancelled"
+
+#. no_selection
+msgctxt "#32803"
+msgid "No active Kodi library movie, TV show, or episode is selected."
+msgstr "No active Kodi library movie, TV show, or episode is selected."
+
+#. configuration_repair
+msgctxt "#32804"
+msgid "Configuration needs attention: {detail}\n\nSettings will open so it can be repaired."
+msgstr "Configuration needs attention: {detail}\n\nSettings will open so it can be repaired."
+
+#. expected_error
+msgctxt "#32805"
+msgid "{summary}\n\nDetails: {detail}"
+msgstr "{summary}\n\nDetails: {detail}"
+
+#. unexpected_error
+msgctxt "#32806"
+msgid "Unexpected error: {error_type}\n\nCheck kodi.log for details."
+msgstr "Unexpected error: {error_type}\n\nCheck kodi.log for details."
+
+#. summary_configuration
+msgctxt "#32807"
+msgid "The add-on configuration is invalid. Nothing was changed."
+msgstr "The add-on configuration is invalid. Nothing was changed."
+
+#. summary_resolution
+msgctxt "#32808"
+msgid "Kodi and Servarr could not identify exactly one matching item. Nothing was changed."
+msgstr "Kodi and Servarr could not identify exactly one matching item. Nothing was changed."
+
+#. summary_api
+msgctxt "#32809"
+msgid "The Servarr request failed. The operation stopped at the reported stage."
+msgstr "The Servarr request failed. The operation stopped at the reported stage."
+
+#. summary_blocklist
+msgctxt "#32810"
+msgid "The release-history requirement was not satisfied. Nothing was deleted."
+msgstr "The release-history requirement was not satisfied. Nothing was deleted."
+
+#. summary_safety
+msgctxt "#32811"
+msgid "A safety check or post-commit stage failed. Review the details before retrying."
+msgstr "A safety check or post-commit stage failed. Review the details before retrying."
+
+#. summary_expected
+msgctxt "#32812"
+msgid "The operation could not be completed."
+msgstr "The operation could not be completed."
+
+#. movie_status
+msgctxt "#32813"
+msgid "Radarr {version}\nMovie: {title}\nMonitoring: {monitoring}\nQuality profile: {profile}\nFiles: {files}"
+msgstr "Radarr {version}\nMovie: {title}\nMonitoring: {monitoring}\nQuality profile: {profile}\nFiles: {files}"
+
+#. episode_status
+msgctxt "#32814"
+msgid "Sonarr {version}\nEpisode: S{season:02d}E{episode:02d}\nMonitoring: {monitoring}\nFile: {file_state}\nSeries quality profile: {profile}"
+msgstr "Sonarr {version}\nEpisode: S{season:02d}E{episode:02d}\nMonitoring: {monitoring}\nFile: {file_state}\nSeries quality profile: {profile}"
+
+#. series_status
+msgctxt "#32815"
+msgid "Sonarr {version}\nSeries: {title}\nMonitoring: {monitoring}\nQuality profile: {profile}\nEpisode files: {files}"
+msgstr "Sonarr {version}\nSeries: {title}\nMonitoring: {monitoring}\nQuality profile: {profile}\nEpisode files: {files}"
+
+#. monitored
+msgctxt "#32816"
+msgid "Monitored"
+msgstr "Monitored"
+
+#. unmonitored
+msgctxt "#32817"
+msgid "Unmonitored"
+msgstr "Unmonitored"
+
+#. available
+msgctxt "#32818"
+msgid "Available"
+msgstr "Available"
+
+#. missing
+msgctxt "#32819"
+msgid "Missing"
+msgstr "Missing"
+
+#. search_movie_done
+msgctxt "#32820"
+msgid "Radarr completed a search for {title}."
+msgstr "Radarr completed a search for {title}."
+
+#. search_series_done
+msgctxt "#32821"
+msgid "Sonarr completed a full series search for {title}."
+msgstr "Sonarr completed a full series search for {title}."
+
+#. search_episode_done
+msgctxt "#32822"
+msgid "Sonarr completed a search for {title} S{season:02d}E{episode:02d}."
+msgstr "Sonarr completed a search for {title} S{season:02d}E{episode:02d}."
+
+#. monitor_movie_done
+msgctxt "#32823"
+msgid "{title} is now {state} in Radarr."
+msgstr "{title} is now {state} in Radarr."
+
+#. monitor_episode_done
+msgctxt "#32824"
+msgid "{title} S{season:02d}E{episode:02d} is now {state} in Sonarr."
+msgstr "{title} S{season:02d}E{episode:02d} is now {state} in Sonarr."
+
+#. monitor_series_done
+msgctxt "#32825"
+msgid "{title} and its seasons are now {state} in Sonarr."
+msgstr "{title} and its seasons are now {state} in Sonarr."
+
+#. no_quality_profiles
+msgctxt "#32826"
+msgid "No usable quality profiles were returned by Servarr."
+msgstr "No usable quality profiles were returned by Servarr."
+
+#. quality_profile_missing
+msgctxt "#32827"
+msgid "The selected quality profile is no longer available."
+msgstr "The selected quality profile is no longer available."
+
+#. quality_movie_done
+msgctxt "#32828"
+msgid "Changed the Radarr quality profile for {title}."
+msgstr "Changed the Radarr quality profile for {title}."
+
+#. quality_series_done
+msgctxt "#32829"
+msgid "Changed the Sonarr quality profile for {title}."
+msgstr "Changed the Sonarr quality profile for {title}."
+
+#. quality_episode_scope
+msgctxt "#32830"
+msgid "Changed the Sonarr quality profile for {title}. This is a series-wide setting and includes the selected episode."
+msgstr "Changed the Sonarr quality profile for {title}. This is a series-wide setting and includes the selected episode."
+
+#. queue_item_missing
+msgctxt "#32831"
+msgid "The selected queue item is no longer available for this media item."
+msgstr "The selected queue item is no longer available for this media item."
+
+#. queue_remove_heading
+msgctxt "#32832"
+msgid "Remove download"
+msgstr "Remove download"
+
+#. queue_remove_confirm
+msgctxt "#32833"
+msgid "Remove '{title}' from the download queue and download client?\n\nThe release will not be blocklisted."
+msgstr "Remove '{title}' from the download queue and download client?\n\nThe release will not be blocklisted."
+
+#. queue_removed
+msgctxt "#32834"
+msgid "Removed {title} from the {service} queue."
+msgstr "Removed {title} from the {service} queue."
+
+#. queue_unnamed
+msgctxt "#32835"
+msgid "Unnamed download"
+msgstr "Unnamed download"
+
+#. queue_detail
+msgctxt "#32836"
+msgid "{status}{tracked} · {progress}%{remaining}"
+msgstr "{status}{tracked} · {progress}%{remaining}"
+
+#. queue_remaining
+msgctxt "#32837"
+msgid " · {time_left} remaining"
+msgstr " · {time_left} remaining"
+
+#. queue_tracked
+msgctxt "#32838"
+msgid " / {tracked}"
+msgstr " / {tracked}"
+
+#. service_line
+msgctxt "#32839"
+msgid "Service: {service}\nStatus: {detail}"
+msgstr "Service: {service}\nStatus: {detail}"
+
+#. movie_exclude_confirm
+msgctxt "#32840"
+msgid "Delete '{title}' from Radarr, delete its {files} file(s) and movie folder, and add a Radarr import-list exclusion?"
+msgstr "Delete '{title}' from Radarr, delete its {files} file(s) and movie folder, and add a Radarr import-list exclusion?"
+
+#. series_exclude_confirm
+msgctxt "#32841"
+msgid "Delete '{title}' from Sonarr, delete its {files} episode file(s) and series folder, and add a Sonarr import-list exclusion?"
+msgstr "Delete '{title}' from Sonarr, delete its {files} episode file(s) and series folder, and add a Sonarr import-list exclusion?"
+
+#. episode_exclude_confirm
+msgctxt "#32842"
+msgid "Delete the file for {title} {episodes} and unmonitor the linked episode(s)?\n\nSonarr has no episode-level import-list exclusion."
+msgstr "Delete the file for {title} {episodes} and unmonitor the linked episode(s)?\n\nSonarr has no episode-level import-list exclusion."
+
+#. dry_exclude
+msgctxt "#32843"
+msgid "Dry run: would delete and exclude {title}."
+msgstr "Dry run: would delete and exclude {title}."
+
+#. dry_episode_exclude
+msgctxt "#32844"
+msgid "Dry run: would delete and unmonitor {episodes}."
+msgstr "Dry run: would delete and unmonitor {episodes}."
+
+#. exclude_done
+msgctxt "#32845"
+msgid "Deleted and excluded {title}."
+msgstr "Deleted and excluded {title}."
+
+#. episode_exclude_done
+msgctxt "#32846"
+msgid "Deleted and unmonitored {episodes}."
+msgstr "Deleted and unmonitored {episodes}."
+
+#. movie_replace_confirm
+msgctxt "#32847"
+msgid "{blocklist} Delete the current file for '{title}' and search for a replacement?"
+msgstr "{blocklist} Delete the current file for '{title}' and search for a replacement?"
+
+#. episode_replace_confirm
+msgctxt "#32848"
+msgid "{blocklist} Delete {title} {episodes} and search for a replacement?"
+msgstr "{blocklist} Delete {title} {episodes} and search for a replacement?"
+
+#. series_replace_confirm
+msgctxt "#32849"
+msgid "{blocklist} Delete all {files} episode files for '{title}' and run a full series search?"
+msgstr "{blocklist} Delete all {files} episode files for '{title}' and run a full series search?"
+
+#. dry_movie_replace
+msgctxt "#32850"
+msgid "Dry run: would replace {title}. {blocklist}"
+msgstr "Dry run: would replace {title}. {blocklist}"
+
+#. dry_episode_replace
+msgctxt "#32851"
+msgid "Dry run: would replace {title} {episodes}. {blocklist}"
+msgstr "Dry run: would replace {title} {episodes}. {blocklist}"
+
+#. dry_series_replace
+msgctxt "#32852"
+msgid "Dry run: would replace all files for {title}. {blocklist}"
+msgstr "Dry run: would replace all files for {title}. {blocklist}"
+
+#. movie_replace_done
+msgctxt "#32853"
+msgid "{blocklist} Deleted the file and completed a replacement search for {title}."
+msgstr "{blocklist} Deleted the file and completed a replacement search for {title}."
+
+#. episode_replace_done
+msgctxt "#32854"
+msgid "{blocklist} Deleted the file and completed a replacement search for {title} {episodes}."
+msgstr "{blocklist} Deleted the file and completed a replacement search for {title} {episodes}."
+
+#. series_replace_done
+msgctxt "#32855"
+msgid "{blocklist} Deleted {files} files and completed a series search for {title}."
+msgstr "{blocklist} Deleted {files} files and completed a series search for {title}."
+
+#. replace_one_file_required
+msgctxt "#32856"
+msgid "Delete & Replace requires exactly one Radarr movie file; found {files}."
+msgstr "Delete & Replace requires exactly one Radarr movie file; found {files}."
+
+#. series_no_files
+msgctxt "#32857"
+msgid "This Sonarr series has no episode files to replace."
+msgstr "This Sonarr series has no episode files to replace."
+
+#. series_history_missing
+msgctxt "#32858"
+msgid "Could not match imported history for {missing} of {files} episode files. Nothing was deleted."
+msgstr "Could not match imported history for {missing} of {files} episode files. Nothing was deleted."
+
+#. strict_history_missing
+msgctxt "#32859"
+msgid "Could not prove which imported release created {description}. Nothing was deleted because strict release-history matching is enabled."
+msgstr "Could not prove which imported release created {description}. Nothing was deleted because strict release-history matching is enabled."
+
+#. blocklist_partial_confirm
+msgctxt "#32860"
+msgid "Blocklist {matched} matched release(s); {missing} file(s) have no history match and may be reacquired."
+msgstr "Blocklist {matched} matched release(s); {missing} file(s) have no history match and may be reacquired."
+
+#. blocklist_confirm
+msgctxt "#32861"
+msgid "Blocklist matched release(s): {names}."
+msgstr "Blocklist matched release(s): {names}."
+
+#. blocklist_none_confirm
+msgctxt "#32862"
+msgid "No imported-history match will be blocklisted; the same release may be reacquired."
+msgstr "No imported-history match will be blocklisted; the same release may be reacquired."
+
+#. blocklist_partial_done
+msgctxt "#32863"
+msgid "Blocklisted {matched} matched release(s); {missing} file(s) had no history match and may be reacquired."
+msgstr "Blocklisted {matched} matched release(s); {missing} file(s) had no history match and may be reacquired."
+
+#. blocklist_done
+msgctxt "#32864"
+msgid "Blocklisted {matched} matched release(s)."
+msgstr "Blocklisted {matched} matched release(s)."
+
+#. blocklist_none_done
+msgctxt "#32865"
+msgid "No release was blocklisted; unmatched media may be reacquired."
+msgstr "No release was blocklisted; unmatched media may be reacquired."
+
+#. connection_radarr
+msgctxt "#32866"
+msgid "Connected to Radarr {version} as {name}."
+msgstr "Connected to Radarr {version} as {name}."
+
+#. connection_sonarr
+msgctxt "#32867"
+msgid "Connected to Sonarr {version} as {name}."
+msgstr "Connected to Sonarr {version} as {name}."
+
+#. backend_api
+msgctxt "#32868"
+msgid "Servarr API deletion is selected. Test Radarr and Sonarr separately."
+msgstr "Servarr API deletion is selected. Test Radarr and Sonarr separately."
+
+#. backend_movie
+msgctxt "#32869"
+msgid "Read-only Kodi VFS probe succeeded for the mapped movie folder. Found {dirs} folder(s) and {files} file(s)."
+msgstr "Read-only Kodi VFS probe succeeded for the mapped movie folder. Found {dirs} folder(s) and {files} file(s)."
+
+#. backend_series
+msgctxt "#32870"
+msgid "Read-only Kodi VFS probe succeeded for the mapped series folder. Found {dirs} folder(s) and {files} file(s)."
+msgstr "Read-only Kodi VFS probe succeeded for the mapped series folder. Found {dirs} folder(s) and {files} file(s)."
+
+#. backend_episode
+msgctxt "#32871"
+msgid "Read-only Kodi VFS probe confirmed the selected episode file is accessible."
+msgstr "Read-only Kodi VFS probe confirmed the selected episode file is accessible."
+
+#. diagnostics_written
+msgctxt "#32872"
+msgid "Wrote non-secret diagnostics to:\n{path}"
+msgstr "Wrote non-secret diagnostics to:\n{path}"
+
+#. operation_shutting_down
+msgctxt "#32873"
+msgid "Operation cancelled because Kodi is shutting down."
+msgstr "Operation cancelled because Kodi is shutting down."
+
+#. profile_unknown
+msgctxt "#32874"
+msgid "ID {profile_id}"
+msgstr "ID {profile_id}"
+
+#. delete_exclude_heading
+msgctxt "#32875"
+msgid "Delete & Exclude"
+msgstr "Delete & Exclude"
+
+#. delete_replace_heading
+msgctxt "#32876"
+msgid "Delete & Replace"
+msgstr "Delete & Replace"
+
+#. progress_preflight
+msgctxt "#32877"
+msgid "Preflighting files: {current}/{total}"
+msgstr "Preflighting files: {current}/{total}"
+
+#. progress_blocklist
+msgctxt "#32878"
+msgid "Blocklisting matched releases"
+msgstr "Blocklisting matched releases"
+
+#. progress_delete
+msgctxt "#32879"
+msgid "Deleting files: {current}/{total}"
+msgstr "Deleting files: {current}/{total}"
+
+#. progress_reconcile
+msgctxt "#32880"
+msgid "Reconciling Sonarr"
+msgstr "Reconciling Sonarr"
+
+#. progress_search
+msgctxt "#32881"
+msgid "Running replacement search"
+msgstr "Running replacement search"
+
+#. progress_kodi
+msgctxt "#32882"
+msgid "Updating the Kodi library"
+msgstr "Updating the Kodi library"
+
+#. cancelled_precommit
+msgctxt "#32883"
+msgid "Operation cancelled before destructive changes."
+msgstr "Operation cancelled before destructive changes."
+
+#. backend_movie_unmapped
+msgctxt "#32884"
+msgid "The selected movie folder has no allowlisted Kodi mapping."
+msgstr "The selected movie folder has no allowlisted Kodi mapping."
+
+#. backend_series_unmapped
+msgctxt "#32885"
+msgid "The selected series folder has no allowlisted Kodi mapping."
+msgstr "The selected series folder has no allowlisted Kodi mapping."
+
+#. backend_episode_unmapped
+msgctxt "#32886"
+msgid "The selected episode file has no allowlisted Kodi mapping."
+msgstr "The selected episode file has no allowlisted Kodi mapping."
+

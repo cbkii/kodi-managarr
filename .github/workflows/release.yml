@@ -9,7 +9,7 @@ on:
         default: main
         type: string
       version:
-        description: Exact x.y.z version; blank increments the current patch version
+        description: Exact x.y.z version; blank resumes an untagged manifest version or increments the highest tag
         required: false
         default: ""
         type: string
@@ -18,14 +18,10 @@ on:
         required: true
         default: stable
         type: choice
-        options:
-          - stable
-          - prerelease
-          - draft
+        options: [stable, prerelease, draft]
       release_notes:
         description: Release highlights; also written to addon.xml news
-        required: false
-        default: ""
+        required: true
         type: string
       mark_latest:
         description: Mark a stable release as Latest
@@ -43,266 +39,153 @@ concurrency:
 env:
   EXPECTED_ADDON_ID: context.arr.manager
   GH_TOKEN: ${{ github.token }}
+  PYTHONDONTWRITEBYTECODE: "1"
 
 jobs:
   release:
     name: Validate, version, package, and release
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-
+    timeout-minutes: 25
+    environment: kodi-release
     steps:
       - name: Check out release branch
-        uses: actions/checkout@v7
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           ref: ${{ inputs.branch }}
           fetch-depth: 0
           persist-credentials: true
 
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.13"
-
       - name: Resolve version and update add-on metadata
         id: metadata
-        shell: bash
         env:
           REQUESTED_VERSION: ${{ inputs.version }}
           RELEASE_NOTES: ${{ inputs.release_notes }}
         run: |
           set -euo pipefail
           git fetch --force --tags origin
-
           python - <<'PY'
-          import os
-          import re
-          import subprocess
+          import os, re, subprocess
           import xml.etree.ElementTree as ET
           from datetime import date
           from pathlib import Path
           from xml.sax.saxutils import escape
 
-          expected_addon_id = os.environ["EXPECTED_ADDON_ID"]
-          requested = os.environ.get("REQUESTED_VERSION", "").strip()
-          release_notes = os.environ.get("RELEASE_NOTES", "").strip()
-          addon_path = Path("addon.xml")
-          content = addon_path.read_text(encoding="utf-8")
+          expected = os.environ['EXPECTED_ADDON_ID']
+          requested_raw = os.environ.get('REQUESTED_VERSION', '').strip()
+          requested = requested_raw[1:] if requested_raw.startswith('v') else requested_raw
+          notes = ' '.join(os.environ['RELEASE_NOTES'].split())
+          path = Path('addon.xml')
+          content = path.read_text(encoding='utf-8')
           root = ET.fromstring(content)
-
-          addon_id = root.attrib.get("id", "")
-          current_version = root.attrib.get("version", "")
-          version_pattern = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+$")
-
-          if addon_id != expected_addon_id:
-              raise SystemExit(
-                  f"Unexpected add-on ID: {addon_id} (expected {expected_addon_id})"
-              )
-          if not version_pattern.fullmatch(current_version):
-              raise SystemExit(
-                  f"addon.xml version must use numeric x.y.z format: {current_version}"
-              )
-
-          tag_output = subprocess.check_output(
-              ["git", "tag", "--list", "v*"], text=True
-          )
-          tagged_versions = []
-          existing_tags = set()
-          for raw_tag in tag_output.splitlines():
-              tag = raw_tag.strip()
-              existing_tags.add(tag)
-              candidate = tag[1:] if tag.startswith("v") else tag
-              if version_pattern.fullmatch(candidate):
-                  tagged_versions.append(tuple(map(int, candidate.split("."))))
-
+          current = root.attrib.get('version', '')
+          pattern = re.compile(r'^[0-9]+\.[0-9]+\.[0-9]+$')
+          if root.attrib.get('id') != expected or not pattern.fullmatch(current):
+              raise SystemExit('Invalid add-on identity or version')
+          tags = []
+          existing = set()
+          for raw in subprocess.check_output(['git', 'tag', '--list', 'v*'], text=True).splitlines():
+              tag = raw.strip(); existing.add(tag)
+              candidate = tag[1:] if tag.startswith('v') else tag
+              if pattern.fullmatch(candidate):
+                  tags.append(tuple(map(int, candidate.split('.'))))
+          highest_tag = max(tags, default=(0, 0, 0))
+          current_tuple = tuple(map(int, current.split('.')))
           if requested:
-              version = requested[1:] if requested.startswith("v") else requested
-              if not version_pattern.fullmatch(version):
-                  raise SystemExit(
-                      f"Requested version must use numeric x.y.z format: {requested}"
-                  )
-              version_source = "workflow input"
+              if not pattern.fullmatch(requested):
+                  raise SystemExit('Requested version must use x.y.z')
+              version_tuple = tuple(map(int, requested.split('.')))
+              if version_tuple <= highest_tag:
+                  raise SystemExit('Requested version must exceed every existing release tag')
+              version = requested
+              source = 'workflow input'
+          elif current_tuple > highest_tag:
+              version = current
+              source = 'resume untagged manifest version'
           else:
-              candidates = [tuple(map(int, current_version.split(".")))]
-              candidates.extend(tagged_versions)
-              major, minor, patch = max(candidates)
-              version = f"{major}.{minor}.{patch + 1}"
-              version_source = f"automatic patch increment from {major}.{minor}.{patch}"
-
-          tag = f"v{version}"
-          if tag in existing_tags:
-              raise SystemExit(f"Tag {tag} already exists; choose another version")
-
-          updated, count = re.subn(
-              r'(<addon\b[^>]*\bversion=")[^"]+("[^>]*>)',
-              lambda match: f"{match.group(1)}{version}{match.group(2)}",
-              content,
-              count=1,
-          )
+              base = max(current_tuple, highest_tag)
+              version = f'{base[0]}.{base[1]}.{base[2] + 1}'
+              source = f'automatic patch increment from {base[0]}.{base[1]}.{base[2]}'
+          tag = f'v{version}'
+          if tag in existing:
+              raise SystemExit(f'Tag {tag} already exists')
+          updated, count = re.subn(r'(<addon\b[^>]*\bversion=")[^"]+("[^>]*>)', rf'\g<1>{version}\2', content, count=1)
           if count != 1:
-              raise SystemExit("Could not update the addon.xml version attribute")
-
-          concise_news = " ".join(release_notes.split())
-          if not concise_news:
-              concise_news = f"Automated release {tag}."
-          news_value = escape(f"{tag} ({date.today().isoformat()}) - {concise_news}")
-
-          updated, count = re.subn(
-              r"(<news>).*?(</news>)",
-              lambda match: f"{match.group(1)}{news_value}{match.group(2)}",
-              updated,
-              count=1,
-              flags=re.DOTALL,
-          )
+              raise SystemExit('Could not update version')
+          news = escape(f'{tag} ({date.today().isoformat()}) - {notes}')
+          updated, count = re.subn(r'(<news>).*?(</news>)', rf'\g<1>{news}\2', updated, count=1, flags=re.S)
           if count != 1:
-              raise SystemExit("Could not update the addon.xml news entry")
-
-          verified = ET.fromstring(updated)
-          if verified.attrib.get("version") != version:
-              raise SystemExit("Updated addon.xml version verification failed")
-
-          addon_path.write_text(updated, encoding="utf-8")
-
-          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-              output.write(f"addon_id={addon_id}\n")
-              output.write(f"previous_version={current_version}\n")
-              output.write(f"version={version}\n")
-              output.write(f"version_source={version_source}\n")
-              output.write(f"tag={tag}\n")
-              output.write(f"asset_name={addon_id}-{version}.zip\n")
-
-          print(f"Resolved {tag} from {version_source}")
+              raise SystemExit('Could not update news')
+          path.write_text(updated, encoding='utf-8')
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as out:
+              out.write(f'addon_id={expected}\nversion={version}\ntag={tag}\nversion_source={source}\n')
           PY
 
-      - name: Check release tag availability
-        shell: bash
-        env:
-          TAG: ${{ steps.metadata.outputs.tag }}
+      - name: Set up Python 3.8
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.8'
+      - name: Validate on Python 3.8
         run: |
-          set -euo pipefail
-          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "Release $TAG already exists; choose another version." >&2
-            exit 1
-          fi
+          python -m pip install --disable-pip-version-check -r requirements-dev.txt
+          python scripts/validate.py
+          ruff check .
+          python -m unittest discover -s tests -v
 
-      - name: Validate add-on
-        run: python scripts/validate.py
-
-      - name: Run unit tests
-        run: python -m unittest discover -s tests -v
-
-      - name: Build Kodi-installable ZIP
+      - name: Set up Python 3.12
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - name: Validate and package on Python 3.12
         id: package
-        shell: bash
         env:
-          ADDON_ID: ${{ steps.metadata.outputs.addon_id }}
           VERSION: ${{ steps.metadata.outputs.version }}
         run: |
           set -euo pipefail
+          python -m pip install --disable-pip-version-check -r requirements-dev.txt
+          python scripts/validate.py
+          ruff check .
+          python -m unittest discover -s tests -v
           export SOURCE_DATE_EPOCH="$(git show -s --format=%ct HEAD)"
           python scripts/package.py
-
-          ASSET="dist/$ADDON_ID-$VERSION.zip"
-          test -s "$ASSET"
-          (
-            cd dist
-            sha256sum "$ADDON_ID-$VERSION.zip" > "$ADDON_ID-$VERSION.zip.sha256"
-          )
-          {
-            echo "asset=$ASSET"
-            echo "checksum=$ASSET.sha256"
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Verify Kodi package structure
-        shell: bash
-        env:
-          ASSET: ${{ steps.package.outputs.asset }}
-          ADDON_ID: ${{ steps.metadata.outputs.addon_id }}
-          VERSION: ${{ steps.metadata.outputs.version }}
-        run: |
-          set -euo pipefail
+          first="$(sha256sum "dist/context.arr.manager-$VERSION.zip" | cut -d' ' -f1)"
+          cp "dist/context.arr.manager-$VERSION.zip" "$RUNNER_TEMP/first.zip"
+          rm "dist/context.arr.manager-$VERSION.zip"
+          python scripts/package.py
+          second="$(sha256sum "dist/context.arr.manager-$VERSION.zip" | cut -d' ' -f1)"
+          test "$first" = "$second"
+          sha256sum "dist/context.arr.manager-$VERSION.zip" > "dist/context.arr.manager-$VERSION.zip.sha256"
+          rm -rf dist/addon-check && mkdir -p dist/addon-check
           python - <<'PY'
-          import os
-          import xml.etree.ElementTree as ET
-          import zipfile
-
-          asset = os.environ["ASSET"]
-          addon_id = os.environ["ADDON_ID"]
-          version = os.environ["VERSION"]
-          root = addon_id + "/"
-
-          with zipfile.ZipFile(asset) as archive:
-              names = archive.namelist()
-              bad = [name for name in names if not name.startswith(root)]
-              if bad:
-                  raise SystemExit(f"Files outside {root}: {bad}")
-
-              addon_xml = f"{root}addon.xml"
-              if addon_xml not in names:
-                  raise SystemExit(f"Missing {addon_xml}")
-
-              metadata = ET.fromstring(archive.read(addon_xml))
-              if metadata.attrib.get("id") != addon_id:
-                  raise SystemExit("Packaged add-on ID does not match")
-              if metadata.attrib.get("version") != version:
-                  raise SystemExit("Packaged add-on version does not match")
-
-              required = {
-                  f"{root}addon.xml",
-                  f"{root}context.py",
-                  f"{root}default.py",
-                  f"{root}resources/settings.xml",
-                  f"{root}resources/icon.png",
-              }
-              missing = sorted(required.difference(names))
-              if missing:
-                  raise SystemExit(f"Missing required package files: {missing}")
-
-              forbidden = (
-                  f"{root}.git/",
-                  f"{root}.github/",
-                  f"{root}dist/",
-                  f"{root}docs/",
-                  f"{root}scripts/",
-                  f"{root}tests/",
-              )
-              leaked = [name for name in names if name.startswith(forbidden)]
-              if leaked:
-                  raise SystemExit(f"Development files leaked into package: {leaked}")
-
-              corrupt = archive.testzip()
-              if corrupt:
-                  raise SystemExit(f"Corrupt ZIP member: {corrupt}")
-
-          print(f"Kodi package verified: {asset}")
+          import os, zipfile
+          version = os.environ['VERSION']
+          with zipfile.ZipFile(f'dist/context.arr.manager-{version}.zip') as archive:
+              archive.extractall('dist/addon-check')
+              assert archive.testzip() is None
           PY
-          unzip -l "$ASSET"
-          cat "${ASSET}.sha256"
+          kodi-addon-checker --branch matrix dist/addon-check/context.arr.manager
+          echo "asset=dist/context.arr.manager-$VERSION.zip" >> "$GITHUB_OUTPUT"
+          echo "checksum=dist/context.arr.manager-$VERSION.zip.sha256" >> "$GITHUB_OUTPUT"
 
       - name: Commit authoritative release metadata
         id: commit
-        shell: bash
         env:
           BRANCH: ${{ inputs.branch }}
           VERSION: ${{ steps.metadata.outputs.version }}
         run: |
           set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add addon.xml
-
           if ! git diff --cached --quiet; then
             git commit -m "chore(release): prepare v$VERSION"
             git push origin "HEAD:$BRANCH"
-          else
-            echo "addon.xml already contains the selected release metadata."
           fi
-
           echo "target_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Upload workflow artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: ${{ steps.metadata.outputs.addon_id }}-${{ steps.metadata.outputs.version }}
+          name: context.arr.manager-${{ steps.metadata.outputs.version }}
           path: |
             ${{ steps.package.outputs.asset }}
             ${{ steps.package.outputs.checksum }}
@@ -311,63 +194,40 @@ jobs:
 
       - name: Prepare release notes
         id: notes
-        shell: bash
         env:
-          ADDON_ID: ${{ steps.metadata.outputs.addon_id }}
           VERSION: ${{ steps.metadata.outputs.version }}
           TAG: ${{ steps.metadata.outputs.tag }}
           TARGET_SHA: ${{ steps.commit.outputs.target_sha }}
-          ASSET: ${{ steps.package.outputs.asset }}
           MANUAL_NOTES: ${{ inputs.release_notes }}
           VERSION_SOURCE: ${{ steps.metadata.outputs.version_source }}
+          ASSET: ${{ steps.package.outputs.asset }}
         run: |
           set -euo pipefail
-          CHECKSUM="$(cut -d ' ' -f 1 "${ASSET}.sha256")"
-          NOTES_FILE="$RUNNER_TEMP/release-notes.md"
-
+          checksum="$(cut -d' ' -f1 "$ASSET.sha256")"
+          file="$RUNNER_TEMP/release-notes.md"
           {
-            if [[ -n "$MANUAL_NOTES" ]]; then
-              echo "## Release highlights"
-              echo
-              printf '%s\n' "$MANUAL_NOTES"
-              echo
-            fi
-
-            echo "## Install on Kodi"
+            echo '## Release highlights'
             echo
-            echo "1. Download \`$ADDON_ID-$VERSION.zip\` from **Assets** below."
-            echo "2. Copy it to a location accessible from Kodi on the Android TV."
-            echo "3. In Kodi, open **Add-ons → Install from zip file**."
-            echo "4. Select the downloaded ZIP, then configure the add-on under **My add-ons → Context menus → Managarr**."
+            printf '%s\n' "$MANUAL_NOTES"
             echo
-            echo "Do not extract the ZIP before installing it in Kodi."
+            echo '## Install on Kodi'
             echo
-            echo "## Release assets"
+            echo "1. Download \`context.arr.manager-$VERSION.zip\` from **Assets**."
+            echo '2. In Kodi, open **Add-ons → Install from zip file**.'
+            echo '3. Configure **My add-ons → Context menus → Kodi Managarr**.'
             echo
-            echo "- \`$ADDON_ID-$VERSION.zip\` — Kodi-installable add-on package."
-            echo "- \`$ADDON_ID-$VERSION.zip.sha256\` — SHA-256 checksum file."
+            echo 'Do not extract the ZIP.'
             echo
-            echo "**SHA-256:** \`$CHECKSUM\`"
-            echo
-            echo "## Compatibility"
-            echo
-            echo "- Kodi 19 or newer with Python 3."
-            echo "- Designed for Kodi on Android TV."
-            echo "- Radarr and/or Sonarr reachable from the Kodi device."
-            echo
-            echo "## Build provenance"
+            echo '## Build provenance'
             echo
             echo "- Version source: \`$VERSION_SOURCE\`"
-            echo "- Tag: \`$TAG\`"
             echo "- Commit: \`$TARGET_SHA\`"
-          } > "$NOTES_FILE"
-
-          echo "file=$NOTES_FILE" >> "$GITHUB_OUTPUT"
-          cat "$NOTES_FILE"
+            echo "- SHA-256: \`$checksum\`"
+          } > "$file"
+          echo "file=$file" >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub release
         id: release
-        shell: bash
         env:
           TAG: ${{ steps.metadata.outputs.tag }}
           VERSION: ${{ steps.metadata.outputs.version }}
@@ -379,56 +239,27 @@ jobs:
           MARK_LATEST: ${{ inputs.mark_latest }}
         run: |
           set -euo pipefail
-          ARGS=(
-            release create "$TAG"
-            "$ASSET#Kodi-installable add-on"
-            "$CHECKSUM#SHA-256 checksum"
-            --repo "$GITHUB_REPOSITORY"
-            --target "$TARGET_SHA"
-            --title "Managarr v$VERSION"
-            --generate-notes
-            --notes-file "$NOTES_FILE"
-          )
-
+          args=(release create "$TAG" "$ASSET#Kodi-installable add-on" "$CHECKSUM#SHA-256 checksum" --repo "$GITHUB_REPOSITORY" --target "$TARGET_SHA" --title "Managarr v$VERSION" --notes-file "$NOTES_FILE")
           case "$CHANNEL" in
-            stable)
-              if [[ "$MARK_LATEST" == "true" ]]; then
-                ARGS+=(--latest)
-              else
-                ARGS+=(--latest=false)
-              fi
-              ;;
-            prerelease)
-              ARGS+=(--prerelease --latest=false)
-              ;;
-            draft)
-              ARGS+=(--draft --latest=false)
-              ;;
-            *)
-              echo "Unsupported release channel: $CHANNEL" >&2
-              exit 1
-              ;;
+            stable) [[ "$MARK_LATEST" == true ]] && args+=(--latest) || args+=(--latest=false) ;;
+            prerelease) args+=(--prerelease --latest=false) ;;
+            draft) args+=(--draft --latest=false) ;;
           esac
-
-          gh "${ARGS[@]}"
-          RELEASE_URL="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url --jq '.url')"
-          echo "url=$RELEASE_URL" >> "$GITHUB_OUTPUT"
+          gh "${args[@]}"
+          url="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url --jq .url)"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
 
       - name: Publish workflow summary
-        shell: bash
         env:
           RELEASE_URL: ${{ steps.release.outputs.url }}
           TAG: ${{ steps.metadata.outputs.tag }}
-          ASSET_NAME: ${{ steps.metadata.outputs.asset_name }}
-          CHANNEL: ${{ inputs.channel }}
           VERSION_SOURCE: ${{ steps.metadata.outputs.version_source }}
+          CHANNEL: ${{ inputs.channel }}
         run: |
           {
-            echo "# Kodi release created"
+            echo '# Kodi release created'
             echo
             echo "- Release: [$TAG]($RELEASE_URL)"
             echo "- Version source: \`$VERSION_SOURCE\`"
             echo "- Channel: \`$CHANNEL\`"
-            echo "- Kodi asset: \`$ASSET_NAME\`"
-            echo "- Checksum: \`$ASSET_NAME.sha256\`"
           } >> "$GITHUB_STEP_SUMMARY"

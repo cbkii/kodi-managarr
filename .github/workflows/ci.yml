@@ -11,6 +11,17 @@ env:
   PYTHONDONTWRITEBYTECODE: "1"
 
 jobs:
+  actionlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+      - name: Install actionlint
+        run: go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
+      - name: Validate workflows
+        run: "$(go env GOPATH)/bin/actionlint"
+
   validate:
     name: Validate (${{ matrix.python-version }})
     runs-on: ubuntu-latest
@@ -19,74 +30,69 @@ jobs:
       matrix:
         python-version: ['3.8', '3.12']
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           persist-credentials: false
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install Kodi addon checker
-        run: python -m pip install kodi-addon-checker
-      - name: Validate XML and Python
+      - name: Install validation tools
+        run: python -m pip install --disable-pip-version-check -r requirements-dev.txt
+      - name: Validate XML, metadata, images and Python
         run: python scripts/validate.py
+      - name: Run static checks
+        run: ruff check .
       - name: Run unit tests
         run: python -m unittest discover -s tests -v
-      - name: Build package
-        run: python scripts/package.py
+      - name: Build reproducible package
+        run: |
+          set -euo pipefail
+          export SOURCE_DATE_EPOCH=1700000000
+          python scripts/package.py
+          first="$(sha256sum dist/context.arr.manager-*.zip | cut -d' ' -f1)"
+          rm -rf dist
+          python scripts/package.py
+          second="$(sha256sum dist/context.arr.manager-*.zip | cut -d' ' -f1)"
+          test "$first" = "$second"
       - name: Extract package for Kodi validation
         run: |
           set -euo pipefail
           python - <<'PY'
-          import shutil
-          import xml.etree.ElementTree as ET
-          import zipfile
+          import shutil, zipfile
           from pathlib import Path
-
-          root = ET.parse('addon.xml').getroot()
-          addon_id = root.attrib['id']
-          version = root.attrib['version']
-          archive_path = Path('dist') / f'{addon_id}-{version}.zip'
-          check_root = Path('dist') / 'addon-check'
-          shutil.rmtree(check_root, ignore_errors=True)
-          check_root.mkdir(parents=True)
-          with zipfile.ZipFile(archive_path) as archive:
-              archive.extractall(check_root)
-          addon_path = check_root / addon_id
-          assert addon_path.is_dir(), addon_path
-          print(addon_path)
+          archive = next(Path('dist').glob('context.arr.manager-*.zip'))
+          target = Path('dist/addon-check')
+          shutil.rmtree(target, ignore_errors=True)
+          target.mkdir(parents=True)
+          with zipfile.ZipFile(archive) as handle:
+              handle.extractall(target)
           PY
       - name: Run Kodi addon checker
-        run: |
-          set -euo pipefail
-          kodi-addon-checker --branch matrix dist/addon-check/context.arr.manager
+        run: kodi-addon-checker --branch matrix dist/addon-check/context.arr.manager
       - name: Inspect package
         run: |
-          set -euo pipefail
           python - <<'PY'
-          import stat
-          import xml.etree.ElementTree as ET
-          import zipfile
+          import stat, zipfile
           from pathlib import Path
-
-          root = ET.parse('addon.xml').getroot()
-          addon_id = root.attrib['id']
-          version = root.attrib['version']
-          archive_path = Path('dist') / f'{addon_id}-{version}.zip'
-          assert archive_path.is_file() and archive_path.stat().st_size > 0
+          archive_path = next(Path('dist').glob('context.arr.manager-*.zip'))
+          required = {
+              'context.arr.manager/addon.xml',
+              'context.arr.manager/context.py',
+              'context.arr.manager/default.py',
+              'context.arr.manager/LICENSE.txt',
+              'context.arr.manager/resources/settings.xml',
+              'context.arr.manager/resources/icon.png',
+              'context.arr.manager/resources/fanart.jpg',
+          }
           forbidden_parts = {'.git', '.github', '__pycache__', 'tests', 'docs', 'scripts', 'dist'}
-          forbidden_suffixes = {'.pyc', '.pyo'}
           with zipfile.ZipFile(archive_path) as archive:
-              names = archive.namelist()
-              assert names and all(name.startswith(addon_id + '/') for name in names)
-              assert f'{addon_id}/addon.xml' in names
+              names = set(archive.namelist())
+              assert required <= names, sorted(required - names)
+              assert all(name.startswith('context.arr.manager/') for name in names)
               for info in archive.infolist():
-                  rel = info.filename[len(addon_id) + 1:]
-                  parts = set(Path(rel).parts)
-                  assert not (parts & forbidden_parts), info.filename
-                  assert not any(info.filename.endswith(suffix) for suffix in forbidden_suffixes), info.filename
+                  assert not (set(Path(info.filename).parts) & forbidden_parts), info.filename
                   mode = (info.external_attr >> 16) & 0o777
-                  if mode:
-                      assert not (mode & stat.S_IXUSR), f'executable bit set on {info.filename}'
+                  assert not (mode & stat.S_IXUSR), info.filename
               assert archive.testzip() is None
           print(archive_path)
           PY

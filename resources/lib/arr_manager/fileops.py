@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 from urllib.parse import urlsplit
 
 from .errors import ConfigurationError, SafetyError
@@ -18,8 +19,6 @@ class FileBackend:
 
 
 class KodiNetworkVFSBackend(FileBackend):
-    """Kodi VFS backend with fail-closed probes before destructive use."""
-
     name = "Kodi VFS (SMB/SFTP)"
     max_entries = 10000
     max_depth = 64
@@ -27,7 +26,7 @@ class KodiNetworkVFSBackend(FileBackend):
     def __init__(self, protected_paths=None, logger=None):
         import xbmcvfs
         self.vfs = xbmcvfs
-        self.protected_paths = protected_paths or []
+        self.protected_paths = list(protected_paths or [])
         self.logger = logger
         self._sftp_checked = False
 
@@ -36,7 +35,7 @@ class KodiNetworkVFSBackend(FileBackend):
         return bool(self.vfs.exists(path))
 
     def probe_directory(self, path):
-        self._check(path, folder=True)
+        self._check(path, folder=True, destructive=False)
         probe = path.rstrip("/") + "/"
         try:
             dirs, files = self.vfs.listdir(probe)
@@ -46,14 +45,25 @@ class KodiNetworkVFSBackend(FileBackend):
             raise SafetyError(f"Kodi VFS state is unknown for {path}")
         return {"dirs": list(dirs), "files": list(files)}
 
-    def delete_file(self, path):
+    def preflight_file(self, path):
         self._check(path, folder=False)
         parent, name = _split_child(path)
+        listing = self.probe_directory(parent)
         if not self.vfs.exists(path):
-            listing = self.probe_directory(parent)
-            if name not in listing["files"] and name not in listing["dirs"]:
-                raise SafetyError(f"Kodi VFS reports the file is absent before deletion: {path}")
+            if name not in listing["files"]:
+                raise SafetyError(f"Kodi VFS could not confirm the target file exists: {path}")
+        elif name not in listing["files"]:
             raise SafetyError(f"Kodi VFS state is inconsistent for {path}; refusing deletion")
+        return path
+
+    def preflight_tree(self, path):
+        self._check(path, folder=True)
+        files, dirs = self._plan_delete_tree(path)
+        return {"path": path, "files": files, "dirs": dirs}
+
+    def delete_file(self, path):
+        self.preflight_file(path)
+        parent, name = _split_child(path)
         if not self.vfs.delete(path):
             raise SafetyError(f"Kodi VFS could not delete {path}")
         if self.vfs.exists(path):
@@ -62,9 +72,9 @@ class KodiNetworkVFSBackend(FileBackend):
         if name in listing["files"] or name in listing["dirs"]:
             raise SafetyError(f"Kodi VFS parent listing still contains {path}")
 
-    def delete_tree(self, path):
-        self._check(path, folder=True)
-        files, dirs = self._plan_delete_tree(path)
+    def delete_tree(self, path, plan=None):
+        plan = plan or self.preflight_tree(path)
+        files, dirs = list(plan["files"]), list(plan["dirs"])
         deleted_by_parent = {}
         for child in files:
             if not self.vfs.delete(child):
@@ -73,14 +83,11 @@ class KodiNetworkVFSBackend(FileBackend):
                 raise SafetyError(f"Kodi VFS could not verify deletion of {child}")
             parent, name = _split_child(child)
             deleted_by_parent.setdefault(parent, set()).add(name)
-
-        for parent, deleted_names in deleted_by_parent.items():
+        for parent, names in deleted_by_parent.items():
             listing = self.probe_directory(parent)
-            remaining = deleted_names.intersection(set(listing["files"]) | set(listing["dirs"]))
+            remaining = names.intersection(set(listing["files"]) | set(listing["dirs"]))
             if remaining:
-                names = ", ".join(sorted(remaining))
-                raise SafetyError(f"Kodi VFS parent listing still contains deleted entries under {parent}: {names}")
-
+                raise SafetyError(f"Kodi VFS parent listing still contains deleted entries under {parent}: {', '.join(sorted(remaining))}")
         for child in sorted(dirs, key=lambda value: value.count("/"), reverse=True):
             try:
                 ok = self.vfs.rmdir(child, force=False)
@@ -90,8 +97,7 @@ class KodiNetworkVFSBackend(FileBackend):
                 raise SafetyError(f"Kodi VFS could not remove folder {child}")
 
     def _plan_delete_tree(self, path):
-        files = []
-        dirs = [path.rstrip("/")]
+        files, dirs = [], [path.rstrip("/")]
         stack = [(path.rstrip("/"), 0)]
         while stack:
             current, depth = stack.pop()
@@ -112,8 +118,14 @@ class KodiNetworkVFSBackend(FileBackend):
                 raise SafetyError("Kodi VFS recursive deletion exceeded entry limit")
         return files, dirs
 
-    def _check(self, path, folder):
-        _validate_delete_path(path, self.protected_paths, folder)
+    def _check(self, path, folder, destructive=True):
+        if destructive:
+            _validate_delete_path(path, self.protected_paths, folder)
+        else:
+            try:
+                normalise_path(path)
+            except ValueError as exc:
+                raise SafetyError(str(exc)) from exc
         if is_sftp_network_url(path):
             self._ensure_sftp_addon()
 
@@ -129,23 +141,17 @@ class KodiNetworkVFSBackend(FileBackend):
         self._sftp_checked = True
 
 
-# Backwards-compatible import name for older tests or add-on state. New code should use KodiNetworkVFSBackend.
 KodiVFSBackend = KodiNetworkVFSBackend
 
-
 _SFTP_ADDON_MESSAGE = (
-    "Kodi SFTP support (vfs.sftp) is not installed or enabled. Install 'SFTP support' from Kodi's add-on "
-    "repository, then create and verify an SSH/SFTP network location in Kodi before testing deletion. The binary "
-    "add-on must match your Kodi major version."
+    "Kodi SFTP support (vfs.sftp) is not installed or enabled. Install SFTP support from Kodi's add-on "
+    "repository, then create and verify an SSH/SFTP network location in Kodi."
 )
 _NETWORK_SCHEMES = {"smb", "sftp", "ssh"}
-_SFTP_SCHEMES = {"sftp", "ssh"}
 
 
 def _network_root_message(scheme):
-    if scheme == "smb":
-        return "Refusing to recursively remove an SMB share root"
-    return "Refusing to delete an SFTP/SSH server root or top-level remote directory"
+    return "Refusing to recursively remove an SMB share root" if scheme == "smb" else "Refusing to delete an SFTP/SSH server root or top-level remote directory"
 
 
 def _validate_delete_path(path, protected_paths, folder):
@@ -156,11 +162,8 @@ def _validate_delete_path(path, protected_paths, folder):
         normal = normalise_path(path)
     except ValueError as exc:
         raise SafetyError(str(exc)) from exc
-    if not normal or normal in {"/", "~", ".", ".."}:
+    if normal in {"/", "~", ".", ".."}:
         raise SafetyError("Refusing to delete an empty, home, current, parent, or root path")
-    if normal.startswith("~/") or normal.startswith("../") or normal == "..":
-        raise SafetyError("Refusing to delete a home-relative or parent-relative path")
-
     parts = urlsplit(normal)
     scheme = parts.scheme.lower()
     if scheme in _NETWORK_SCHEMES:
@@ -169,7 +172,6 @@ def _validate_delete_path(path, protected_paths, folder):
         raise SafetyError("Refusing to delete a malformed or unsupported network path")
     elif folder and len([part for part in normal.split("/") if part]) < 2:
         raise SafetyError("Refusing to recursively remove a top-level filesystem path")
-
     for protected in protected_paths or []:
         if _is_protected_delete_target(normal, protected):
             raise SafetyError(f"Refusing to delete protected path {normal}")
@@ -180,42 +182,15 @@ def _validate_network_delete_path(parts, folder):
         raise SafetyError("Refusing to delete a malformed or credential-only network URL")
     if parts.path in {"", "/"}:
         raise SafetyError(_network_root_message(parts.scheme.lower()))
-
     segments = [segment for segment in parts.path.split("/") if segment]
     if any(segment in {".", "..", "~"} for segment in segments):
         raise SafetyError("Refusing to delete a network path containing current, parent, or home segments")
-    if parts.scheme.lower() == "smb":
-        if folder and len(segments) < 2:
-            raise SafetyError(_network_root_message("smb"))
-    else:
-        # sftp://host/media or sftp://host:22/media names a remote top-level directory; require an item below it.
-        if folder and len(segments) < 2:
-            raise SafetyError(_network_root_message(parts.scheme.lower()))
+    if folder and len(segments) < 2:
+        raise SafetyError(_network_root_message(parts.scheme.lower()))
 
 
 def _is_protected_delete_target(target, protected):
     return paths_equal(target, protected) or is_path_under(protected, target)
-
-
-def _canonical_sftp_path(value):
-    parts = urlsplit(normalise_path(value))
-    if parts.scheme.lower() not in _SFTP_SCHEMES or not parts.hostname:
-        return None
-    try:
-        port = parts.port
-    except ValueError as exc:
-        raise SafetyError("Refusing to delete a malformed SFTP/SSH URL") from exc
-    if port == 22:
-        port = None
-    return ("sftp", parts.hostname.lower(), port, (parts.path or "/").rstrip("/") or "/")
-
-
-def _canonical_path_under(path, parent):
-    path_scheme, path_host, path_port, path_value = path
-    parent_scheme, parent_host, parent_port, parent_value = parent
-    if (path_scheme, path_host, path_port) != (parent_scheme, parent_host, parent_port):
-        return False
-    return path_value == parent_value or path_value.startswith(parent_value.rstrip("/") + "/")
 
 
 def make_direct_backend(settings, logger=None):

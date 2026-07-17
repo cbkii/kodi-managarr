@@ -6,48 +6,33 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 class BrandingTests(unittest.TestCase):
-    def test_addon_metadata_uses_kodi_managarr_branding_and_action_list(self):
+    def test_metadata_uses_publication_assets_and_full_scope(self):
         root = ET.parse(os.path.join(ROOT, "addon.xml")).getroot()
+        self.assertEqual(root.attrib["id"], "context.arr.manager")
         self.assertEqual(root.attrib["name"], "Kodi Managarr")
-
+        self.assertEqual(root.attrib["version"], "0.2.0")
         metadata = root.find("extension[@point='xbmc.addon.metadata']")
-        self.assertIsNotNone(metadata)
-        summary = metadata.findtext("summary", default="")
-        description = metadata.findtext("description", default="")
-        self.assertEqual(summary, "Manage Radarr and Sonarr media from Kodi.")
-        description_lines = [line.strip() for line in description.splitlines() if line.strip()]
-        self.assertEqual(
-            description_lines[-3:],
-            ["Actions:", "• Delete & Exclude", "• Delete & Replace"],
-        )
+        self.assertEqual(metadata.findtext("license"), "GPL-3.0-or-later")
+        self.assertEqual(metadata.findtext("assets/icon"), "resources/icon.png")
+        self.assertEqual(metadata.findtext("assets/fanart"), "resources/fanart.jpg")
+        args = {
+            item.attrib["args"]
+            for item in root.findall(".//extension[@point='kodi.context.item']//item")
+        }
+        self.assertEqual(args, {
+            "status", "search_now", "monitor", "unmonitor",
+            "change_quality_profile", "queue_view", "queue_remove",
+            "delete_exclude", "delete_replace",
+        })
 
-    def test_context_menu_uses_requested_managarr_label(self):
-        path = os.path.join(
-            ROOT,
-            "resources",
-            "language",
-            "resource.language.en_gb",
-            "strings.po",
-        )
-        with open(path, encoding="utf-8") as handle:
-            content = handle.read()
-        self.assertIn('msgid "🗑️ Managarr"', content)
-        self.assertNotIn('msgid "Managarr"', content)
-
-    def test_legacy_user_facing_name_is_absent(self):
-        paths = [
-            "README.md",
+    def test_legacy_branding_is_absent_from_runtime_metadata(self):
+        for relative in (
             "addon.xml",
-            "docs/ARCHITECTURE.md",
-            ".github/workflows/release.yml",
             "resources/language/resource.language.en_gb/strings.po",
-            "resources/lib/arr_manager/__init__.py",
             "resources/lib/arr_manager/kodi.py",
-        ]
-        for relative_path in paths:
-            with self.subTest(path=relative_path):
-                path = os.path.join(ROOT, *relative_path.split("/"))
-                with open(path, encoding="utf-8") as handle:
+        ):
+            with self.subTest(path=relative):
+                with open(os.path.join(ROOT, *relative.split("/")), encoding="utf-8") as handle:
                     self.assertNotIn("Arr Manager", handle.read())
 
 

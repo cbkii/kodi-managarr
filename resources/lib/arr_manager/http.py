@@ -1,12 +1,29 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 import json
 import re
 import socket
 import ssl
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode, urlsplit
-from urllib.request import Request, urlopen
+from urllib.parse import urlencode, urljoin, urlsplit
+from urllib.request import HTTPRedirectHandler, Request, build_opener, HTTPSHandler
 
 from .errors import ApiError
+
+MAX_RESPONSE_BYTES = 8 * 1024 * 1024
+MAX_ERROR_BYTES = 16 * 1024
+
+
+class _SameOriginRedirectHandler(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        old = urlsplit(req.full_url)
+        new = urlsplit(urljoin(req.full_url, newurl))
+        old_port = old.port or (443 if old.scheme == "https" else 80)
+        new_port = new.port or (443 if new.scheme == "https" else 80)
+        if (old.scheme.lower(), (old.hostname or "").lower(), old_port) != (
+            new.scheme.lower(), (new.hostname or "").lower(), new_port
+        ):
+            raise ApiError("API redirected to a different origin; refusing to forward credentials")
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
 class JsonHttpClient:
@@ -20,7 +37,6 @@ class JsonHttpClient:
         self.logger = logger
 
     def request(self, method, path, params=None, payload=None):
-        """Send one bounded JSON API request without retrying mutations."""
         path = "/" + path.lstrip("/")
         url = self.api_root + path
         if params:
@@ -28,7 +44,7 @@ class JsonHttpClient:
             for key, value in params.items():
                 if value is None:
                     continue
-                if isinstance(value, (list, tuple)):
+                if isinstance(value, (list, tuple, set)):
                     clean.extend((key, item) for item in value)
                 else:
                     clean.append((key, str(value).lower() if isinstance(value, bool) else value))
@@ -36,22 +52,25 @@ class JsonHttpClient:
                 url += "?" + urlencode(clean, doseq=True)
 
         body = None
-        headers = {"Accept": "application/json", "X-Api-Key": self.api_key}
+        headers = {
+            "Accept": "application/json",
+            "X-Api-Key": self.api_key,
+            "User-Agent": "Kodi-Managarr/0.2",
+        }
         if payload is not None:
-            body = json.dumps(payload).encode("utf-8")
+            body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
             headers["Content-Type"] = "application/json"
-
         if self.logger:
-            self.logger.debug("HTTP %s %s", method, self._redact_url(url))
+            self.logger.debug("HTTP %s %s", method.upper(), self._redact_url(url))
 
         request = Request(url, data=body, headers=headers, method=method.upper())
         context = None
         if url.lower().startswith("https://") and not self.verify_tls:
             context = ssl._create_unverified_context()  # nosec - explicit user setting
-
+        opener = build_opener(_SameOriginRedirectHandler(), HTTPSHandler(context=context))
         try:
-            with urlopen(request, timeout=self.timeout, context=context) as response:
-                raw = response.read()
+            with opener.open(request, timeout=self.timeout) as response:
+                raw = self._read_bounded(response, MAX_RESPONSE_BYTES)
                 if not raw:
                     return None
                 content_type = response.headers.get("Content-Type", "")
@@ -59,24 +78,39 @@ class JsonHttpClient:
                     raise ApiError("API response was not JSON")
                 try:
                     return json.loads(raw.decode("utf-8"))
-                except json.JSONDecodeError as exc:
+                except (UnicodeDecodeError, json.JSONDecodeError) as exc:
                     raise ApiError("API response contained invalid JSON") from exc
         except HTTPError as exc:
-            raw = exc.read().decode("utf-8", "replace")
+            raw_bytes = self._read_bounded(exc, MAX_ERROR_BYTES, truncate=True)
+            raw = raw_bytes.decode("utf-8", "replace")
             message = f"API request failed with HTTP {exc.code}"
             try:
                 parsed = json.loads(raw)
-                message = parsed.get("message") or parsed.get("error") or message
+                if isinstance(parsed, dict):
+                    safe = parsed.get("message") or parsed.get("error")
+                    if isinstance(safe, str) and safe.strip():
+                        message = f"{message}: {safe.strip()[:300]}"
             except json.JSONDecodeError:
-                if raw.strip():
-                    message = f"{message}: {raw[:300]}"
-            raise ApiError(message, status=exc.code, body=raw) from exc
+                pass
+            raise ApiError(message, status=exc.code) from exc
+        except ApiError:
+            raise
         except ssl.SSLError as exc:
             raise ApiError(f"TLS validation failed for {self._redact_url(self.base_url)}") from exc
         except (socket.timeout, TimeoutError) as exc:
             raise ApiError(f"Connection to {self._redact_url(self.base_url)} timed out") from exc
         except URLError as exc:
-            raise ApiError(f"Could not connect to {self._redact_url(self.base_url)}: {exc.reason}") from exc
+            reason = type(exc.reason).__name__ if not isinstance(exc.reason, str) else exc.reason[:120]
+            raise ApiError(f"Could not connect to {self._redact_url(self.base_url)}: {reason}") from exc
+
+    @staticmethod
+    def _read_bounded(response, limit, truncate=False):
+        raw = response.read(limit + 1)
+        if len(raw) > limit:
+            if truncate:
+                return raw[:limit]
+            raise ApiError("API response exceeded the safe size limit")
+        return raw
 
     @staticmethod
     def _validate_base_url(base_url):
@@ -91,6 +125,8 @@ class JsonHttpClient:
             raise ApiError("API base URL must be an absolute http(s) URL with a host")
         if parts.username or parts.password:
             raise ApiError("API base URL must not contain embedded credentials")
+        if parts.query or parts.fragment:
+            raise ApiError("API base URL must not contain a query string or fragment")
         return value
 
     @staticmethod

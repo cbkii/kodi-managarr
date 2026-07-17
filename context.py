@@ -10,5 +10,4 @@ if LIB_DIR not in sys.path:
 from arr_manager.entrypoints import run_context  # noqa: E402
 
 if __name__ == "__main__":
-    action = sys.argv[1] if len(sys.argv) > 1 else ""
-    run_context(action)
+    run_context(sys.argv[1] if len(sys.argv) > 1 else "")

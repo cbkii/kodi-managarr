@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 class ArrManagerError(Exception):
     """Base expected error shown to the Kodi user."""
 
