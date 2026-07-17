@@ -171,7 +171,11 @@ jobs:
           python scripts/package.py
           second="$(sha256sum "dist/context.arr.manager-$VERSION.zip" | cut -d' ' -f1)"
           test "$first" = "$second"
-          sha256sum "dist/context.arr.manager-$VERSION.zip" > "dist/context.arr.manager-$VERSION.zip.sha256"
+          (
+            cd dist
+            sha256sum "context.arr.manager-$VERSION.zip" > "context.arr.manager-$VERSION.zip.sha256"
+            sha256sum --check "context.arr.manager-$VERSION.zip.sha256"
+          )
           rm -rf dist/addon-check && mkdir -p dist/addon-check
           python - <<'PY'
           import os, zipfile
