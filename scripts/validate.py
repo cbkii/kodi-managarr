@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import ast
 import compileall
 import importlib.util
 import os
@@ -7,6 +8,7 @@ import shutil
 import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
+
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -69,16 +71,38 @@ def _validate_context_items(addon):
             raise SystemExit(f"Context item {key} is missing a visible expression")
 
 
+def _po_quoted_value(block, keyword):
+    lines = block.splitlines()
+    for index, line in enumerate(lines):
+        prefix = keyword + " "
+        if not line.startswith(prefix):
+            continue
+        quoted_lines = [line[len(prefix):].strip()]
+        for continuation in lines[index + 1:]:
+            stripped = continuation.strip()
+            if not stripped.startswith('"'):
+                break
+            quoted_lines.append(stripped)
+        try:
+            return "".join(ast.literal_eval(value) for value in quoted_lines)
+        except (SyntaxError, ValueError) as exc:
+            raise SystemExit(f"strings.po contains an invalid {keyword} value") from exc
+    return None
+
+
 def _po_entries(path):
     content = path.read_text(encoding="utf-8")
     if "\r" in content:
         raise SystemExit("strings.po must use Unix line endings")
     blocks = [block for block in re.split(r"\n[ \t]*\n", content) if block.strip()]
     entries = []
-    for index, block in enumerate(blocks):
+    for block in blocks:
+        nonblank = [line.strip() for line in block.splitlines() if line.strip()]
+        if nonblank and all(line.startswith("#") for line in nonblank):
+            continue
         contexts = re.findall(r'^msgctxt "#([0-9]+)"$', block, flags=re.M)
         if not contexts:
-            if index == 0 and re.search(r'^msgid ""$', block, flags=re.M):
+            if _po_quoted_value(block, "msgid") == "":
                 continue
             raise SystemExit("strings.po contains a block without a numeric msgctxt")
         if len(contexts) != 1:
@@ -87,9 +111,13 @@ def _po_entries(path):
                 "strings.po entries must be separated by a blank line; "
                 f"one block contains IDs: {joined}"
             )
-        msgids = re.findall(r'^msgid "(.*)"$', block, flags=re.M)
-        if not msgids or not msgids[0]:
-            raise SystemExit(f"Language string #{contexts[0]} has an empty or missing msgid")
+        msgid = _po_quoted_value(block, "msgid")
+        if msgid is None:
+            raise SystemExit(f"Language string #{contexts[0]} is missing a msgid")
+        if not msgid:
+            raise SystemExit(f"Language string #{contexts[0]} has an empty msgid")
+        if _po_quoted_value(block, "msgstr") is None:
+            raise SystemExit(f"Language string #{contexts[0]} is missing a msgstr")
         entries.append((int(contexts[0]), block))
     if not entries:
         raise SystemExit("strings.po contains no localised strings")
@@ -97,11 +125,16 @@ def _po_entries(path):
 
 
 def _po_ids(path):
-    values = [string_id for string_id, _ in _po_entries(path)]
-    duplicates = sorted({value for value in values if values.count(value) > 1})
+    seen = set()
+    duplicates = set()
+    for string_id, _ in _po_entries(path):
+        if string_id in seen:
+            duplicates.add(string_id)
+        else:
+            seen.add(string_id)
     if duplicates:
-        raise SystemExit(f"Duplicate language string IDs: {duplicates}")
-    return set(values)
+        raise SystemExit(f"Duplicate language string IDs: {sorted(duplicates)}")
+    return seen
 
 
 def _setting_string_id(node, attribute):
@@ -116,7 +149,7 @@ def _setting_string_id(node, attribute):
 def _validate_strings(addon, settings):
     ids = _po_ids(ROOT / "resources/language/resource.language.en_gb/strings.po")
     referenced = set()
-    for node in addon.iter("label"):
+    for node in list(addon.iter("label")) + list(settings.iter("heading")):
         value = (node.text or "").strip()
         if value.isdigit() and int(value) >= 30000:
             referenced.add(int(value))
