@@ -180,28 +180,32 @@ jobs:
           set -euo pipefail
           SOURCE_DATE_EPOCH="$(git show -s --format=%ct HEAD)"
           export SOURCE_DATE_EPOCH
+          internal_asset="dist/context.arr.manager-$VERSION.zip"
+          release_asset="dist/managarr-addon_v$VERSION.zip"
+          release_checksum="$release_asset.sha256"
           python scripts/package.py
-          first="$(sha256sum "dist/context.arr.manager-$VERSION.zip" | cut -d' ' -f1)"
-          cp "dist/context.arr.manager-$VERSION.zip" "$RUNNER_TEMP/first.zip"
-          rm "dist/context.arr.manager-$VERSION.zip"
+          first="$(sha256sum "$internal_asset" | cut -d' ' -f1)"
+          cp "$internal_asset" "$RUNNER_TEMP/first.zip"
+          rm "$internal_asset"
           python scripts/package.py
-          second="$(sha256sum "dist/context.arr.manager-$VERSION.zip" | cut -d' ' -f1)"
+          second="$(sha256sum "$internal_asset" | cut -d' ' -f1)"
           test "$first" = "$second"
+          cp "$internal_asset" "$release_asset"
           (
             cd dist
-            sha256sum "context.arr.manager-$VERSION.zip" > "context.arr.manager-$VERSION.zip.sha256"
-            sha256sum --check "context.arr.manager-$VERSION.zip.sha256"
+            sha256sum "managarr-addon_v$VERSION.zip" > "managarr-addon_v$VERSION.zip.sha256"
+            sha256sum --check "managarr-addon_v$VERSION.zip.sha256"
           )
           rm -rf dist/addon-check && mkdir -p dist/addon-check
           python - <<'PY'
           import os, zipfile
           version = os.environ['VERSION']
-          with zipfile.ZipFile(f'dist/context.arr.manager-{version}.zip') as archive:
+          with zipfile.ZipFile(f'dist/managarr-addon_v{version}.zip') as archive:
               archive.extractall('dist/addon-check')
               assert archive.testzip() is None
           PY
-          echo "asset=dist/context.arr.manager-$VERSION.zip" >> "$GITHUB_OUTPUT"
-          echo "checksum=dist/context.arr.manager-$VERSION.zip.sha256" >> "$GITHUB_OUTPUT"
+          echo "asset=$release_asset" >> "$GITHUB_OUTPUT"
+          echo "checksum=$release_checksum" >> "$GITHUB_OUTPUT"
       - name: Run Kodi addon checker
         timeout-minutes: 5
         run: kodi-addon-checker --branch matrix dist/addon-check/context.arr.manager
@@ -225,7 +229,7 @@ jobs:
       - name: Upload workflow artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: context.arr.manager-${{ steps.metadata.outputs.version }}
+          name: managarr-addon_v${{ steps.metadata.outputs.version }}
           path: |
             ${{ steps.package.outputs.asset }}
             ${{ steps.package.outputs.checksum }}
@@ -252,7 +256,7 @@ jobs:
             echo
             echo '## Install on Kodi'
             echo
-            echo "1. Download \`context.arr.manager-$VERSION.zip\` from **Assets**."
+            echo "1. Download \`managarr-addon_v$VERSION.zip\` from **Assets**."
             echo '2. In Kodi, open **Add-ons → Install from zip file**.'
             echo '3. Configure **My add-ons → Context menus → Kodi Managarr**.'
             echo
