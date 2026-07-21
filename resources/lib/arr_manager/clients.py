@@ -30,8 +30,25 @@ def _id(value, description):
 
 
 class ServarrClient:
-    def __init__(self, base_url, api_key, api_version="v3", timeout=15, verify_tls=True, logger=None):
-        self.http = JsonHttpClient(base_url, api_key, api_version, timeout, verify_tls, logger)
+    def __init__(
+        self,
+        base_url,
+        api_key,
+        api_version="v3",
+        timeout=15,
+        verify_tls=True,
+        logger=None,
+        user_agent="Kodi-Managarr/unknown",
+    ):
+        self.http = JsonHttpClient(
+            base_url,
+            api_key,
+            api_version,
+            timeout,
+            verify_tls,
+            logger,
+            user_agent,
+        )
 
     def status(self):
         return _object(self.http.request("GET", "/system/status"), "System status")
