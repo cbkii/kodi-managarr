@@ -1,10 +1,10 @@
 import importlib.util
-import unicodedata
 import unittest
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+ROOT_LABEL = "* Managarr"
 EXPECTED_ACTIONS = {
     "status",
     "search_now",
@@ -13,6 +13,12 @@ EXPECTED_ACTIONS = {
     "change_quality_profile",
     "queue_view",
     "queue_remove",
+    "delete_exclude",
+    "delete_replace",
+}
+EXPECTED_DIRECT_ACTIONS = {
+    "status",
+    "search_now",
     "delete_exclude",
     "delete_replace",
 }
@@ -46,18 +52,20 @@ class ContextMenuManifestTests(unittest.TestCase):
         self.assertIsNotNone(extension)
         return extension
 
-    def test_complete_submenu_tree_is_registered(self):
-        extension = self._context_extension()
-        root_menu = extension.find("menu[@id='kodi.core.main']")
+    def _branding_menu(self):
+        root_menu = self._context_extension().find("menu[@id='kodi.core.main']")
         self.assertIsNotNone(root_menu)
-
         branding_menus = root_menu.findall("menu")
         self.assertEqual(len(branding_menus), 1)
-        branding_menu = branding_menus[0]
+        return branding_menus[0]
+
+    def test_complete_submenu_tree_is_registered(self):
+        branding_menu = self._branding_menu()
 
         label = (branding_menu.findtext("label") or "").strip()
-        self.assertEqual(label, "Managarr")
-        self.assertFalse(any(unicodedata.category(character) == "So" for character in label))
+        self.assertEqual(label, ROOT_LABEL)
+        self.assertTrue(label.isascii())
+        self.assertTrue(label.startswith("* "))
         self.assertNotIn("\ufe0f", label)
 
         actions = set()
@@ -70,6 +78,8 @@ class ContextMenuManifestTests(unittest.TestCase):
             self.assertTrue((item.findtext("visible") or "").strip())
 
         self.assertEqual(actions, EXPECTED_ACTIONS)
+        direct_actions = {item.attrib.get("args", "") for item in branding_menu.findall("item")}
+        self.assertEqual(direct_actions, EXPECTED_DIRECT_ACTIONS)
 
         nested = branding_menu.findall("menu")
         self.assertEqual(len(nested), len(EXPECTED_SUBMENUS))
