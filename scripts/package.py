@@ -21,7 +21,7 @@ ALLOWED_SUFFIXES = {".py", ".xml", ".po", ".png", ".jpg", ".jpeg"}
 MIN_ZIP_EPOCH = 315532800
 MAX_ZIP_EPOCH = 4354819198
 PACKAGE_FILE_MODE = 0o644
-ROOT_CONTEXT_LABEL = "* Managarr"
+ROOT_CONTEXT_LABEL = "⎘ Managarr"
 EXPECTED_CONTEXT_ACTIONS = {
     "status",
     "search_now",
@@ -91,8 +91,10 @@ def _validate_packaged_context(archive, addon):
         raise RuntimeError("Packaged kodi.core.main must contain one Managarr root submenu")
     branding_menu = branding_menus[0]
     root_label = (branding_menu.findtext("label") or "").strip()
-    if root_label != ROOT_CONTEXT_LABEL or not root_label.isascii():
+    if root_label != ROOT_CONTEXT_LABEL:
         raise RuntimeError(f"Packaged context root label must be exactly {ROOT_CONTEXT_LABEL!r}")
+    if "\ufe0f" in root_label or any(ord(character) > 0xFFFF for character in root_label):
+        raise RuntimeError("Packaged context root label must use a BMP text symbol without emoji variation selectors")
 
     items = branding_menu.findall(".//item")
     actions = {item.attrib.get("args", "") for item in items}
