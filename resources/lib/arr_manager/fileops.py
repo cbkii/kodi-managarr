@@ -43,7 +43,10 @@ class KodiNetworkVFSBackend(FileBackend):
             raise SafetyError(f"Kodi VFS could not access {path}") from exc
         if dirs is None or files is None:
             raise SafetyError(f"Kodi VFS state is unknown for {path}")
-        return {"dirs": list(dirs), "files": list(files)}
+        return {
+            "dirs": _normalise_listing_names(dirs, directory=True),
+            "files": _normalise_listing_names(files, directory=False),
+        }
 
     def preflight_file(self, path):
         self._check(path, folder=False)
@@ -94,7 +97,10 @@ class KodiNetworkVFSBackend(FileBackend):
             listing = self.probe_directory(parent)
             remaining = names.intersection(set(listing["files"]) | set(listing["dirs"]))
             if remaining:
-                raise SafetyError(f"Kodi VFS parent listing still contains deleted entries under {parent}: {', '.join(sorted(remaining))}")
+                raise SafetyError(
+                    f"Kodi VFS parent listing still contains deleted entries under {parent}: "
+                    f"{', '.join(sorted(remaining))}"
+                )
         for child in sorted(dirs, key=lambda value: value.count("/"), reverse=True):
             parent, name = _split_child(child)
             try:
@@ -159,6 +165,20 @@ _SFTP_ADDON_MESSAGE = (
     "repository, then create and verify an SSH/SFTP network location in Kodi."
 )
 _NETWORK_SCHEMES = {"smb", "sftp", "ssh"}
+
+
+def _normalise_listing_names(values, directory):
+    names = []
+    for raw in values:
+        name = str(raw)
+        if directory:
+            name = name.rstrip("/")
+        if not name:
+            raise SafetyError("Kodi VFS returned an empty directory entry")
+        names.append(name)
+    if len(names) != len(set(names)):
+        raise SafetyError("Kodi VFS returned ambiguous duplicate directory entries")
+    return names
 
 
 def _network_root_message(scheme):
