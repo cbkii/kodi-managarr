@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.1.0 — 2026-07-21
+
+- Replaced the decorative context-menu glyph with the plain ASCII `Managarr` label for maximum Android Kodi skin/font compatibility.
+- Centralised the expected context-menu structure across source validation, package validation and tests.
+- Isolated inactive VFS configuration errors so API-backend actions remain usable while still failing closed when VFS is selected.
+- Removed the installation-specific protected-path default; configured mapping roots remain protected automatically.
+- Added the installed add-on version to normal Radarr/Sonarr HTTP User-Agent headers and rejected header-injection input.
+- Reused one Kodi abort monitor per action instead of creating a monitor for every wait.
+- Strengthened recursive Kodi VFS deletion by revalidating both files and directories and checking every removed folder against its parent listing.
+- Added stateful VFS, configuration, HTTP and Kodi-runtime regression tests.
+- Added a concise Android Kodi validation runbook and simplified owner-controlled stable release checklist.
+
 ## 1.0.2 — 2026-07-21
 
 - Changed the root context-menu label to the compatible monochrome `⎘ Managarr` document marker.
