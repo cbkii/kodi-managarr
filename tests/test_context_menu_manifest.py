@@ -1,31 +1,20 @@
 import importlib.util
+import sys
 import unittest
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-ROOT_LABEL = "⎘ Managarr"
-EXPECTED_ACTIONS = {
-    "status",
-    "search_now",
-    "monitor",
-    "unmonitor",
-    "change_quality_profile",
-    "queue_view",
-    "queue_remove",
-    "delete_exclude",
-    "delete_replace",
-}
-EXPECTED_DIRECT_ACTIONS = {
-    "status",
-    "search_now",
-    "delete_exclude",
-    "delete_replace",
-}
-EXPECTED_SUBMENUS = {
-    "32005": {"monitor", "unmonitor", "change_quality_profile"},
-    "32009": {"queue_view", "queue_remove"},
-}
+LIB_DIR = ROOT / "resources" / "lib"
+if str(LIB_DIR) not in sys.path:
+    sys.path.insert(0, str(LIB_DIR))
+
+from arr_manager.context_manifest import (  # noqa: E402
+    EXPECTED_CONTEXT_ACTIONS,
+    EXPECTED_CONTEXT_SUBMENUS,
+    EXPECTED_DIRECT_CONTEXT_ACTIONS,
+    ROOT_CONTEXT_LABEL,
+)
 
 
 def load_validator():
@@ -63,10 +52,8 @@ class ContextMenuManifestTests(unittest.TestCase):
         branding_menu = self._branding_menu()
 
         label = (branding_menu.findtext("label") or "").strip()
-        self.assertEqual(label, ROOT_LABEL)
-        self.assertEqual(ord(label[0]), 0x2398)
-        self.assertTrue(all(ord(character) <= 0xFFFF for character in label))
-        self.assertNotIn("\ufe0f", label)
+        self.assertEqual(label, ROOT_CONTEXT_LABEL)
+        self.assertTrue(label.isascii())
 
         actions = set()
         for item in branding_menu.findall(".//item"):
@@ -77,14 +64,14 @@ class ContextMenuManifestTests(unittest.TestCase):
             actions.add(action)
             self.assertTrue((item.findtext("visible") or "").strip())
 
-        self.assertEqual(actions, EXPECTED_ACTIONS)
+        self.assertEqual(actions, EXPECTED_CONTEXT_ACTIONS)
         direct_actions = {item.attrib.get("args", "") for item in branding_menu.findall("item")}
-        self.assertEqual(direct_actions, EXPECTED_DIRECT_ACTIONS)
+        self.assertEqual(direct_actions, EXPECTED_DIRECT_CONTEXT_ACTIONS)
 
         nested = branding_menu.findall("menu")
-        self.assertEqual(len(nested), len(EXPECTED_SUBMENUS))
+        self.assertEqual(len(nested), len(EXPECTED_CONTEXT_SUBMENUS))
         submenu_labels = {(submenu.findtext("label") or "").strip() for submenu in nested}
-        self.assertEqual(submenu_labels, set(EXPECTED_SUBMENUS))
+        self.assertEqual(submenu_labels, set(EXPECTED_CONTEXT_SUBMENUS))
 
         for submenu in nested:
             submenu_label = (submenu.findtext("label") or "").strip()
@@ -92,7 +79,7 @@ class ContextMenuManifestTests(unittest.TestCase):
                 items = submenu.findall("item")
                 self.assertTrue(items)
                 submenu_actions = {item.attrib.get("args", "") for item in items}
-                self.assertEqual(submenu_actions, EXPECTED_SUBMENUS[submenu_label])
+                self.assertEqual(submenu_actions, EXPECTED_CONTEXT_SUBMENUS[submenu_label])
 
     def test_every_numeric_context_label_is_localised(self):
         extension = self._context_extension()
