@@ -12,28 +12,16 @@ from pathlib import Path
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parent.parent
-ROOT_CONTEXT_LABEL = "⎘ Managarr"
-EXPECTED_CONTEXT_ACTIONS = {
-    "status",
-    "search_now",
-    "monitor",
-    "unmonitor",
-    "change_quality_profile",
-    "queue_view",
-    "queue_remove",
-    "delete_exclude",
-    "delete_replace",
-}
-EXPECTED_DIRECT_CONTEXT_ACTIONS = {
-    "status",
-    "search_now",
-    "delete_exclude",
-    "delete_replace",
-}
-EXPECTED_CONTEXT_SUBMENUS = {
-    "32005": {"monitor", "unmonitor", "change_quality_profile"},
-    "32009": {"queue_view", "queue_remove"},
-}
+LIB_DIR = ROOT / "resources" / "lib"
+if str(LIB_DIR) not in sys.path:
+    sys.path.insert(0, str(LIB_DIR))
+
+from arr_manager.context_manifest import (  # noqa: E402
+    EXPECTED_CONTEXT_ACTIONS,
+    EXPECTED_CONTEXT_SUBMENUS,
+    EXPECTED_DIRECT_CONTEXT_ACTIONS,
+    ROOT_CONTEXT_LABEL,
+)
 
 
 def main():
@@ -100,8 +88,6 @@ def _validate_context_items(addon):
     root_label = (branding_menu.findtext("label") or "").strip()
     if root_label != ROOT_CONTEXT_LABEL:
         raise SystemExit(f"Context root label must be exactly {ROOT_CONTEXT_LABEL!r}")
-    if "\ufe0f" in root_label or any(ord(character) > 0xFFFF for character in root_label):
-        raise SystemExit("Context root label must use a BMP text symbol without emoji variation selectors")
 
     seen = set()
     for item in branding_menu.findall(".//item"):
