@@ -19,6 +19,7 @@ Kodi Managarr is a Kodi 19+ Python 3 context-menu add-on for managing Radarr mov
 - Empty, malformed, root, share-root, mapping-root, protected, traversal and ambiguous paths fail closed.
 - SMB path components are compared case-sensitively; scheme and host identity are normalised.
 - Every multi-file direct operation validates every target before blocklisting or deleting anything.
+- Confirmed VFS folder plans are re-enumerated before deletion, including empty directories, and removals are verified against parent listings.
 - Servarr commands are successful only when the command has terminal `Completed` status and `Successful` result.
 - Partial commits are persisted without secrets and reported with completed transaction stages.
 - API keys and credential-bearing URLs are never written to diagnostics or logs.
@@ -32,7 +33,7 @@ Kodi Managarr is a Kodi 19+ Python 3 context-menu add-on for managing Radarr mov
 5. Run both connection tests.
 6. Keep **Dry run** enabled for the first end-to-end validation.
 
-The **⎘ Managarr** submenu appears for Kodi library movies, TV shows and episodes. `⎘` is the monochrome BMP **NEXT PAGE** technical symbol, used here as a document/file marker. It has no emoji variation selector and avoids dependence on Android colour-emoji fonts. Selecting it exposes all direct actions plus the nested **Monitoring** and **Download queue** menus.
+The plain-text **Managarr** submenu appears for Kodi library movies, TV shows and episodes. It intentionally avoids emoji and decorative Unicode glyphs so it remains readable across Android Kodi skins and font packages. Selecting it exposes all direct actions plus the nested **Monitoring** and **Download queue** menus.
 
 ## Path mappings
 
@@ -42,7 +43,7 @@ Direct Kodi VFS deletion requires explicit mappings:
 /media/mediasmb/Movies=>smb://server/Movies;/media/mediasmb/Shows=>sftp://server:22/media/mediasmb/Shows
 ```
 
-Every configured Kodi mapping root is protected automatically. The add-on may delete a validated child but never the mapping root itself or one of its ancestors.
+Every configured Kodi mapping root is protected automatically. The add-on may delete a validated child but never the mapping root itself or one of its ancestors. VFS-only configuration errors do not block normal API-backend operation, but they must be repaired before switching to the VFS backend.
 
 ## Keymap Editor
 
@@ -75,11 +76,13 @@ PY
 kodi-addon-checker --branch matrix dist/addon-check/context.arr.manager
 ```
 
-Validation checks the exact `⎘ Managarr` label, the complete nested manifest structure, every manifest-to-`context.py` dispatch path, numeric child-label localisation, and the generated ZIP's menu/action structure. CI runs these gates on Python 3.8 and 3.12 alongside actionlint, Ruff, deterministic packaging, archive integrity and Kodi add-on checker.
+Validation checks the exact ASCII `Managarr` label, the complete nested manifest structure, every manifest-to-`context.py` dispatch path, numeric child-label localisation, and the generated ZIP's menu/action structure. CI runs these gates on Python 3.8 and 3.12 alongside actionlint, Ruff, deterministic packaging, archive integrity and Kodi add-on checker.
 
-## Release status
+## Android Kodi validation and release
 
-Host-side tests do not replace real Android TV and live Servarr validation. Complete [`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md) against disposable media before publishing a stable release.
+Host-side tests do not replace a real Android Kodi run. Use the concise [`Android Kodi validation runbook`](docs/ANDROID_KODI_VALIDATION.md) with disposable media and attach its completed evidence summary to the release or PR.
+
+A release candidate is optional. The manual release workflow may publish a stable, prerelease or draft build whenever the owner chooses; the practical release gate is a green CI run plus the applicable required checks in [`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md).
 
 ## Licence
 
