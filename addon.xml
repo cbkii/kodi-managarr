@@ -35,7 +35,7 @@
     <license>GPL-3.0-or-later</license>
     <source>https://github.com/cbkii/kodi-managarr</source>
     <website>https://github.com/cbkii/kodi-managarr</website>
-    <news>v1.1.1 (2026-07-21) - Arrsome</news>
+    <news>Make release highlights optional and source normal release notes from maintained add-on metadata, with durable guidance for concise consolidated release copy.</news>
     <assets>
       <icon>resources/icon.png</icon>
       <fanart>resources/fanart.jpg</fanart>
