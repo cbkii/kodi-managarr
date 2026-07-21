@@ -312,13 +312,13 @@ Do not approve changes that merely make CI green while weakening fail-closed beh
 
 - Releases are manual `workflow_dispatch` runs.
 - Dispatch fields control branch, exact version, channel, an optional release-highlights override, and Latest status.
-- A blank version increments the highest numeric `x.y.z` patch version.
+- A blank version preserves a newer untagged manifest version; otherwise it increments the highest numeric `x.y.z` tag by one patch version.
 - Treat `addon.xml` metadata as maintained release source material, not disposable text generated only at dispatch time.
 - Keep `<summary>` to one accurate sentence describing the add-on's current purpose. Keep `<description>` concise but complete enough to reflect the current user-facing scope; neither field is a version history.
 - Before completing any release-affecting PR, compare the target branch with the latest published release tag and update `<news>` with a coherent, concise, consolidated account of user-relevant changes since that release. Summarise outcomes rather than listing commits or PR titles, omit filler and routine test/CI chores unless they materially affect installation or reliability, and never leave placeholder text.
 - The release workflow uses maintained `<news>` when the optional dispatch override is blank, falling back to the maintained description or summary rather than blocking a release. It rewrites the version/date prefix in `<news>` to match the release being created.
 - Use the optional override only for an intentional one-off replacement of the maintained `<news>` copy; do not require the owner to retype release notes during a normal dispatch.
-- The workflow writes the selected version and canonical news prefix to `addon.xml`, validates, tests, packages, commits metadata, tags that commit and publishes the ZIP plus SHA-256 file.
+- The workflow writes the selected version and canonical news prefix to `addon.xml`, validates, tests and packages the add-on, then publishes `managarr-addon_vX.Y.Z.zip` plus its SHA-256 file while preserving the required `context.arr.manager/...` archive root.
 - Do not manually edit a tag, publish a duplicate release, or commit generated ZIPs.
 - Any release-workflow change must preserve Kodi-valid ZIP root layout: `context.arr.manager/...`.
 
