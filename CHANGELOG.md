@@ -2,7 +2,7 @@
 
 ## 1.0.2 — 2026-07-21
 
-- Changed the root context-menu label to the compatible literal `* Managarr` string.
+- Changed the root context-menu label to the compatible monochrome `⎘ Managarr` document marker.
 - Added end-to-end tests proving every manifest action is forwarded by `context.py` and reaches the context dispatcher.
 - Added validation for the exact root label, complete submenu grouping and generated ZIP menu/action structure.
 
