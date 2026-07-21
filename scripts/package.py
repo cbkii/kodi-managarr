@@ -4,12 +4,23 @@ from __future__ import annotations
 import os
 import re
 import stat
+import sys
 import zipfile
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+LIB_DIR = ROOT / "resources" / "lib"
+if str(LIB_DIR) not in sys.path:
+    sys.path.insert(0, str(LIB_DIR))
+
+from arr_manager.context_manifest import (  # noqa: E402
+    EXPECTED_CONTEXT_ACTIONS,
+    EXPECTED_CONTEXT_SUBMENUS,
+    ROOT_CONTEXT_LABEL,
+)
+
 ADDON = ET.parse(ROOT / "addon.xml").getroot()
 ADDON_ID = ADDON.attrib["id"]
 VERSION = ADDON.attrib["version"]
@@ -21,22 +32,6 @@ ALLOWED_SUFFIXES = {".py", ".xml", ".po", ".png", ".jpg", ".jpeg"}
 MIN_ZIP_EPOCH = 315532800
 MAX_ZIP_EPOCH = 4354819198
 PACKAGE_FILE_MODE = 0o644
-ROOT_CONTEXT_LABEL = "⎘ Managarr"
-EXPECTED_CONTEXT_ACTIONS = {
-    "status",
-    "search_now",
-    "monitor",
-    "unmonitor",
-    "change_quality_profile",
-    "queue_view",
-    "queue_remove",
-    "delete_exclude",
-    "delete_replace",
-}
-EXPECTED_CONTEXT_SUBMENUS = {
-    "32005": {"monitor", "unmonitor", "change_quality_profile"},
-    "32009": {"queue_view", "queue_remove"},
-}
 
 
 def _zip_timestamp():
@@ -93,8 +88,6 @@ def _validate_packaged_context(archive, addon):
     root_label = (branding_menu.findtext("label") or "").strip()
     if root_label != ROOT_CONTEXT_LABEL:
         raise RuntimeError(f"Packaged context root label must be exactly {ROOT_CONTEXT_LABEL!r}")
-    if "\ufe0f" in root_label or any(ord(character) > 0xFFFF for character in root_label):
-        raise RuntimeError("Packaged context root label must use a BMP text symbol without emoji variation selectors")
 
     items = branding_menu.findall(".//item")
     actions = {item.attrib.get("args", "") for item in items}
