@@ -12,7 +12,7 @@ from pathlib import Path
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parent.parent
-ROOT_CONTEXT_LABEL = "* Managarr"
+ROOT_CONTEXT_LABEL = "⎘ Managarr"
 EXPECTED_CONTEXT_ACTIONS = {
     "status",
     "search_now",
@@ -100,8 +100,8 @@ def _validate_context_items(addon):
     root_label = (branding_menu.findtext("label") or "").strip()
     if root_label != ROOT_CONTEXT_LABEL:
         raise SystemExit(f"Context root label must be exactly {ROOT_CONTEXT_LABEL!r}")
-    if not root_label.isascii() or "\ufe0f" in root_label:
-        raise SystemExit("Context root label must use compatible ASCII text without variation selectors")
+    if "\ufe0f" in root_label or any(ord(character) > 0xFFFF for character in root_label):
+        raise SystemExit("Context root label must use a BMP text symbol without emoji variation selectors")
 
     seen = set()
     for item in branding_menu.findall(".//item"):
