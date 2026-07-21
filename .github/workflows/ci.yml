@@ -142,3 +142,20 @@ jobs:
               assert archive.testzip() is None
           print(archive_path)
           PY
+      - name: Prepare Android validation bundle
+        if: matrix.python-version == '3.12'
+        run: |
+          set -euo pipefail
+          archive="$(find dist -maxdepth 1 -name 'context.arr.manager-*.zip' -print -quit)"
+          test -n "$archive"
+          sha256sum "$archive" > "$archive.sha256"
+      - name: Upload Android validation bundle
+        if: matrix.python-version == '3.12'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: managarr-android-validation
+          path: |
+            dist/context.arr.manager-*.zip
+            dist/context.arr.manager-*.zip.sha256
+          if-no-files-found: error
+          retention-days: 14
