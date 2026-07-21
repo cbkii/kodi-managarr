@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0.1 — unreleased
+## 1.0.1 — 2026-07-21
 
 - Restored Kodi context-menu localisation by shipping the repaired PO message boundaries that were fixed after the v1.0.0 release was built.
 - Replaced the unsupported colour-emoji submenu branding with the plain-text `Managarr` label.
