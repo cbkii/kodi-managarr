@@ -149,7 +149,7 @@ class JsonHttpClient:
     @staticmethod
     def _validate_user_agent(user_agent):
         value = str(user_agent or "").strip()
-        if not value or len(value) > 128 or "\r" in value or "\n" in value:
+        if not value or len(value) > 128 or not all(32 <= ord(character) < 127 for character in value):
             return "Kodi-Managarr/unknown"
         return value
 
