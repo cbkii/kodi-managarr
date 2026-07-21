@@ -74,10 +74,13 @@ class KodiNetworkVFSBackend(FileBackend):
 
     def delete_tree(self, path, plan=None):
         fresh_plan = self.preflight_tree(path)
-        if plan is not None and set(plan.get("files", [])) != set(fresh_plan["files"]):
-            raise SafetyError(
-                f"Directory contents changed after confirmation; aborting deletion of {path}"
-            )
+        if plan is not None:
+            confirmed_files = set(plan.get("files", []))
+            confirmed_dirs = set(plan.get("dirs", []))
+            if confirmed_files != set(fresh_plan["files"]) or confirmed_dirs != set(fresh_plan["dirs"]):
+                raise SafetyError(
+                    f"Directory contents changed after confirmation; aborting deletion of {path}"
+                )
         files, dirs = list(fresh_plan["files"]), list(fresh_plan["dirs"])
         deleted_by_parent = {}
         for child in files:
@@ -93,12 +96,16 @@ class KodiNetworkVFSBackend(FileBackend):
             if remaining:
                 raise SafetyError(f"Kodi VFS parent listing still contains deleted entries under {parent}: {', '.join(sorted(remaining))}")
         for child in sorted(dirs, key=lambda value: value.count("/"), reverse=True):
+            parent, name = _split_child(child)
             try:
                 ok = self.vfs.rmdir(child, force=False)
             except TypeError:
                 ok = self.vfs.rmdir(child)
             if not ok or self.vfs.exists(child):
                 raise SafetyError(f"Kodi VFS could not remove folder {child}")
+            listing = self.probe_directory(parent)
+            if name in listing["dirs"] or name in listing["files"]:
+                raise SafetyError(f"Kodi VFS parent listing still contains removed folder {child}")
 
     def _plan_delete_tree(self, path):
         files, dirs = [], [path.rstrip("/")]
