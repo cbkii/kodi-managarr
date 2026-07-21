@@ -41,7 +41,7 @@
     <category id="paths" label="32400" help="32420">
       <group id="1" label="">
         <setting id="path_mappings" type="string" label="32401" help="32421"><level>1</level><default/><constraints><allowempty>true</allowempty></constraints><control type="edit" format="string"><heading>32401</heading></control></setting>
-        <setting id="protected_paths" type="string" label="32402" help="32422"><level>1</level><default>/;/media/mediasmb</default><constraints><allowempty>true</allowempty></constraints><control type="edit" format="string"><heading>32402</heading></control></setting>
+        <setting id="protected_paths" type="string" label="32402" help="32422"><level>1</level><default>/</default><constraints><allowempty>true</allowempty></constraints><control type="edit" format="string"><heading>32402</heading></control></setting>
         <setting id="rescan_poll_timeout" type="integer" label="32403" help="32423"><level>1</level><default>45</default><constraints><minimum>5</minimum><step>5</step><maximum>300</maximum></constraints><control type="slider" format="integer"><popup>false</popup></control></setting>
       </group>
       <group id="2" label="">
