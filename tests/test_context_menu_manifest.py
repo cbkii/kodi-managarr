@@ -4,7 +4,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-ROOT_LABEL = "* Managarr"
+ROOT_LABEL = "⎘ Managarr"
 EXPECTED_ACTIONS = {
     "status",
     "search_now",
@@ -64,8 +64,8 @@ class ContextMenuManifestTests(unittest.TestCase):
 
         label = (branding_menu.findtext("label") or "").strip()
         self.assertEqual(label, ROOT_LABEL)
-        self.assertTrue(label.isascii())
-        self.assertTrue(label.startswith("* "))
+        self.assertEqual(ord(label[0]), 0x2398)
+        self.assertTrue(all(ord(character) <= 0xFFFF for character in label))
         self.assertNotIn("\ufe0f", label)
 
         actions = set()
