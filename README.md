@@ -32,7 +32,7 @@ Kodi Managarr is a Kodi 19+ Python 3 context-menu add-on for managing Radarr mov
 5. Run both connection tests.
 6. Keep **Dry run** enabled for the first end-to-end validation.
 
-The **🗑️ Managarr** submenu appears for Kodi library movies, TV shows and episodes.
+The **Managarr** submenu appears for Kodi library movies, TV shows and episodes. The label intentionally uses plain text so it remains readable with Kodi fonts that do not include colour-emoji glyphs.
 
 ## Path mappings
 

@@ -1,6 +1,12 @@
 # Changelog
 
-## 0.2.0 — unreleased
+## 1.0.1 — 2026-07-21
+
+- Restored Kodi context-menu localisation by shipping the repaired PO message boundaries that were fixed after the v1.0.0 release was built.
+- Replaced the unsupported colour-emoji submenu branding with the plain-text `Managarr` label.
+- Added manifest regression coverage for the complete Kodi submenu tree and every registered action.
+
+## 1.0.0
 
 - Added Kodi-native Status, Search & download, Monitoring, quality-profile and Download queue controls.
 - Added queue removal without blocklisting.

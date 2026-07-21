@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<addon id="context.arr.manager" name="Kodi Managarr" version="1.0.0" provider-name="CB">
+<addon id="context.arr.manager" name="Kodi Managarr" version="1.0.1" provider-name="CB">
   <requires>
     <import addon="xbmc.python" version="3.0.0"/>
   </requires>
   <extension point="kodi.context.item">
     <menu id="kodi.core.main">
       <menu>
-        <label>32000</label>
+        <label>Managarr</label>
         <item library="context.py" args="status"><label>32003</label><visible>String.IsEqual(ListItem.DBType,movie) | String.IsEqual(ListItem.DBType,tvshow) | String.IsEqual(ListItem.DBType,episode)</visible></item>
         <item library="context.py" args="search_now"><label>32004</label><visible>String.IsEqual(ListItem.DBType,movie) | String.IsEqual(ListItem.DBType,tvshow) | String.IsEqual(ListItem.DBType,episode)</visible></item>
         <menu>
@@ -35,7 +35,7 @@
     <license>GPL-3.0-or-later</license>
     <source>https://github.com/cbkii/kodi-managarr</source>
     <website>https://github.com/cbkii/kodi-managarr</website>
-    <news>v1.0.0 (2026-07-17) - More endpoints</news>
+    <news>v1.0.1 (2026-07-21) - Restore context-menu labels and submenus; replace unsupported emoji branding with plain text.</news>
     <assets>
       <icon>resources/icon.png</icon>
       <fanart>resources/fanart.jpg</fanart>
