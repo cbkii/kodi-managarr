@@ -10,8 +10,9 @@ from arr_manager.fileops import KodiNetworkVFSBackend, _validate_delete_path
 
 
 class FakeVFS:
-    def __init__(self, stale_directory_listing=False):
+    def __init__(self, stale_directory_listing=False, trailing_directory_markers=False):
         self.stale_directory_listing = stale_directory_listing
+        self.trailing_directory_markers = trailing_directory_markers
         self.listings = {
             "/media/Movies": {"dirs": ["Film"], "files": []},
             "/media/Movies/Film": {"dirs": ["Extras"], "files": ["movie.mkv"]},
@@ -33,7 +34,10 @@ class FakeVFS:
 
     def listdir(self, path):
         state = self.listings[self._key(path)]
-        return list(state["dirs"]), list(state["files"])
+        dirs = list(state["dirs"])
+        if self.trailing_directory_markers:
+            dirs = [name + "/" for name in dirs]
+        return dirs, list(state["files"])
 
     def exists(self, path):
         return self._key(path) in self.existing
@@ -91,6 +95,12 @@ class FileSafetyTests(unittest.TestCase):
         backend._sftp_checked = False
         return backend
 
+    def test_trailing_directory_markers_are_normalised(self):
+        backend = self._backend(FakeVFS(trailing_directory_markers=True))
+        plan = backend.preflight_tree("/media/Movies/Film")
+        self.assertIn("/media/Movies/Film/Extras", plan["dirs"])
+        self.assertNotIn("/media/Movies/Film/Extras/", plan["dirs"])
+
     def test_new_empty_directory_after_confirmation_aborts_before_deletion(self):
         vfs = FakeVFS()
         backend = self._backend(vfs)
@@ -107,7 +117,10 @@ class FileSafetyTests(unittest.TestCase):
         self.assertIn(f"{target}/movie.mkv", vfs.existing)
 
     def test_removed_directory_must_disappear_from_parent_listing(self):
-        vfs = FakeVFS(stale_directory_listing=True)
+        vfs = FakeVFS(
+            stale_directory_listing=True,
+            trailing_directory_markers=True,
+        )
         backend = self._backend(vfs)
         target = "/media/Movies/Film"
         plan = backend.preflight_tree(target)
@@ -118,7 +131,7 @@ class FileSafetyTests(unittest.TestCase):
         self.assertIn("Extras", vfs.listings[target]["dirs"])
 
     def test_unchanged_tree_is_deleted_and_verified(self):
-        vfs = FakeVFS()
+        vfs = FakeVFS(trailing_directory_markers=True)
         backend = self._backend(vfs)
         target = "/media/Movies/Film"
         plan = backend.preflight_tree(target)
