@@ -32,7 +32,7 @@ Kodi Managarr is a Kodi 19+ Python 3 context-menu add-on for managing Radarr mov
 5. Run both connection tests.
 6. Keep **Dry run** enabled for the first end-to-end validation.
 
-The **Managarr** submenu appears for Kodi library movies, TV shows and episodes. The label intentionally uses plain text so it remains readable with Kodi fonts that do not include colour-emoji glyphs.
+The **\* Managarr** submenu appears for Kodi library movies, TV shows and episodes. The literal ASCII asterisk replaces the unsupported colour-emoji glyph and does not depend on Kodi's emoji font coverage. Selecting it exposes all direct actions plus the nested **Monitoring** and **Download queue** menus.
 
 ## Path mappings
 
@@ -75,7 +75,7 @@ PY
 kodi-addon-checker --branch matrix dist/addon-check/context.arr.manager
 ```
 
-CI validates Python 3.8 and 3.12, action workflow syntax, image and metadata rules, tests, deterministic packaging, archive integrity and Kodi add-on checker results.
+Validation checks the exact `* Managarr` label, the complete nested manifest structure, every manifest-to-`context.py` dispatch path, numeric child-label localisation, and the generated ZIP's menu/action structure. CI runs these gates on Python 3.8 and 3.12 alongside actionlint, Ruff, deterministic packaging, archive integrity and Kodi add-on checker.
 
 ## Release status
 
