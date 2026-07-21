@@ -12,6 +12,28 @@ from pathlib import Path
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parent.parent
+ROOT_CONTEXT_LABEL = "⎘ Managarr"
+EXPECTED_CONTEXT_ACTIONS = {
+    "status",
+    "search_now",
+    "monitor",
+    "unmonitor",
+    "change_quality_profile",
+    "queue_view",
+    "queue_remove",
+    "delete_exclude",
+    "delete_replace",
+}
+EXPECTED_DIRECT_CONTEXT_ACTIONS = {
+    "status",
+    "search_now",
+    "delete_exclude",
+    "delete_replace",
+}
+EXPECTED_CONTEXT_SUBMENUS = {
+    "32005": {"monitor", "unmonitor", "change_quality_profile"},
+    "32009": {"queue_view", "queue_remove"},
+}
 
 
 def main():
@@ -31,8 +53,13 @@ def main():
     print("OK Python compilation")
 
     required = [
-        "addon.xml", "context.py", "default.py", "LICENSE.txt", "resources/icon.png",
-        "resources/fanart.jpg", "resources/settings.xml",
+        "addon.xml",
+        "context.py",
+        "default.py",
+        "LICENSE.txt",
+        "resources/icon.png",
+        "resources/fanart.jpg",
+        "resources/settings.xml",
         "resources/language/resource.language.en_gb/strings.po",
     ]
     missing = [path for path in required if not (ROOT / path).is_file()]
@@ -60,15 +87,61 @@ def _validate_images():
 
 
 def _validate_context_items(addon):
+    extension = addon.find("extension[@point='kodi.context.item']")
+    if extension is None:
+        raise SystemExit("addon.xml is missing kodi.context.item")
+    root_menu = extension.find("menu[@id='kodi.core.main']")
+    if root_menu is None:
+        raise SystemExit("Context extension is missing kodi.core.main")
+    branding_menus = root_menu.findall("menu")
+    if len(branding_menus) != 1:
+        raise SystemExit("kodi.core.main must contain exactly one Managarr root submenu")
+    branding_menu = branding_menus[0]
+    root_label = (branding_menu.findtext("label") or "").strip()
+    if root_label != ROOT_CONTEXT_LABEL:
+        raise SystemExit(f"Context root label must be exactly {ROOT_CONTEXT_LABEL!r}")
+    if "\ufe0f" in root_label or any(ord(character) > 0xFFFF for character in root_label):
+        raise SystemExit("Context root label must use a BMP text symbol without emoji variation selectors")
+
     seen = set()
-    for item in addon.findall(".//extension[@point='kodi.context.item']//item"):
+    for item in branding_menu.findall(".//item"):
         key = (item.attrib.get("library"), item.attrib.get("args", ""))
-        if not key[0] or key in seen:
+        if key[0] != "context.py" or not key[1] or key in seen:
             raise SystemExit(f"Duplicate or invalid context item: {key}")
         seen.add(key)
         visible = item.find("visible")
         if visible is None or not (visible.text or "").strip():
             raise SystemExit(f"Context item {key} is missing a visible expression")
+
+    actions = {action for _, action in seen}
+    if actions != EXPECTED_CONTEXT_ACTIONS:
+        raise SystemExit(
+            "Context actions do not match the required scope: "
+            f"expected {sorted(EXPECTED_CONTEXT_ACTIONS)}, got {sorted(actions)}"
+        )
+
+    direct_actions = {item.attrib.get("args", "") for item in branding_menu.findall("item")}
+    if direct_actions != EXPECTED_DIRECT_CONTEXT_ACTIONS:
+        raise SystemExit(
+            "Root-level context actions are incorrect: "
+            f"expected {sorted(EXPECTED_DIRECT_CONTEXT_ACTIONS)}, got {sorted(direct_actions)}"
+        )
+
+    nested = branding_menu.findall("menu")
+    labels = {(submenu.findtext("label") or "").strip() for submenu in nested}
+    if labels != set(EXPECTED_CONTEXT_SUBMENUS):
+        raise SystemExit(
+            "Context submenus are incorrect: "
+            f"expected {sorted(EXPECTED_CONTEXT_SUBMENUS)}, got {sorted(labels)}"
+        )
+    for submenu in nested:
+        label = (submenu.findtext("label") or "").strip()
+        submenu_actions = {item.attrib.get("args", "") for item in submenu.findall("item")}
+        if submenu_actions != EXPECTED_CONTEXT_SUBMENUS[label]:
+            raise SystemExit(
+                f"Context submenu {label} has incorrect actions: "
+                f"expected {sorted(EXPECTED_CONTEXT_SUBMENUS[label])}, got {sorted(submenu_actions)}"
+            )
 
 
 def _po_quoted_value(block, keyword):

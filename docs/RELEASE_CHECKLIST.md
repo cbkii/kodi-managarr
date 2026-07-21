@@ -5,9 +5,14 @@ Use disposable Radarr/Sonarr entries and sacrificial files. Record the Kodi vers
 ## Installation and upgrade
 
 - [ ] Clean ZIP installation succeeds.
-- [ ] Upgrade from v0.1.1 preserves every setting.
-- [ ] Modern settings render and save using only the TV remote.
+- [ ] Upgrade from v1.0.0 and v1.0.1 preserves every setting and refreshes add-on metadata/localisation.
+- [ ] Modern settings render and save using only the TV remote, including every category label and help description.
+- [ ] The root context item is rendered exactly as `⎘ Managarr`, without a missing-glyph box or colour emoji.
 - [ ] Context submenu appears only for movie, TV show and episode library rows.
+- [ ] Selecting `⎘ Managarr` visibly opens all four direct actions and both nested submenus.
+- [ ] Monitoring contains Monitor, Unmonitor and Change quality profile.
+- [ ] Download queue contains View status and Remove.
+- [ ] Delete & Exclude and Delete & Replace remain visible and triggerable.
 - [ ] Keymap Editor launches the complete Managarr menu.
 
 ## Non-destructive actions
@@ -50,6 +55,7 @@ Use disposable Radarr/Sonarr entries and sacrificial files. Record the Kodi vers
 ## Publication
 
 - [ ] CI passes on the exact release commit.
+- [ ] Generated ZIP contains v1.0.2 metadata, exact `⎘ Managarr` branding, all nine actions and correct submenu grouping.
 - [ ] ZIP is reproducible and checksum matches the release asset.
 - [ ] `kodi-addon-checker --branch matrix` passes on the extracted ZIP.
 - [ ] Release workflow environment approval is configured.
