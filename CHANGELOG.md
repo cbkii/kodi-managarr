@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.2 — 2026-07-21
+
+- Changed the root context-menu label to the compatible literal `* Managarr` string.
+- Added end-to-end tests proving every manifest action is forwarded by `context.py` and reaches the context dispatcher.
+- Added validation for the exact root label, complete submenu grouping and generated ZIP menu/action structure.
+
 ## 1.0.1 — 2026-07-21
 
 - Restored Kodi context-menu localisation by shipping the repaired PO message boundaries that were fixed after the v1.0.0 release was built.
