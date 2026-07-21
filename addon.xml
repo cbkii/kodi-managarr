@@ -6,7 +6,7 @@
   <extension point="kodi.context.item">
     <menu id="kodi.core.main">
       <menu>
-        <label>* Managarr</label>
+        <label>▣ Managarr</label>
         <item library="context.py" args="status"><label>32003</label><visible>String.IsEqual(ListItem.DBType,movie) | String.IsEqual(ListItem.DBType,tvshow) | String.IsEqual(ListItem.DBType,episode)</visible></item>
         <item library="context.py" args="search_now"><label>32004</label><visible>String.IsEqual(ListItem.DBType,movie) | String.IsEqual(ListItem.DBType,tvshow) | String.IsEqual(ListItem.DBType,episode)</visible></item>
         <menu>
@@ -35,7 +35,7 @@
     <license>GPL-3.0-or-later</license>
     <source>https://github.com/cbkii/kodi-managarr</source>
     <website>https://github.com/cbkii/kodi-managarr</website>
-    <news>v1.0.2 (2026-07-21) - Use the compatible * Managarr root label and verify every context action and packaged submenu.</news>
+    <news>v1.0.2 (2026-07-21) - Use the compatible ▣ Managarr root label and verify every context action and packaged submenu.</news>
     <assets>
       <icon>resources/icon.png</icon>
       <fanart>resources/fanart.jpg</fanart>
