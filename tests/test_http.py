@@ -61,16 +61,22 @@ class HttpTests(unittest.TestCase):
             ).request("GET", "/x")
         self.assertEqual(opener.requests[0].get_header("User-agent"), "Kodi-Managarr/1.1.0")
 
-    def test_invalid_user_agent_falls_back_without_header_injection(self):
-        opener = Opener(Response())
-        with patch("arr_manager.http.build_opener", return_value=opener):
-            JsonHttpClient(
-                "http://host",
-                "key",
-                user_agent="Kodi-Managarr/1.1.0\r\nX-Test: injected",
-            ).request("GET", "/x")
-        self.assertEqual(opener.requests[0].get_header("User-agent"), "Kodi-Managarr/unknown")
-        self.assertIsNone(opener.requests[0].get_header("X-Test"))
+    def test_invalid_user_agents_fall_back_without_header_injection(self):
+        for invalid in (
+            "Kodi-Managarr/1.1.0\r\nX-Test: injected",
+            "Kodi-Managarr/1.1.0\x00",
+            "Kodi-Managarr/1.1.0 café",
+        ):
+            with self.subTest(invalid=repr(invalid)):
+                opener = Opener(Response())
+                with patch("arr_manager.http.build_opener", return_value=opener):
+                    JsonHttpClient(
+                        "http://host",
+                        "key",
+                        user_agent=invalid,
+                    ).request("GET", "/x")
+                self.assertEqual(opener.requests[0].get_header("User-agent"), "Kodi-Managarr/unknown")
+                self.assertIsNone(opener.requests[0].get_header("X-Test"))
 
     def test_bounded_response_and_truncated_error_reader(self):
         with patch("arr_manager.http.build_opener", return_value=Opener(Response(b"x" * (MAX_RESPONSE_BYTES + 1)))):
