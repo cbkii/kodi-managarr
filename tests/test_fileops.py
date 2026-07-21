@@ -115,7 +115,7 @@ class FileSafetyTests(unittest.TestCase):
         with self.assertRaisesRegex(SafetyError, "parent listing still contains removed folder"):
             backend.delete_tree(target, plan)
 
-        self.assertIn(f"{target}/Extras", vfs.listings[target]["dirs"])
+        self.assertIn("Extras", vfs.listings[target]["dirs"])
 
     def test_unchanged_tree_is_deleted_and_verified(self):
         vfs = FakeVFS()
