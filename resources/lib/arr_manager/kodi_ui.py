@@ -19,6 +19,7 @@ class KodiUI:
         self.xbmcgui = xbmcgui
         self.addon = addon
         self.name = addon.getAddonInfo("name")
+        self.monitor = xbmc.Monitor()
         self.jsonrpc = KodiJsonRpcClient(xbmc)
 
     def localize(self, key, **values):
@@ -178,7 +179,6 @@ class KodiUI:
         raise KodiJsonRpcError("Could not safely resolve the Kodi movie row for targeted cleanup")
 
     def _resolve_tvshow_id(self, selected, allow_absent=True):
-        # Prefer the captured parent TV-show ID for episode selections
         tvshow_db_id = int(getattr(selected, "tvshow_db_id", 0) or 0) if selected.media_type == "episode" else 0
         db_id = int(getattr(selected, "db_id", 0) or 0) if selected.media_type == "tvshow" else 0
         lookup_id = tvshow_db_id or db_id
@@ -215,4 +215,4 @@ class KodiUI:
         return True
 
     def wait_for_abort(self, seconds):
-        return self.xbmc.Monitor().waitForAbort(float(seconds))
+        return self.monitor.waitForAbort(float(seconds))
