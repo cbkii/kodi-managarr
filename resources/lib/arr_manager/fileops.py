@@ -43,7 +43,10 @@ class KodiNetworkVFSBackend(FileBackend):
             raise SafetyError(f"Kodi VFS could not access {path}") from exc
         if dirs is None or files is None:
             raise SafetyError(f"Kodi VFS state is unknown for {path}")
-        return {"dirs": list(dirs), "files": list(files)}
+        return {
+            "dirs": _normalise_listing_names(dirs, directory=True),
+            "files": _normalise_listing_names(files, directory=False),
+        }
 
     def preflight_file(self, path):
         self._check(path, folder=False)
@@ -74,10 +77,13 @@ class KodiNetworkVFSBackend(FileBackend):
 
     def delete_tree(self, path, plan=None):
         fresh_plan = self.preflight_tree(path)
-        if plan is not None and set(plan.get("files", [])) != set(fresh_plan["files"]):
-            raise SafetyError(
-                f"Directory contents changed after confirmation; aborting deletion of {path}"
-            )
+        if plan is not None:
+            confirmed_files = set(plan.get("files", []))
+            confirmed_dirs = set(plan.get("dirs", []))
+            if confirmed_files != set(fresh_plan["files"]) or confirmed_dirs != set(fresh_plan["dirs"]):
+                raise SafetyError(
+                    f"Directory contents changed after confirmation; aborting deletion of {path}"
+                )
         files, dirs = list(fresh_plan["files"]), list(fresh_plan["dirs"])
         deleted_by_parent = {}
         for child in files:
@@ -91,14 +97,21 @@ class KodiNetworkVFSBackend(FileBackend):
             listing = self.probe_directory(parent)
             remaining = names.intersection(set(listing["files"]) | set(listing["dirs"]))
             if remaining:
-                raise SafetyError(f"Kodi VFS parent listing still contains deleted entries under {parent}: {', '.join(sorted(remaining))}")
+                raise SafetyError(
+                    f"Kodi VFS parent listing still contains deleted entries under {parent}: "
+                    f"{', '.join(sorted(remaining))}"
+                )
         for child in sorted(dirs, key=lambda value: value.count("/"), reverse=True):
+            parent, name = _split_child(child)
             try:
                 ok = self.vfs.rmdir(child, force=False)
             except TypeError:
                 ok = self.vfs.rmdir(child)
             if not ok or self.vfs.exists(child):
                 raise SafetyError(f"Kodi VFS could not remove folder {child}")
+            listing = self.probe_directory(parent)
+            if name in listing["dirs"] or name in listing["files"]:
+                raise SafetyError(f"Kodi VFS parent listing still contains removed folder {child}")
 
     def _plan_delete_tree(self, path):
         files, dirs = [], [path.rstrip("/")]
@@ -152,6 +165,20 @@ _SFTP_ADDON_MESSAGE = (
     "repository, then create and verify an SSH/SFTP network location in Kodi."
 )
 _NETWORK_SCHEMES = {"smb", "sftp", "ssh"}
+
+
+def _normalise_listing_names(values, directory):
+    names = []
+    for raw in values:
+        name = str(raw)
+        if directory:
+            name = name.rstrip("/")
+        if not name:
+            raise SafetyError("Kodi VFS returned an empty directory entry")
+        names.append(name)
+    if len(names) != len(set(names)):
+        raise SafetyError("Kodi VFS returned ambiguous duplicate directory entries")
+    return names
 
 
 def _network_root_message(scheme):

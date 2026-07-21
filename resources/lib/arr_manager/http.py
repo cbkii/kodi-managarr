@@ -27,7 +27,16 @@ class _SameOriginRedirectHandler(HTTPRedirectHandler):
 
 
 class JsonHttpClient:
-    def __init__(self, base_url, api_key, api_version="v3", timeout=15, verify_tls=True, logger=None):
+    def __init__(
+        self,
+        base_url,
+        api_key,
+        api_version="v3",
+        timeout=15,
+        verify_tls=True,
+        logger=None,
+        user_agent="Kodi-Managarr/unknown",
+    ):
         self.base_url = self._validate_base_url(base_url)
         self.api_key = api_key or ""
         version = self._validate_api_version(api_version)
@@ -35,6 +44,7 @@ class JsonHttpClient:
         self.timeout = timeout
         self.verify_tls = verify_tls
         self.logger = logger
+        self.user_agent = self._validate_user_agent(user_agent)
 
     def request(self, method, path, params=None, payload=None):
         path = "/" + path.lstrip("/")
@@ -55,7 +65,7 @@ class JsonHttpClient:
         headers = {
             "Accept": "application/json",
             "X-Api-Key": self.api_key,
-            "User-Agent": "Kodi-Managarr/0.2",
+            "User-Agent": self.user_agent,
         }
         if payload is not None:
             body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
@@ -134,6 +144,13 @@ class JsonHttpClient:
         value = (api_version or "").strip().strip("/")
         if not re.fullmatch(r"v[0-9]+", value):
             raise ApiError("API version must use syntax like v3")
+        return value
+
+    @staticmethod
+    def _validate_user_agent(user_agent):
+        value = str(user_agent or "").strip()
+        if not value or len(value) > 128 or not all(32 <= ord(character) < 127 for character in value):
+            return "Kodi-Managarr/unknown"
         return value
 
     @staticmethod

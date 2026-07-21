@@ -1,62 +1,73 @@
-# Android TV and release acceptance checklist
+# Stable release checklist
 
-Use disposable Radarr/Sonarr entries and sacrificial files. Record the Kodi version, add-on ZIP checksum, Radarr/Sonarr versions and deletion backend.
+Use this as a concise release gate. The detailed device steps and evidence template are in [`ANDROID_KODI_VALIDATION.md`](ANDROID_KODI_VALIDATION.md).
 
-## Installation and upgrade
+A release candidate is optional. The repository owner may publish stable, prerelease or draft builds directly through the manual release workflow.
 
-- [ ] Clean ZIP installation succeeds.
-- [ ] Upgrade from v1.0.0 and v1.0.1 preserves every setting and refreshes add-on metadata/localisation.
-- [ ] Modern settings render and save using only the TV remote, including every category label and help description.
-- [ ] The root context item is rendered exactly as `⎘ Managarr`, without a missing-glyph box or colour emoji.
-- [ ] Context submenu appears only for movie, TV show and episode library rows.
-- [ ] Selecting `⎘ Managarr` visibly opens all four direct actions and both nested submenus.
-- [ ] Monitoring contains Monitor, Unmonitor and Change quality profile.
-- [ ] Download queue contains View status and Remove.
-- [ ] Delete & Exclude and Delete & Replace remain visible and triggerable.
-- [ ] Keymap Editor launches the complete Managarr menu.
+## Required before a stable release
 
-## Non-destructive actions
+### Repository and package
 
-- [ ] Status works for movie, series, missing episode and downloaded episode.
-- [ ] Search completes for movie, series and episode.
-- [ ] Monitor and unmonitor work for movie, series and episode.
-- [ ] Series monitoring updates season scope as displayed.
-- [ ] Quality profile changes work; episode changes are visibly series-wide.
-- [ ] Queue view shows only matching items.
-- [ ] Queue removal removes the chosen download without blocklisting it.
+- [ ] The intended release commit is on the selected release branch.
+- [ ] CI passes on that commit.
+- [ ] `python scripts/validate.py` passes.
+- [ ] `python -m unittest discover -s tests -v` passes.
+- [ ] `python scripts/package.py` produces the expected `context.arr.manager-<version>.zip`.
+- [ ] Kodi add-on checker passes against the extracted ZIP.
+- [ ] The release ZIP contains one `context.arr.manager/` root, the expected version, all nine context actions and all runtime assets.
+- [ ] The generated checksum matches the uploaded ZIP.
 
-## Destructive API backend
+### Android Kodi quick validation
 
-- [ ] Dry-run results are accurate for every media type and action.
-- [ ] Delete & Exclude works for movie, series and multi-episode file.
-- [ ] Delete & Replace works for movie, series and multi-episode file.
-- [ ] Specials (season zero) work.
-- [ ] Cancellation performs no mutation.
-- [ ] Strict history ambiguity performs no mutation.
-- [ ] Search is never started after deletion or blocklist failure.
+- [ ] The exact release ZIP installs or upgrades successfully on the target Android Kodi device.
+- [ ] Settings labels/help render and saved values persist.
+- [ ] The plain-text **Managarr** root item renders on movie, TV-show and episode library rows.
+- [ ] All direct actions and both nested submenus are visible and triggerable.
+- [ ] Radarr and Sonarr connection tests pass.
+- [ ] Movie and episode Delete & Exclude/Delete & Replace dry runs identify the correct targets and make no changes.
+- [ ] Cancellation makes no changes.
+- [ ] At least one disposable API-backend end-to-end mutation succeeds and is verified in Servarr and Kodi.
+- [ ] Diagnostics and shared logs contain no credentials or API keys.
+- [ ] The completed evidence summary from the Android Kodi runbook is saved with the release or linked issue/PR.
 
-## Direct Kodi VFS backend
+## Required only when that backend is claimed as device-tested
 
-- [ ] Read-only backend test proves the selected item is accessible.
-- [ ] SMB and SFTP child-file deletion work with Kodi-managed credentials.
-- [ ] Mapping-root, share-root, ancestor, traversal and case-mismatch attempts fail closed.
-- [ ] Direct deletion always confirms even when general confirmation is disabled.
-- [ ] All files preflight before a multi-file mutation.
-- [ ] Network loss during rescan reports the committed deletion stage.
+### SMB VFS
 
-## Command and Kodi synchronisation
+- [ ] Read-only backend test succeeds for the selected disposable item.
+- [ ] One child-file operation succeeds using Kodi-managed SMB access.
+- [ ] The mapped root and its ancestors remain intact.
+- [ ] Servarr reconciliation and Kodi synchronisation complete.
 
-- [ ] Completed/successful command is accepted.
-- [ ] Completed/unsuccessful, failed, cancelled and orphaned commands surface as failure.
-- [ ] Series replacement removes only Kodi episodes linked to deleted Sonarr file IDs.
-- [ ] Missing and Kodi-only episode rows remain present.
-- [ ] Kodi JSON-RPC failure after deletion is reported as post-commit failure.
+### SFTP VFS
 
-## Publication
+- [ ] Kodi's official `vfs.sftp` add-on is installed and the network location works in Kodi.
+- [ ] Read-only backend test succeeds for the selected disposable item.
+- [ ] One child-file operation succeeds using Kodi-managed SFTP access.
+- [ ] The mapped root and its ancestors remain intact.
+- [ ] Servarr reconciliation and Kodi synchronisation complete.
 
-- [ ] CI passes on the exact release commit.
-- [ ] Generated ZIP contains v1.0.2 metadata, exact `⎘ Managarr` branding, all nine actions and correct submenu grouping.
-- [ ] ZIP is reproducible and checksum matches the release asset.
-- [ ] `kodi-addon-checker --branch matrix` passes on the extracted ZIP.
-- [ ] Release workflow environment approval is configured.
-- [ ] Direct VFS deletion exception has been discussed with Kodi repository maintainers before official-repository submission.
+Mark an optional backend **NOT TESTED** rather than blocking a release that does not claim device validation for it.
+
+## Recommended for broad feature releases
+
+These are useful but not mandatory for every owner-triggered maintenance release:
+
+- [ ] Test both a clean installation and an upgrade from the previous stable release.
+- [ ] Test a season-zero special.
+- [ ] Test a multi-episode file.
+- [ ] Test one series-wide replacement with multiple files.
+- [ ] Test network loss after a committed direct deletion and confirm the transaction report is accurate.
+- [ ] Publish a prerelease first when wider community testing is useful.
+
+## Release workflow
+
+Run **Actions → Build and publish Kodi release**:
+
+1. choose the branch;
+2. enter `1.1.0` or leave version blank when the manifest already contains the intended untagged version;
+3. choose stable, prerelease or draft;
+4. enter concise release highlights;
+5. run the workflow.
+
+The workflow validates, packages, checksums and publishes the release. No RC promotion sequence is required.

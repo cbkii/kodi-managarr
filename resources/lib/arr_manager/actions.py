@@ -23,7 +23,15 @@ class ArrManager(ManagementMixin, DestructiveMixin, SharedSafetyMixin):
         if self._radarr is None:
             cfg = self.settings.radarr
             cfg.validate("Radarr")
-            self._radarr = RadarrClient(cfg.url, cfg.api_key, cfg.api_version, cfg.timeout, cfg.verify_tls, self.logger)
+            self._radarr = RadarrClient(
+                cfg.url,
+                cfg.api_key,
+                cfg.api_version,
+                cfg.timeout,
+                cfg.verify_tls,
+                self.logger,
+                cfg.user_agent,
+            )
         return self._radarr
 
     @property
@@ -31,7 +39,15 @@ class ArrManager(ManagementMixin, DestructiveMixin, SharedSafetyMixin):
         if self._sonarr is None:
             cfg = self.settings.sonarr
             cfg.validate("Sonarr")
-            self._sonarr = SonarrClient(cfg.url, cfg.api_key, cfg.api_version, cfg.timeout, cfg.verify_tls, self.logger)
+            self._sonarr = SonarrClient(
+                cfg.url,
+                cfg.api_key,
+                cfg.api_version,
+                cfg.timeout,
+                cfg.verify_tls,
+                self.logger,
+                cfg.user_agent,
+            )
         return self._sonarr
 
     def execute(self, action, selected, **kwargs):

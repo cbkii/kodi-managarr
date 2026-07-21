@@ -17,14 +17,24 @@ class Response:
         self.body = body
         self.headers = {"Content-Type": content_type}
 
-    def __enter__(self): return self
-    def __exit__(self, *args): pass
-    def read(self, n=-1): return self.body if n < 0 else self.body[:n]
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        pass
+
+    def read(self, n=-1):
+        return self.body if n < 0 else self.body[:n]
 
 
 class Opener:
-    def __init__(self, response): self.response = response
-    def open(self, *args, **kwargs): return self.response
+    def __init__(self, response):
+        self.response = response
+        self.requests = []
+
+    def open(self, request, **kwargs):
+        self.requests.append(request)
+        return self.response
 
 
 class HttpTests(unittest.TestCase):
@@ -40,6 +50,33 @@ class HttpTests(unittest.TestCase):
             self.assertEqual(JsonHttpClient("http://host", "key").request("GET", "/x"), {"ok": True})
         with patch("arr_manager.http.build_opener", return_value=Opener(Response(b""))):
             self.assertIsNone(JsonHttpClient("http://host", "key").request("DELETE", "/x"))
+
+    def test_uses_supplied_versioned_user_agent(self):
+        opener = Opener(Response())
+        with patch("arr_manager.http.build_opener", return_value=opener):
+            JsonHttpClient(
+                "http://host",
+                "key",
+                user_agent="Kodi-Managarr/1.1.0",
+            ).request("GET", "/x")
+        self.assertEqual(opener.requests[0].get_header("User-agent"), "Kodi-Managarr/1.1.0")
+
+    def test_invalid_user_agents_fall_back_without_header_injection(self):
+        for invalid in (
+            "Kodi-Managarr/1.1.0\r\nX-Test: injected",
+            "Kodi-Managarr/1.1.0\x00",
+            "Kodi-Managarr/1.1.0 café",
+        ):
+            with self.subTest(invalid=repr(invalid)):
+                opener = Opener(Response())
+                with patch("arr_manager.http.build_opener", return_value=opener):
+                    JsonHttpClient(
+                        "http://host",
+                        "key",
+                        user_agent=invalid,
+                    ).request("GET", "/x")
+                self.assertEqual(opener.requests[0].get_header("User-agent"), "Kodi-Managarr/unknown")
+                self.assertIsNone(opener.requests[0].get_header("X-Test"))
 
     def test_bounded_response_and_truncated_error_reader(self):
         with patch("arr_manager.http.build_opener", return_value=Opener(Response(b"x" * (MAX_RESPONSE_BYTES + 1)))):
