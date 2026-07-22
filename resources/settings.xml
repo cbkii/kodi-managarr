@@ -14,7 +14,20 @@
         <setting id="http_timeout" type="integer" label="32106" help="32125"><level>1</level><default>15</default><constraints><minimum>3</minimum><step>1</step><maximum>120</maximum></constraints><control type="slider" format="integer"><popup>false</popup></control></setting>
       </group>
     </category>
-    <category id="menu" label="32900" help="32901"><group id="1" label=""><setting id="menu_mode" type="integer" label="32902" help="32903"><level>0</level><default>0</default><constraints><options><option label="32904">0</option><option label="32905">1</option></options></constraints><control type="spinner" format="string" /></setting><setting id="configure_menu" type="action" label="32906" help="32907"><level>0</level><data>RunScript(context.arr.manager,mode=configure_menu)</data><control type="button" format="action"><close>true</close></control></setting><setting id="hidden_actions" type="string" label="32912" help="32912"><level>4</level><default /></setting><setting id="action_order" type="string" label="32912" help="32912"><level>4</level><default /></setting></group><group id="2" label=""><setting id="pin_enabled" type="boolean" label="32908" help="32909"><level>0</level><default>false</default><control type="toggle" /></setting><setting id="manage_pin" type="action" label="32910" help="32911"><level>0</level><data>RunScript(context.arr.manager,mode=manage_pin)</data><control type="button" format="action"><close>true</close></control></setting><setting id="pin_hash" type="string" label="32912" help="32912"><level>4</level><default /></setting><setting id="pin_salt" type="string" label="32912" help="32912"><level>4</level><default /></setting></group></category><category id="radarr" label="32200" help="32220">
+    <category id="menu" label="32900" help="32901">
+      <group id="1" label="">
+        <setting id="menu_mode" type="integer" label="32902" help="32903"><level>0</level><default>1</default><constraints><options><option label="32904">0</option><option label="32905">1</option></options></constraints><control type="spinner" format="string" /></setting>
+        <setting id="configure_menu" type="action" label="32906" help="32907"><level>0</level><data>RunScript(context.arr.manager,mode=configure_menu)</data><control type="button" format="action"><close>true</close></control></setting>
+        <setting id="hidden_actions" type="string" label="32912" help="32912"><level>4</level><default /></setting>
+        <setting id="action_order" type="string" label="32912" help="32912"><level>4</level><default /></setting>
+      </group>
+      <group id="2" label="">
+        <setting id="manage_pin" type="action" label="32910" help="32911"><level>0</level><data>RunScript(context.arr.manager,mode=manage_pin)</data><control type="button" format="action"><close>true</close></control></setting>
+        <setting id="pin_hash" type="string" label="32912" help="32912"><level>4</level><default /></setting>
+        <setting id="pin_salt" type="string" label="32912" help="32912"><level>4</level><default /></setting>
+      </group>
+    </category>
+    <category id="radarr" label="32200" help="32220">
       <group id="1" label="">
         <setting id="radarr_enabled" type="boolean" label="32201" help="32221"><level>0</level><default>true</default><control type="toggle" /></setting>
         <setting id="radarr_url" type="string" label="32202" help="32222"><level>0</level><default /><constraints><allowempty>true</allowempty></constraints><control type="edit" format="string"><heading>32202</heading></control></setting>
