@@ -92,7 +92,24 @@ MESSAGES = {
     "quality_episode_scope_confirm": (32887, "Changing the quality profile for an episode applies to the entire series '{title}'. Continue?"),
     "pin_prompt": (32888, "Enter PIN"),
     "pin_incorrect": (32889, "Incorrect PIN"),
-
+    "menu_save_exit": (32920, "Save and exit"),
+    "menu_restore_defaults": (32921, "Restore defaults"),
+    "menu_toggle_visibility": (32922, "Toggle visibility"),
+    "menu_move_up": (32923, "Move up"),
+    "menu_move_down": (32924, "Move down"),
+    "pin_change": (32925, "Change PIN"),
+    "pin_remove": (32926, "Remove PIN"),
+    "pin_removed": (32927, "PIN removed"),
+    "pin_enter_new": (32928, "Enter a new 4–8 digit PIN"),
+    "pin_confirm_new": (32929, "Confirm the new PIN"),
+    "pin_mismatch": (32930, "PINs do not match"),
+    "pin_invalid_format": (32931, "PIN must contain 4 to 8 digits"),
+    "pin_set": (32932, "PIN protection enabled"),
+    "pin_configuration_invalid": (32933, "Stored PIN protection data is incomplete or invalid. Open Manage PIN to reset it."),
+    "pin_retry_exhausted": (32934, "Too many incorrect PIN attempts. The action was cancelled."),
+    "pin_reset_invalid": (32935, "Stored PIN data is invalid and will be reset before a new PIN is created."),
+    "pin_remove_confirm": (32936, "Remove PIN protection from destructive actions?"),
+    "menu_defaults_restored": (32937, "Default menu visibility and ordering restored."),
 }
 
 
