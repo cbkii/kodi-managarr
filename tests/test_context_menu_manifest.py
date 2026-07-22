@@ -24,9 +24,7 @@ class ContextMenuManifestTests(unittest.TestCase):
     def setUpClass(cls):
         cls.addon = ET.parse(ROOT / "addon.xml").getroot()
         cls.validator = load_validator()
-        cls.po_ids = cls.validator._po_ids(
-            ROOT / "resources/language/resource.language.en_gb/strings.po"
-        )
+        cls.po_ids = cls.validator._po_ids(ROOT / "resources/language/resource.language.en_gb/strings.po")
 
     def _branding_item(self):
         extension = self.addon.find("extension[@point='kodi.context.item']")
@@ -43,9 +41,10 @@ class ContextMenuManifestTests(unittest.TestCase):
         self.assertEqual(item.attrib.get("args"), "menu")
         self.assertEqual(item.findtext("label").strip(), ROOT_CONTEXT_LABEL)
         self.assertEqual(EXPECTED_CONTEXT_ACTIONS, {"menu"})
-        self.assertIn("ListItem.DBType(movie)", item.findtext("visible"))
-        self.assertIn("ListItem.DBType(tvshow)", item.findtext("visible"))
-        self.assertIn("ListItem.DBType(episode)", item.findtext("visible"))
+        visibility = item.findtext("visible") or ""
+        self.assertIn("String.IsEqual(ListItem.DBType,movie)", visibility)
+        self.assertIn("String.IsEqual(ListItem.DBType,tvshow)", visibility)
+        self.assertIn("String.IsEqual(ListItem.DBType,episode)", visibility)
         self.assertFalse(item.findall("menu"))
 
     def test_runtime_root_label_is_plain_ascii(self):
