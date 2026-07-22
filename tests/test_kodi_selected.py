@@ -64,4 +64,45 @@ class KodiSelectedItemTests(unittest.TestCase):
         self.assertEqual(selected.file_path, "smb://pi/Movies/Path Film/file.mkv")
 
 
+
+    def test_missing_sys_listitem(self):
+        selected = self.selected_with(item=None)
+        self.assertEqual(selected.media_type, "")
+        self.assertEqual(selected.title, "")
+        self.assertEqual(selected.file_path, "")
+
+    def test_failure_obtaining_video_tag(self):
+        class FailingItem:
+            def getVideoInfoTag(self): raise ValueError("Boom")
+            def getPath(self): return "smb://pi/Shows/Bad.mkv"
+        selected = self.selected_with(item=FailingItem(), labels={"ListItem.Title": "Fallback", "ListItem.DBType": "movie"})
+        self.assertEqual(selected.title, "Fallback")
+        self.assertEqual(selected.media_type, "movie")
+        self.assertEqual(selected.file_path, "smb://pi/Shows/Bad.mkv")
+
+    def test_missing_tag_methods_handled(self):
+        class IncompleteTag:
+            def getTitle(self): return "Tag Title"
+            # Missing other methods
+        selected = self.selected_with(tag=IncompleteTag(), labels={"ListItem.DBType": "movie"})
+        self.assertEqual(selected.title, "Tag Title")
+        self.assertEqual(selected.media_type, "movie")
+
+    def test_unique_id_precedence(self):
+        class IDTag(Tag):
+            def getUniqueID(self, key):
+                if key == "tvdb": return "10"
+                if key == "imdb": raise ValueError("Boom")
+                return ""
+
+        selected = self.selected_with(tag=IDTag(), labels={"ListItem.UniqueID(imdb)": "tt123", "ListItem.UniqueID(tmdb)": "20"})
+        self.assertEqual(selected.unique_ids, {"tvdb": "10", "imdb": "tt123", "tmdb": "20"})
+
+    def test_season_episode_unknown_fallback(self):
+        selected = self.selected_with(Tag(season=-1, episode=-1))
+        self.assertEqual(selected.season, -1)
+        self.assertEqual(selected.episode, -1)
+
+
+
 if __name__ == "__main__": unittest.main()

@@ -315,8 +315,11 @@ def _write_diagnostics(addon, settings, logger):
                 "status": str(candidate.get("status", "")),
                 "errorType": str(candidate.get("errorType", "")),
             }
-    except (OSError, ValueError):
+    except FileNotFoundError:
         pass
+    except (OSError, ValueError) as exc:
+        if logger:
+            logger.warning("Could not read last transaction state: %s", type(exc).__name__)
     payload = {
         "generatedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "addonVersion": addon.getAddonInfo("version"),

@@ -69,7 +69,7 @@ class ClientTests(unittest.TestCase):
     def test_sonarr_destructive_and_command_contracts(self):
         sonarr = client(
             SonarrClient,
-            [None, None, None, [], {"id": 201}, {"id": 202}, {"id": 203}],
+            [None, None, None, [], {"id": 201}, {"id": 202}, {"id": 203}, {}],
         )
 
         sonarr.delete_episode_file(8)
@@ -79,6 +79,7 @@ class ClientTests(unittest.TestCase):
         self.assertEqual(sonarr.search_episodes([11, 12])["id"], 201)
         self.assertEqual(sonarr.search_series(3)["id"], 202)
         self.assertEqual(sonarr.rescan_series(3)["id"], 203)
+        sonarr.set_episodes_monitored([1, 2], False)
 
         self.assertEqual(sonarr.http.calls, [
             (("DELETE", "/episodeFile/8"), {}),
@@ -88,6 +89,7 @@ class ClientTests(unittest.TestCase):
             (("POST", "/command"), {"payload": {"name": "EpisodeSearch", "episodeIds": [11, 12]}}),
             (("POST", "/command"), {"payload": {"name": "SeriesSearch", "seriesId": 3}}),
             (("POST", "/command"), {"payload": {"name": "RescanSeries", "seriesId": 3}}),
+            (("PUT", "/episode/monitor"), {"payload": {"episodeIds": [1, 2], "monitored": False}}),
         ])
 
     def test_invalid_ids_fail_before_http_mutation(self):
@@ -98,10 +100,13 @@ class ClientTests(unittest.TestCase):
             lambda: radarr.search_movie(-1),
             lambda: sonarr.delete_episode_files([1, 0]),
             lambda: sonarr.delete_series("not-an-id"),
+            lambda: sonarr.set_episodes_monitored([1, 0], False),
         ):
             with self.subTest(operation=operation), self.assertRaises(ApiError):
                 operation()
         self.assertEqual(radarr.http.calls, [])
+        self.assertEqual(sonarr.http.calls, [])
+        sonarr.set_episodes_monitored([], False)
         self.assertEqual(sonarr.http.calls, [])
 
 
