@@ -17,8 +17,9 @@ class GenerateRepoTests(unittest.TestCase):
         with zipfile.ZipFile(self.zip_path, "w") as archive:
             archive.writestr(
                 "context.arr.manager/addon.xml",
-                '<addon id="context.arr.manager" name="Kodi Managarr" version="1.2.3" provider-name="CB" />',
+                '<addon id="context.arr.manager" name="Kodi Managarr" version="1.2.3" provider-name="CB"><extension point="xbmc.addon.metadata"><assets><icon>resources/icon.png</icon><fanart>resources/fanart.jpg</fanart></assets></extension></addon>',
             )
+            archive.writestr("context.arr.manager/LICENSE.txt", "GPL-3.0-or-later test licence")
             archive.writestr("context.arr.manager/resources/icon.png", b"fake-icon")
             archive.writestr("context.arr.manager/resources/fanart.jpg", b"fake-fanart")
 
@@ -28,15 +29,7 @@ class GenerateRepoTests(unittest.TestCase):
     def run_generator(self, release_zip=None, out_name="pages"):
         out_dir = self.temp_dir / out_name
         result = subprocess.run(
-            [
-                sys.executable,
-                "scripts/generate_repo.py",
-                str(release_zip or self.zip_path),
-                "--out-dir",
-                str(out_dir),
-                "--repo-version",
-                "1.0.0",
-            ],
+            [sys.executable, "scripts/generate_repo.py", str(release_zip or self.zip_path), "--out-dir", str(out_dir), "--repo-version", "1.0.0"],
             check=False,
             capture_output=True,
             text=True,
@@ -46,38 +39,40 @@ class GenerateRepoTests(unittest.TestCase):
     def test_generate_repo_contract_and_archives(self):
         result, out_dir = self.run_generator()
         self.assertEqual(result.returncode, 0, result.stderr)
-
         addons_xml = out_dir / "addons.xml"
-        self.assertTrue(addons_xml.is_file())
         root = ET.parse(addons_xml).getroot()
         self.assertEqual(
             [(item.attrib["id"], item.attrib["version"]) for item in root.findall("addon")],
             [("repository.managarr", "1.0.0"), ("context.arr.manager", "1.2.3")],
         )
-        repository = root.find("./addon[@id='repository.managarr']/extension[@point='xbmc.addon.repository']/dir")
-        self.assertIsNotNone(repository)
-        self.assertEqual(repository.findtext("hashes"), "sha256")
+        repository_addon = root.find("./addon[@id='repository.managarr']")
+        self.assertEqual(repository_addon.findtext("./extension[@point='xbmc.addon.metadata']/license"), "GPL-3.0-or-later")
+        directory = repository_addon.find("./extension[@point='xbmc.addon.repository']/dir")
+        self.assertEqual(directory.findtext("hashes"), "sha256")
         for tag in ("info", "checksum", "datadir"):
-            self.assertTrue(repository.findtext(tag).startswith("https://"))
+            self.assertTrue(directory.findtext(tag).startswith("https://"))
 
         expected_md5 = hashlib.md5(addons_xml.read_bytes()).hexdigest()  # nosec B303: Kodi change token
         self.assertEqual((out_dir / "addons.xml.md5").read_text().strip(), expected_md5)
         self.assertTrue((out_dir / "addons.xml.sha256").is_file())
+        self.assertTrue((out_dir / "context.arr.manager/resources/icon.png").is_file())
+        self.assertTrue((out_dir / "context.arr.manager/resources/fanart.jpg").is_file())
+        self.assertFalse((out_dir / "context.arr.manager/icon.png").exists())
 
-        archives = [
-            out_dir / "repository.managarr" / "repository.managarr-1.0.0.zip",
-            out_dir / "context.arr.manager" / "context.arr.manager-1.2.3.zip",
-        ]
-        for archive_path in archives:
+        repository_zip = out_dir / "repository.managarr/repository.managarr-1.0.0.zip"
+        addon_zip = out_dir / "context.arr.manager/context.arr.manager-1.2.3.zip"
+        for archive_path in (repository_zip, addon_zip):
             self.assertTrue(archive_path.is_file())
             self.assertTrue(archive_path.with_name(archive_path.name + ".sha256").is_file())
             with zipfile.ZipFile(archive_path) as archive:
                 self.assertIsNone(archive.testzip())
                 self.assertNotIn(archive_path.name, archive.namelist())
-        with zipfile.ZipFile(archives[0]) as archive:
+        with zipfile.ZipFile(repository_zip) as archive:
             self.assertIn("repository.managarr/addon.xml", archive.namelist())
-        with zipfile.ZipFile(archives[1]) as archive:
+            self.assertIn("repository.managarr/LICENSE.txt", archive.namelist())
+        with zipfile.ZipFile(addon_zip) as archive:
             self.assertIn("context.arr.manager/addon.xml", archive.namelist())
+            self.assertIn("context.arr.manager/LICENSE.txt", archive.namelist())
 
     def test_output_is_deterministic(self):
         old = os.environ.get("SOURCE_DATE_EPOCH")
@@ -96,12 +91,14 @@ class GenerateRepoTests(unittest.TestCase):
         second_files = {p.relative_to(second_dir): p.read_bytes() for p in second_dir.rglob("*") if p.is_file()}
         self.assertEqual(first_files, second_files)
 
-    def test_rejects_wrong_root_and_missing_version(self):
+    def test_rejects_wrong_root_missing_version_licence_and_traversal(self):
         cases = {
-            "wrong-root": [("other/addon.xml", '<addon id="context.arr.manager" version="1.0.0" />')],
-            "missing-version": [("context.arr.manager/addon.xml", '<addon id="context.arr.manager" />')],
+            "wrong-root": [("other/addon.xml", '<addon id="context.arr.manager" version="1.0.0" />'), ("other/LICENSE.txt", "licence")],
+            "missing-version": [("context.arr.manager/addon.xml", '<addon id="context.arr.manager" />'), ("context.arr.manager/LICENSE.txt", "licence")],
+            "missing-licence": [("context.arr.manager/addon.xml", '<addon id="context.arr.manager" version="1.0.0" />')],
             "traversal": [
                 ("context.arr.manager/addon.xml", '<addon id="context.arr.manager" version="1.0.0" />'),
+                ("context.arr.manager/LICENSE.txt", "licence"),
                 ("context.arr.manager/../escape.txt", "bad"),
             ],
         }
