@@ -23,12 +23,21 @@ jobs:
 
       - name: Verify and apply retention payload
         run: |
-          set -euo pipefail
-          cat .pr16-payload.part-* > "$RUNNER_TEMP/pr16.b64"
-          echo '646b51c28698570404c89fa24ddde31f1f298ad8772c902f12a0500fa80f3e36  '"$RUNNER_TEMP/pr16.b64" | sha256sum --check
-          base64 --decode "$RUNNER_TEMP/pr16.b64" > "$RUNNER_TEMP/pr16.tar.gz"
-          echo '05a9e0ceda374a167f4db89ecab558f485291d10ca72827f5389f8b8dd641a3a  '"$RUNNER_TEMP/pr16.tar.gz" | sha256sum --check
-          python - <<'PY'
+          log="$RUNNER_TEMP/pr16-verify.log"
+          set +e
+          {
+            set -x
+            ls -l .pr16-payload.part-*
+            wc -c .pr16-payload.part-*
+            sha256sum .pr16-payload.part-*
+            cat .pr16-payload.part-* > "$RUNNER_TEMP/pr16.b64"
+            wc -c "$RUNNER_TEMP/pr16.b64"
+            sha256sum "$RUNNER_TEMP/pr16.b64"
+            echo '646b51c28698570404c89fa24ddde31f1f298ad8772c902f12a0500fa80f3e36  '"$RUNNER_TEMP/pr16.b64" | sha256sum --check
+            base64 --decode "$RUNNER_TEMP/pr16.b64" > "$RUNNER_TEMP/pr16.tar.gz"
+            sha256sum "$RUNNER_TEMP/pr16.tar.gz"
+            echo '05a9e0ceda374a167f4db89ecab558f485291d10ca72827f5389f8b8dd641a3a  '"$RUNNER_TEMP/pr16.tar.gz" | sha256sum --check
+            python - <<'PY'
           import os
           import tarfile
           from pathlib import Path, PurePosixPath
@@ -46,7 +55,20 @@ jobs:
                       raise SystemExit(f'Unsafe payload member: {member.name}')
               archive.extractall('.')
           PY
-          rm -f .pr16-payload.part-* .github/workflows/apply-pr16-payload.yml
+            rm -f .pr16-payload.part-* .github/workflows/apply-pr16-payload.yml
+          } >"$log" 2>&1
+          status=$?
+          cat "$log"
+          exit "$status"
+
+      - name: Upload payload verification log
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pr16-payload-verification
+          path: ${{ runner.temp }}/pr16-verify.log
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Install validation tools
         run: python -m pip install --disable-pip-version-check -r requirements-dev.txt
