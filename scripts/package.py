@@ -81,35 +81,25 @@ def _validate_packaged_context(archive, addon):
     root_menu = extension.find("menu[@id='kodi.core.main']")
     if root_menu is None:
         raise RuntimeError("Packaged addon.xml is missing kodi.core.main")
-    branding_menus = root_menu.findall("menu")
-    if len(branding_menus) != 1:
-        raise RuntimeError("Packaged kodi.core.main must contain one Managarr root submenu")
-    branding_menu = branding_menus[0]
-    root_label = (branding_menu.findtext("label") or "").strip()
+
+    branding_items = root_menu.findall("item")
+    if len(branding_items) != 1:
+        raise RuntimeError("Packaged kodi.core.main must contain one Managarr root item")
+    branding_item = branding_items[0]
+    root_label = (branding_item.findtext("label") or "").strip()
     if root_label != ROOT_CONTEXT_LABEL:
         raise RuntimeError(f"Packaged context root label must be exactly {ROOT_CONTEXT_LABEL!r}")
 
-    items = branding_menu.findall(".//item")
-    actions = {item.attrib.get("args", "") for item in items}
+    actions = {branding_item.attrib.get("args", "")}
     if actions != EXPECTED_CONTEXT_ACTIONS:
         raise RuntimeError(
             "Packaged context actions are incorrect: "
             f"expected {sorted(EXPECTED_CONTEXT_ACTIONS)}, got {sorted(actions)}"
         )
-    if any(item.attrib.get("library") != "context.py" for item in items):
+    if branding_item.attrib.get("library") != "context.py":
         raise RuntimeError("Every packaged context item must dispatch through context.py")
-    if any(not (item.findtext("visible") or "").strip() for item in items):
+    if not (branding_item.findtext("visible") or "").strip():
         raise RuntimeError("Every packaged context item must define a visibility expression")
-
-    nested = branding_menu.findall("menu")
-    labels = {(submenu.findtext("label") or "").strip() for submenu in nested}
-    if labels != set(EXPECTED_CONTEXT_SUBMENUS):
-        raise RuntimeError("Packaged context submenu labels are incorrect")
-    for submenu in nested:
-        label = (submenu.findtext("label") or "").strip()
-        submenu_actions = {item.attrib.get("args", "") for item in submenu.findall("item")}
-        if submenu_actions != EXPECTED_CONTEXT_SUBMENUS[label]:
-            raise RuntimeError(f"Packaged context submenu {label} contains incorrect actions")
 
     po_path = f"{ADDON_ID}/resources/language/resource.language.en_gb/strings.po"
     po_text = archive.read(po_path).decode("utf-8")

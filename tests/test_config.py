@@ -17,7 +17,8 @@ class Addon:
         "radarr_enabled": "true", "radarr_url": "http://radarr", "radarr_api_key": "key",
         "radarr_api_version": "v3", "radarr_verify_tls": "true", "sonarr_enabled": "true",
         "sonarr_url": "http://sonarr", "sonarr_api_key": "key", "sonarr_api_version": "v3",
-        "sonarr_verify_tls": "true",
+        "sonarr_verify_tls": "true", "menu_mode": "", "hidden_actions": "", "action_order": "",
+        "pin_hash": "", "pin_salt": "",
     }
 
     def __init__(self, **values):
@@ -32,6 +33,45 @@ class Addon:
 
 
 class ConfigTests(unittest.TestCase):
+    def test_blank_menu_mode_preserves_existing_advanced_actions(self):
+        self.assertEqual(Settings(Addon(menu_mode="")).menu_mode, "1")
+        self.assertEqual(Settings(Addon(menu_mode="advanced")).menu_mode, "1")
+        self.assertEqual(Settings(Addon(menu_mode="1")).menu_mode, "1")
+        self.assertEqual(Settings(Addon(menu_mode="simple")).menu_mode, "0")
+        self.assertEqual(Settings(Addon(menu_mode="0")).menu_mode, "0")
+
+    def test_stale_menu_state_is_discarded_and_deduplicated(self):
+        settings = Settings(Addon(
+            hidden_actions="status,retired_action,status",
+            action_order="queue,retired_action,queue,status",
+        ))
+        self.assertEqual(settings.hidden_actions, ["status"])
+        self.assertEqual(settings.action_order, ["queue", "status"])
+
+    def test_pin_state_absent_valid_incomplete_and_malformed(self):
+        absent = Settings(Addon())
+        self.assertFalse(absent.pin_enabled)
+        self.assertFalse(absent.pin_invalid)
+
+        valid = Settings(Addon(pin_hash="11" * 32, pin_salt="22" * 16))
+        self.assertTrue(valid.pin_enabled)
+        self.assertFalse(valid.pin_invalid)
+        self.assertEqual(len(valid.pin_hash), 32)
+        self.assertEqual(len(valid.pin_salt), 16)
+
+        for values in (
+            {"pin_hash": "11" * 32, "pin_salt": ""},
+            {"pin_hash": "", "pin_salt": "22" * 16},
+            {"pin_hash": "not-hex", "pin_salt": "22" * 16},
+            {"pin_hash": "11", "pin_salt": "22"},
+        ):
+            with self.subTest(values=values):
+                invalid = Settings(Addon(**values))
+                self.assertTrue(invalid.pin_enabled)
+                self.assertTrue(invalid.pin_invalid)
+                self.assertEqual(invalid.pin_hash, b"")
+                self.assertEqual(invalid.pin_salt, b"")
+
     def test_malformed_vfs_protected_paths_raise_configuration_error(self):
         with self.assertRaises(ConfigurationError):
             Settings(Addon(deletion_backend="vfs", protected_paths="/media/%zz"))

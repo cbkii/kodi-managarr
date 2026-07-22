@@ -81,23 +81,23 @@ def _validate_context_items(addon):
     root_menu = extension.find("menu[@id='kodi.core.main']")
     if root_menu is None:
         raise SystemExit("Context extension is missing kodi.core.main")
-    branding_menus = root_menu.findall("menu")
-    if len(branding_menus) != 1:
-        raise SystemExit("kodi.core.main must contain exactly one Managarr root submenu")
-    branding_menu = branding_menus[0]
-    root_label = (branding_menu.findtext("label") or "").strip()
+
+    branding_items = root_menu.findall("item")
+    if len(branding_items) != 1:
+        raise SystemExit("kodi.core.main must contain exactly one Managarr root item")
+    branding_item = branding_items[0]
+    root_label = (branding_item.findtext("label") or "").strip()
     if root_label != ROOT_CONTEXT_LABEL:
         raise SystemExit(f"Context root label must be exactly {ROOT_CONTEXT_LABEL!r}")
 
     seen = set()
-    for item in branding_menu.findall(".//item"):
-        key = (item.attrib.get("library"), item.attrib.get("args", ""))
-        if key[0] != "context.py" or not key[1] or key in seen:
-            raise SystemExit(f"Duplicate or invalid context item: {key}")
-        seen.add(key)
-        visible = item.find("visible")
-        if visible is None or not (visible.text or "").strip():
-            raise SystemExit(f"Context item {key} is missing a visible expression")
+    key = (branding_item.attrib.get("library"), branding_item.attrib.get("args", ""))
+    if key[0] != "context.py" or not key[1]:
+        raise SystemExit(f"Invalid context item: {key}")
+    seen.add(key)
+    visible = branding_item.find("visible")
+    if visible is None or not (visible.text or "").strip():
+        raise SystemExit(f"Context item {key} is missing a visible expression")
 
     actions = {action for _, action in seen}
     if actions != EXPECTED_CONTEXT_ACTIONS:
@@ -105,29 +105,6 @@ def _validate_context_items(addon):
             "Context actions do not match the required scope: "
             f"expected {sorted(EXPECTED_CONTEXT_ACTIONS)}, got {sorted(actions)}"
         )
-
-    direct_actions = {item.attrib.get("args", "") for item in branding_menu.findall("item")}
-    if direct_actions != EXPECTED_DIRECT_CONTEXT_ACTIONS:
-        raise SystemExit(
-            "Root-level context actions are incorrect: "
-            f"expected {sorted(EXPECTED_DIRECT_CONTEXT_ACTIONS)}, got {sorted(direct_actions)}"
-        )
-
-    nested = branding_menu.findall("menu")
-    labels = {(submenu.findtext("label") or "").strip() for submenu in nested}
-    if labels != set(EXPECTED_CONTEXT_SUBMENUS):
-        raise SystemExit(
-            "Context submenus are incorrect: "
-            f"expected {sorted(EXPECTED_CONTEXT_SUBMENUS)}, got {sorted(labels)}"
-        )
-    for submenu in nested:
-        label = (submenu.findtext("label") or "").strip()
-        submenu_actions = {item.attrib.get("args", "") for item in submenu.findall("item")}
-        if submenu_actions != EXPECTED_CONTEXT_SUBMENUS[label]:
-            raise SystemExit(
-                f"Context submenu {label} has incorrect actions: "
-                f"expected {sorted(EXPECTED_CONTEXT_SUBMENUS[label])}, got {sorted(submenu_actions)}"
-            )
 
 
 def _po_quoted_value(block, keyword):
