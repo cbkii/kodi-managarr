@@ -4,19 +4,24 @@ on:
   push:
     branches:
       - feat/watched-age-retention-5638808061823784826
+  pull_request:
+    types: [opened, reopened, synchronize]
 
 permissions:
   contents: write
 
 jobs:
   apply:
-    if: github.actor != 'github-actions[bot]'
+    if: >-
+      github.actor != 'github-actions[bot]' &&
+      (github.event_name == 'push' || github.head_ref == 'feat/watched-age-retention-5638808061823784826')
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - name: Check out branch
+      - name: Check out retention branch
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
+          ref: feat/watched-age-retention-5638808061823784826
           fetch-depth: 0
       - name: Apply and validate retention implementation
         run: |
@@ -79,4 +84,4 @@ jobs:
           git add -A
           git diff --cached --check
           git commit -m 'Implement watched and age-aware retention'
-          git push origin "HEAD:${GITHUB_REF_NAME}"
+          git push origin "HEAD:feat/watched-age-retention-5638808061823784826"
