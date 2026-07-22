@@ -2,9 +2,13 @@
 from dataclasses import dataclass
 
 from .errors import ConfigurationError
+from .registry import ACTION_REGISTRY
 from .util import PathMapper, as_bool, as_int, normalise_path, parse_mappings
 
 BACKENDS = {"0": "api", "1": "vfs", "api": "api", "vfs": "vfs", "ssh": "vfs", "2": "vfs"}
+MENU_MODES = {"0": "0", "simple": "0", "1": "1", "advanced": "1"}
+PIN_HASH_BYTES = 32
+PIN_SALT_BYTES = 16
 
 
 @dataclass
@@ -36,20 +40,35 @@ class Settings:
         self.require_blocklist = as_bool(get("require_blocklist"), True)
         self.debug = as_bool(get("debug"), False)
 
-        self.menu_mode = get("menu_mode") or "simple"
-        self.hidden_actions = [a.strip() for a in get("hidden_actions").split(",") if a.strip()]
-        self.action_order = [a.strip() for a in get("action_order").split(",") if a.strip()]
+        # Blank settings occur on upgrade. Default to Advanced so no existing action
+        # is silently hidden; users can explicitly select Simple later.
+        self.menu_mode = MENU_MODES.get((get("menu_mode") or "").strip().lower(), "1")
+        known_ids = {action["id"] for action in ACTION_REGISTRY}
+        self.hidden_actions = self._known_action_ids(get("hidden_actions"), known_ids)
+        self.action_order = self._known_action_ids(get("action_order"), known_ids)
 
-        self.pin_enabled = as_bool(get("pin_enabled"), False)
-
-        pin_hash_hex = get("pin_hash")
-        self.pin_hash = bytes.fromhex(pin_hash_hex) if pin_hash_hex else b""
-
-        pin_salt_hex = get("pin_salt")
-        self.pin_salt = bytes.fromhex(pin_salt_hex) if pin_salt_hex else b""
+        self.pin_hash = b""
+        self.pin_salt = b""
+        self.pin_invalid = False
+        pin_hash_hex = (get("pin_hash") or "").strip()
+        pin_salt_hex = (get("pin_salt") or "").strip()
+        if pin_hash_hex or pin_salt_hex:
+            if not pin_hash_hex or not pin_salt_hex:
+                self.pin_invalid = True
+            else:
+                try:
+                    self.pin_hash = bytes.fromhex(pin_hash_hex)
+                    self.pin_salt = bytes.fromhex(pin_salt_hex)
+                except ValueError:
+                    self.pin_invalid = True
+                else:
+                    if len(self.pin_hash) != PIN_HASH_BYTES or len(self.pin_salt) != PIN_SALT_BYTES:
+                        self.pin_invalid = True
+                        self.pin_hash = b""
+                        self.pin_salt = b""
+        self.pin_enabled = self.pin_invalid or bool(self.pin_hash and self.pin_salt)
 
         self.path_mapping_warning = ""
-
         raw_mappings = get("path_mappings")
         try:
             mappings = parse_mappings(raw_mappings)
@@ -100,6 +119,15 @@ class Settings:
             verify_tls=as_bool(get("sonarr_verify_tls"), True),
             user_agent=user_agent,
         )
+
+    @staticmethod
+    def _known_action_ids(raw, known_ids):
+        result = []
+        for value in (raw or "").split(","):
+            value = value.strip()
+            if value in known_ids and value not in result:
+                result.append(value)
+        return result
 
     def validate_backend(self):
         if self.backend not in {"api", "vfs"}:
