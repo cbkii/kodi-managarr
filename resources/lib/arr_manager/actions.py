@@ -2,7 +2,7 @@
 from .actions_destructive import DestructiveMixin
 from .actions_management import ManagementMixin
 from .actions_shared import SharedSafetyMixin
-from .clients import RadarrClient, SonarrClient
+from .clients import RadarrClient, SonarrClient, ProwlarrClient, BazarrClient
 from .errors import ResolutionError
 from .messages import message
 
@@ -51,7 +51,7 @@ class ArrManager(ManagementMixin, DestructiveMixin, SharedSafetyMixin):
         return self._sonarr
 
     def execute(self, action, selected, **kwargs):
-        if selected.media_type not in {"movie", "tvshow", "episode"}:
+        if action != "dashboard" and action != "configure_subtitle_languages" and selected.media_type not in {"movie", "tvshow", "episode"}:
             raise ResolutionError(f"Unsupported Kodi item type: {selected.media_type or 'unknown'}")
         self.settings.validate_backend()
         handlers = {
@@ -59,6 +59,9 @@ class ArrManager(ManagementMixin, DestructiveMixin, SharedSafetyMixin):
             "delete_replace": self.delete_replace,
             "status": self.status,
             "search_now": self.search_now,
+            "interactive_search": getattr(self, "interactive_search", None),
+            "request_search": getattr(self, "request_search", None),
+            "dashboard": getattr(self, "dashboard", None),
             "monitor": lambda item: self.set_monitoring(item, True),
             "unmonitor": lambda item: self.set_monitoring(item, False),
             "change_quality_profile": lambda item: self.change_quality_profile(item, kwargs["profile_id"]),

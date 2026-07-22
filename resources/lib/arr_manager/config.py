@@ -35,6 +35,19 @@ class Settings:
         self.dry_run = as_bool(get("dry_run"), False)
         self.require_blocklist = as_bool(get("require_blocklist"), True)
         self.debug = as_bool(get("debug"), False)
+
+        self.menu_mode = get("menu_mode") or "simple"
+        self.hidden_actions = [a.strip() for a in get("hidden_actions").split(",") if a.strip()]
+        self.action_order = [a.strip() for a in get("action_order").split(",") if a.strip()]
+
+        self.pin_enabled = as_bool(get("pin_enabled"), False)
+
+        pin_hash_hex = get("pin_hash")
+        self.pin_hash = bytes.fromhex(pin_hash_hex) if pin_hash_hex else b""
+
+        pin_salt_hex = get("pin_salt")
+        self.pin_salt = bytes.fromhex(pin_salt_hex) if pin_salt_hex else b""
+
         self.path_mapping_warning = ""
 
         raw_mappings = get("path_mappings")
@@ -87,6 +100,29 @@ class Settings:
             verify_tls=as_bool(get("sonarr_verify_tls"), True),
             user_agent=user_agent,
         )
+        self.prowlarr = ServiceConfig(
+            enabled=as_bool(get("prowlarr_enabled"), False),
+            url=get("prowlarr_url").strip(),
+            api_key=get("prowlarr_api_key").strip(),
+            api_version=get("prowlarr_api_version").strip() or "v1",
+            timeout=timeout,
+            verify_tls=as_bool(get("prowlarr_verify_tls"), True),
+            user_agent=user_agent,
+        )
+        self.bazarr = ServiceConfig(
+            enabled=as_bool(get("bazarr_enabled"), False),
+            url=get("bazarr_url").strip(),
+            api_key=get("bazarr_api_key").strip(),
+            api_version="v1",
+            timeout=timeout,
+            verify_tls=as_bool(get("bazarr_verify_tls"), True),
+            user_agent=user_agent,
+        )
+        self.bazarr_languages = [
+            get("bazarr_language_1").strip(),
+            get("bazarr_language_2").strip(),
+            get("bazarr_language_3").strip(),
+        ]
 
     def validate_backend(self):
         if self.backend not in {"api", "vfs"}:

@@ -5,6 +5,10 @@ Kodi Managarr is a Kodi 19+ Python 3 context-menu add-on for managing Radarr mov
 ## Kodi-native actions
 
 - **Status** — service, monitoring, quality-profile and file status for the selected item.
+- **Request & Search** — Resolves and optionally adds an entity to Radarr/Sonarr, then triggers a search.
+- **Interactive search** — Allows manual selection of a release for a movie or episode.
+- **Dashboard** — Aggregated view of service health and queue status.
+- **Find subtitles** — Integrates Bazarr directly into Kodi's subtitle downloader.
 - **Search & download now** — queues and verifies the appropriate Radarr movie, Sonarr series or Sonarr episode search.
 - **Monitoring** — monitor, unmonitor, or change quality profile. An episode quality-profile change is explicitly series-wide because Sonarr profiles are assigned to series.
 - **Download queue** — view matching queue entries or remove one from Servarr and its download client without blocklisting it.
@@ -26,9 +30,12 @@ Kodi Managarr is a Kodi 19+ Python 3 context-menu add-on for managing Radarr mov
 
 ## Install
 
-1. Download `managarr-addon_v<version>.zip` from a GitHub release.
-2. In Kodi, open **Add-ons → Install from zip file**.
-3. Configure **My add-ons → Context menus → Kodi Managarr**.
+1. Download `repository.managarr-X.Y.Z.zip` from a GitHub release or the [project page](https://cbkii.github.io/kodi-managarr/).
+2. Enable 'Unknown sources' in Kodi settings if required.
+3. In Kodi, open **Add-ons → Install from zip file** and select the repository zip.
+4. Open **Install from repository**, select the Managarr repository, and install Kodi Managarr.
+5. Leave Kodi's normal auto-update setting enabled.
+6. Configure **My add-ons → Context menus → Kodi Managarr**.
 4. Enter the Radarr and Sonarr URLs and API keys.
 5. Run both connection tests.
 6. Keep **Dry run** enabled for the first end-to-end validation.

@@ -59,3 +59,12 @@ Missing paths are never converted to `/`. Scheme and host identity are normalise
 The package contains one `context.arr.manager/` root, `LICENSE.txt`, an opaque 512×512 icon, 1920×1080 fanart and runtime-only files. Packaging rejects symlinks, hidden files, bytecode and unexpected file types and is reproducible under `SOURCE_DATE_EPOCH`.
 
 Stable releases are owner-controlled. The manual workflow validates and packages the selected branch, while the concise Android Kodi runbook provides practical device evidence. A release-candidate promotion process is optional rather than mandatory.
+
+## Menus and Entrypoints
+A central action registry dictates all context and launcher actions. The single Kodi context menu entry triggers a dynamic submenu implemented within Kodi's dialog engine, respecting user preferences for visibility and order.
+
+## Repository and Updates
+A GitHub workflow generates the `repository.managarr` addon automatically, signing and packaging it so Kodi can perform continuous auto-updates from GitHub Pages.
+
+## PIN Protection
+Destructive actions can be guarded by a basic PIN, derived with PBKDF2-HMAC. It's intended to stop accidental local usage, not as a strong security boundary, as settings are readable to the local Kodi process.

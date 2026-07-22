@@ -767,3 +767,316 @@ msgstr "The selected episode file has no allowlisted Kodi mapping."
 msgctxt "#32887"
 msgid "Changing the quality profile for an episode applies to the entire series '{title}'. Continue?"
 msgstr "Changing the quality profile for an episode applies to the entire series '{title}'. Continue?"
+
+#. pin_prompt
+msgctxt "#32888"
+msgid "Enter PIN"
+msgstr "Enter PIN"
+
+#. pin_incorrect
+msgctxt "#32889"
+msgid "Incorrect PIN"
+msgstr "Incorrect PIN"
+
+#. menu_category
+msgctxt "#32900"
+msgid "Menu"
+msgstr "Menu"
+
+#. menu_category_help
+msgctxt "#32901"
+msgid "Configure context menu and action protection."
+msgstr "Configure context menu and action protection."
+
+#. menu_mode
+msgctxt "#32902"
+msgid "Menu mode"
+msgstr "Menu mode"
+
+#. menu_mode_help
+msgctxt "#32903"
+msgid "Choose between a simplified menu or all available actions."
+msgstr "Choose between a simplified menu or all available actions."
+
+#. menu_mode_simple
+msgctxt "#32904"
+msgid "Simple"
+msgstr "Simple"
+
+#. menu_mode_advanced
+msgctxt "#32905"
+msgid "Advanced"
+msgstr "Advanced"
+
+#. configure_menu
+msgctxt "#32906"
+msgid "Configure menu"
+msgstr "Configure menu"
+
+#. configure_menu_help
+msgctxt "#32907"
+msgid "Show, hide, and reorder items in the Managarr menu."
+msgstr "Show, hide, and reorder items in the Managarr menu."
+
+#. pin_enabled
+msgctxt "#32908"
+msgid "Require PIN for destructive actions"
+msgstr "Require PIN for destructive actions"
+
+#. pin_enabled_help
+msgctxt "#32909"
+msgid "Prompt for a PIN before deleting media or modifying the queue."
+msgstr "Prompt for a PIN before deleting media or modifying the queue."
+
+#. manage_pin
+msgctxt "#32910"
+msgid "Manage PIN"
+msgstr "Manage PIN"
+
+#. manage_pin_help
+msgctxt "#32911"
+msgid "Set, change, or remove the protection PIN."
+msgstr "Set, change, or remove the protection PIN."
+
+
+#. hidden_state
+msgctxt "#32912"
+msgid "Hidden State"
+msgstr "Hidden State"
+
+#. prowlarr_category
+msgctxt "#32930"
+msgid "Prowlarr"
+msgstr "Prowlarr"
+
+#. prowlarr_enabled
+msgctxt "#32931"
+msgid "Enable Prowlarr"
+msgstr "Enable Prowlarr"
+
+#. prowlarr_url
+msgctxt "#32932"
+msgid "Prowlarr URL"
+msgstr "Prowlarr URL"
+
+#. prowlarr_api_key
+msgctxt "#32933"
+msgid "Prowlarr API key"
+msgstr "Prowlarr API key"
+
+#. prowlarr_api_version
+msgctxt "#32934"
+msgid "Prowlarr API version"
+msgstr "Prowlarr API version"
+
+#. prowlarr_verify_tls
+msgctxt "#32935"
+msgid "Verify TLS certificates"
+msgstr "Verify TLS certificates"
+
+#. test_prowlarr
+msgctxt "#32936"
+msgid "Test Prowlarr"
+msgstr "Test Prowlarr"
+
+#. prowlarr_help_category
+msgctxt "#32937"
+msgid "Prowlarr settings."
+msgstr "Prowlarr settings."
+
+#. prowlarr_help_enabled
+msgctxt "#32938"
+msgid "Enable Prowlarr indexer and health integration."
+msgstr "Enable Prowlarr indexer and health integration."
+
+#. prowlarr_help_url
+msgctxt "#32939"
+msgid "Base URL, e.g. http://192.168.1.100:9696"
+msgstr "Base URL, e.g. http://192.168.1.100:9696"
+
+#. prowlarr_help_api_key
+msgctxt "#32940"
+msgid "Prowlarr API key."
+msgstr "Prowlarr API key."
+
+#. prowlarr_help_api_version
+msgctxt "#32941"
+msgid "API version, normally v1."
+msgstr "API version, normally v1."
+
+#. prowlarr_help_verify_tls
+msgctxt "#32942"
+msgid "Verify HTTPS certificates."
+msgstr "Verify HTTPS certificates."
+
+#. prowlarr_help_test
+msgctxt "#32943"
+msgid "Test connection to Prowlarr."
+msgstr "Test connection to Prowlarr."
+
+
+#. bazarr_category
+msgctxt "#32950"
+msgid "Bazarr"
+msgstr "Bazarr"
+
+#. bazarr_enabled
+msgctxt "#32951"
+msgid "Enable Bazarr"
+msgstr "Enable Bazarr"
+
+#. bazarr_url
+msgctxt "#32952"
+msgid "Bazarr URL"
+msgstr "Bazarr URL"
+
+#. bazarr_api_key
+msgctxt "#32953"
+msgid "Bazarr API key"
+msgstr "Bazarr API key"
+
+#. bazarr_verify_tls
+msgctxt "#32955"
+msgid "Verify TLS certificates"
+msgstr "Verify TLS certificates"
+
+#. bazarr_language_1
+msgctxt "#32956"
+msgid "Language 1"
+msgstr "Language 1"
+
+#. bazarr_language_2
+msgctxt "#32957"
+msgid "Language 2"
+msgstr "Language 2"
+
+#. bazarr_language_3
+msgctxt "#32958"
+msgid "Language 3"
+msgstr "Language 3"
+
+#. bazarr_language_config
+msgctxt "#32959"
+msgid "Configure subtitle languages"
+msgstr "Configure subtitle languages"
+
+#. test_bazarr
+msgctxt "#32960"
+msgid "Test Bazarr"
+msgstr "Test Bazarr"
+
+#. bazarr_help_category
+msgctxt "#32970"
+msgid "Bazarr settings."
+msgstr "Bazarr settings."
+
+#. bazarr_help_enabled
+msgctxt "#32971"
+msgid "Enable Bazarr subtitle integration."
+msgstr "Enable Bazarr subtitle integration."
+
+#. bazarr_help_url
+msgctxt "#32972"
+msgid "Base URL, e.g. http://192.168.1.100:6767"
+msgstr "Base URL, e.g. http://192.168.1.100:6767"
+
+#. bazarr_help_api_key
+msgctxt "#32973"
+msgid "Bazarr API key."
+msgstr "Bazarr API key."
+
+#. bazarr_help_verify_tls
+msgctxt "#32975"
+msgid "Verify HTTPS certificates."
+msgstr "Verify HTTPS certificates."
+
+#. bazarr_help_language_1
+msgctxt "#32976"
+msgid "Primary subtitle language."
+msgstr "Primary subtitle language."
+
+#. bazarr_help_language_2
+msgctxt "#32977"
+msgid "Secondary subtitle language."
+msgstr "Secondary subtitle language."
+
+#. bazarr_help_language_3
+msgctxt "#32978"
+msgid "Tertiary subtitle language."
+msgstr "Tertiary subtitle language."
+
+#. bazarr_help_language_config
+msgctxt "#32979"
+msgid "Select subtitle languages."
+msgstr "Select subtitle languages."
+
+#. bazarr_help_test
+msgctxt "#32980"
+msgid "Test connection to Bazarr."
+msgstr "Test connection to Bazarr."
+
+
+#. connection_prowlarr
+msgctxt "#32981"
+msgid "Connected to Prowlarr {version}."
+msgstr "Connected to Prowlarr {version}."
+
+#. connection_bazarr
+msgctxt "#32982"
+msgid "Connected to Bazarr {version}."
+msgstr "Connected to Bazarr {version}."
+
+#. dashboard_heading
+msgctxt "#32983"
+msgid "Dashboard"
+msgstr "Dashboard"
+
+#. subtitles_heading
+msgctxt "#32984"
+msgid "Find subtitles"
+msgstr "Find subtitles"
+
+#. configure_subtitles_heading
+msgctxt "#32985"
+msgid "Configure subtitle languages"
+msgstr "Configure subtitle languages"
+
+#. request_search_heading
+msgctxt "#32986"
+msgid "Request & Search"
+msgstr "Request & Search"
+
+#. interactive_search_heading
+msgctxt "#32987"
+msgid "Interactive search"
+msgstr "Interactive search"
+
+#. search_queued
+msgctxt "#32988"
+msgid "Queued search for {title}."
+msgstr "Queued search for {title}."
+
+#. lookup_no_results
+msgctxt "#32989"
+msgid "No results found for {term}."
+msgstr "No results found for {term}."
+
+#. missing_defaults
+msgctxt "#32990"
+msgid "Configure Request & Search defaults."
+msgstr "Configure Request & Search defaults."
+
+#. interactive_no_results
+msgctxt "#32991"
+msgid "No releases found."
+msgstr "No releases found."
+
+#. grab_success
+msgctxt "#32992"
+msgid "Download started."
+msgstr "Download started."
+
+#. interactive_search_not_supported_for_series
+msgctxt "#32993"
+msgid "Interactive search is only supported for movies and individual episodes."
+msgstr "Interactive search is only supported for movies and individual episodes."

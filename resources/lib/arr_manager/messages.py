@@ -89,20 +89,26 @@ MESSAGES = {
     "backend_movie_unmapped": (32884, "The selected movie folder has no allowlisted Kodi mapping."),
     "backend_series_unmapped": (32885, "The selected series folder has no allowlisted Kodi mapping."),
     "backend_episode_unmapped": (32886, "The selected episode file has no allowlisted Kodi mapping."),
+    "backend_episode_unmapped": (32886, "The selected episode file has no allowlisted Kodi mapping."),
     "quality_episode_scope_confirm": (32887, "Changing the quality profile for an episode applies to the entire series '{title}'. Continue?"),
+    "pin_prompt": (32888, "Enter PIN for destructive action"),
+    "pin_incorrect": (32889, "Incorrect PIN"),
+    "interactive_no_results": (32991, "No releases found."),
+    "grab_success": (32992, "Download started."),
+    "interactive_search_not_supported_for_series": (32993, "Interactive search is only supported for movies and individual episodes."),
+    "dashboard_heading": (32983, "Dashboard"),
+    "interactive_search_heading": (32987, "Interactive search"),
+    "request_search_heading": (32986, "Request & Search"),
+    "search_queued": (32988, "Queued search for {title}."),
+    "lookup_no_results": (32989, "No results found for {term}."),
+    "missing_defaults": (32990, "Configure Request & Search defaults."),
+    "connection_prowlarr": (32981, "Connected to Prowlarr {version}."),
+    "connection_bazarr": (32982, "Connected to Bazarr {version}."),
 }
-
 
 def message(source, key, **values):
     string_id, fallback = MESSAGES[key]
-    addon = getattr(source, "addon", source)
-    getter = getattr(addon, "getLocalizedString", None)
-    translated = ""
-    if getter:
-        try:
-            translated = getter(int(string_id)) or ""
-        except Exception:
-            translated = ""
+    translated = getattr(source, "getLocalizedString", lambda x: "")(string_id)
     template = translated or fallback
     try:
         return template.format(**values)

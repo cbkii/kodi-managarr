@@ -84,6 +84,29 @@ class ServarrClient:
 
 
 class RadarrClient(ServarrClient):
+    def lookup_movie(self, term):
+        return _list(self.http.request("GET", "/movie/lookup", params={"term": term}), "Movie lookup")
+
+    def add_movie(self, movie):
+        movie = _object(dict(movie), "Movie add")
+        return _object(self.http.request("POST", "/movie", payload=movie), "Movie add")
+
+    def root_folders(self):
+        return _list(self.http.request("GET", "/rootfolder"), "Root folders")
+
+    def releases(self, movie_id):
+        return _list(self.http.request("GET", "/release", params={"movieId": _id(movie_id, 'Movie')}), "Releases")
+
+    def download_release(self, release):
+        release = _object(dict(release), "Release download")
+        return _object(self.http.request("POST", "/release", payload=release), "Release download")
+
+    def health(self):
+        return _list(self.http.request("GET", "/health"), "Health")
+
+    def wanted_missing(self):
+        return self.http.request("GET", "/wanted/missing", params={"page": 1, "pageSize": 1})
+
     def all_movies(self):
         return _list(self.http.request("GET", "/movie"), "Movies")
 
@@ -123,6 +146,29 @@ class RadarrClient(ServarrClient):
 
 
 class SonarrClient(ServarrClient):
+    def lookup_series(self, term):
+        return _list(self.http.request("GET", "/series/lookup", params={"term": term}), "Series lookup")
+
+    def add_series(self, series):
+        series = _object(dict(series), "Series add")
+        return _object(self.http.request("POST", "/series", payload=series), "Series add")
+
+    def root_folders(self):
+        return _list(self.http.request("GET", "/rootfolder"), "Root folders")
+
+    def releases(self, episode_id):
+        return _list(self.http.request("GET", "/release", params={"episodeId": _id(episode_id, 'Episode')}), "Releases")
+
+    def download_release(self, release):
+        release = _object(dict(release), "Release download")
+        return _object(self.http.request("POST", "/release", payload=release), "Release download")
+
+    def health(self):
+        return _list(self.http.request("GET", "/health"), "Health")
+
+    def wanted_missing(self):
+        return self.http.request("GET", "/wanted/missing", params={"page": 1, "pageSize": 1})
+
     def all_series(self):
         return _list(self.http.request("GET", "/series"), "Series")
 
@@ -176,3 +222,52 @@ class SonarrClient(ServarrClient):
 
     def rescan_series(self, series_id):
         return self.command("RescanSeries", seriesId=_id(series_id, 'Series'))
+
+class ProwlarrClient(ServarrClient):
+    def indexers(self):
+        return _list(self.http.request("GET", "/indexer"), "Indexers")
+
+    def health(self):
+        return _list(self.http.request("GET", "/health"), "Health")
+
+class BazarrClient:
+    def __init__(
+        self,
+        base_url,
+        api_key,
+        timeout=15,
+        verify_tls=True,
+        logger=None,
+        user_agent="Kodi-Managarr/unknown",
+    ):
+        from .http import JsonHttpClient
+        self.http = JsonHttpClient(
+            base_url,
+            api_key,
+            "system", # Hack to bypass /api/vX structure since Bazarr is flat after /api
+            timeout,
+            verify_tls,
+            logger,
+            user_agent,
+        )
+        self.http.api_root = f"{self.http.base_url}/api"
+
+    def status(self):
+        return _object(self.http.request("GET", "/system/status"), "System status")
+
+    def languages(self):
+        return _list(self.http.request("GET", "/languages"), "Languages")
+
+    def search_movie_subtitles(self, radarr_id):
+        return self.http.request("GET", "/providers/movies", params={"radarrid": _id(radarr_id, 'Movie')})
+
+    def search_episode_subtitles(self, sonarr_episode_id):
+        return self.http.request("GET", "/providers/episodes", params={"episodeid": _id(sonarr_episode_id, 'Episode')})
+
+    def download_movie_subtitle(self, radarr_id, language, forced=False, hi=False):
+        payload = {"radarrid": _id(radarr_id, 'Movie'), "language": language, "forced": str(forced).lower(), "hi": str(hi).lower()}
+        self.http.request("PATCH", "/movies/subtitles", params=payload)
+
+    def download_episode_subtitle(self, series_id, episode_id, language, forced=False, hi=False):
+        payload = {"seriesid": _id(series_id, 'Series'), "episodeid": _id(episode_id, 'Episode'), "language": language, "forced": str(forced).lower(), "hi": str(hi).lower()}
+        self.http.request("PATCH", "/episodes/subtitles", params=payload)
