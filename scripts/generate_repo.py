@@ -26,7 +26,8 @@ def _sha256(path):
 
 
 def _write_text(path, value):
-    path.write_text(value, encoding="utf-8", newline="\n")
+    with open(path, "w", encoding="utf-8", newline="\n") as handle:
+        handle.write(value)
 
 
 def _safe_member_name(name):
