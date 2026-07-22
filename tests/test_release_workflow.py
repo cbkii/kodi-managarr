@@ -26,6 +26,12 @@ class ReleaseWorkflowTests(unittest.TestCase):
         )
         self.assertIn("RELEASE_HIGHLIGHTS: ${{ steps.metadata.outputs.release_notes }}", WORKFLOW)
 
+    def test_kodi_news_is_shortened_without_truncating_release_highlights(self):
+        self.assertIn("max_news_chars = 1500", WORKFLOW)
+        self.assertIn("notes_for_addon = notes", WORKFLOW)
+        self.assertIn("notes_for_addon[:available].rstrip() + '...'", WORKFLOW)
+        self.assertIn("release_notes={notes}", WORKFLOW)
+
     def test_public_release_asset_uses_friendly_versioned_name(self):
         expected = "managarr-addon_v$VERSION.zip"
         self.assertIn(f'release_asset="dist/{expected}"', WORKFLOW)
