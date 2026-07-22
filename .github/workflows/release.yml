@@ -127,7 +127,13 @@ jobs:
           updated, count = re.subn(r'(<addon\b[^>]*\bversion=")[^"]+("[^>]*>)', rf'\g<1>{version}\2', content, count=1)
           if count != 1:
               raise SystemExit('Could not update version')
-          news = escape(f'{tag} ({date.today().isoformat()}) - {notes}')
+          news_prefix = f'{tag} ({date.today().isoformat()}) - '
+          max_news_chars = 1500
+          notes_for_addon = notes
+          if len(news_prefix) + len(notes_for_addon) > max_news_chars:
+              available = max_news_chars - len(news_prefix) - 3
+              notes_for_addon = notes_for_addon[:available].rstrip() + '...'
+          news = escape(news_prefix + notes_for_addon)
           updated, count = re.subn(
               r'(<news>).*?(</news>)',
               lambda match: f'{match.group(1)}{news}{match.group(2)}',
