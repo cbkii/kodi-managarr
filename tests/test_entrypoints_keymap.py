@@ -109,7 +109,7 @@ class WriteDiagnosticsTests(unittest.TestCase):
         m = mock.mock_open()
         mock_open.side_effect = [FileNotFoundError("Not found"), m.return_value]
         with mock.patch('arr_manager.entrypoints.json.dump') as mock_dump:
-            entrypoints._write_diagnostics(addon, settings, logger)
+            diag = entrypoints._write_diagnostics(addon, settings, logger)
             payload = mock_dump.call_args[0][0]
             self.assertIsNone(payload["lastTransactionStatus"])
 
@@ -146,12 +146,11 @@ class WriteDiagnosticsTests(unittest.TestCase):
         m = mock.mock_open()
         mock_open.side_effect = [ValueError("Malformed JSON"), m.return_value]
         with mock.patch('arr_manager.entrypoints.json.dump') as mock_dump:
-            entrypoints._write_diagnostics(addon, settings, logger)
+            diag = entrypoints._write_diagnostics(addon, settings, logger)
             payload = mock_dump.call_args[0][0]
             self.assertIsNone(payload["lastTransactionStatus"])
 
         self.assertTrue(any("ValueError" in arg[1] for arg in logger.warnings))
-
 
     @mock.patch("arr_manager.entrypoints.os.makedirs")
     @mock.patch("arr_manager.entrypoints.open")
@@ -185,7 +184,7 @@ class WriteDiagnosticsTests(unittest.TestCase):
         m = mock.mock_open()
         mock_open.side_effect = [PermissionError("Access denied"), m.return_value]
         with mock.patch('arr_manager.entrypoints.json.dump') as mock_dump:
-            entrypoints._write_diagnostics(addon, settings, logger)
+            diag = entrypoints._write_diagnostics(addon, settings, logger)
             payload = mock_dump.call_args[0][0]
             self.assertIsNone(payload["lastTransactionStatus"])
 
