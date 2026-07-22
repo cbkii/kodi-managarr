@@ -23,6 +23,7 @@ class UI:
     def __init__(self, choices=(), numeric=()):
         self.choices = list(choices); self.numeric = list(numeric); self.selections = []
         self.opened = False; self.dialogs = []; self.notifications = []; self.texts = []
+        self.jsonrpc = object()
     def select(self, heading, options): self.selections.append((heading, list(options))); return self.choices.pop(0)
     def open_settings(self): self.opened = True
     def ok(self, heading, message): self.dialogs.append((heading, message))
@@ -73,7 +74,7 @@ class EntrypointTests(unittest.TestCase):
         ui = self.run_script([0])
         self.assertEqual(ui.selections[0][1], [
             "Status", "Search & download now", "Monitoring", "Download queue",
-            "Delete & Exclude", "Delete & Replace", "Tools & settings",
+            "Delete & Exclude", "Delete & Replace", "Retention", "Tools & settings",
         ])
         self.assertEqual(Manager.calls, ["status"])
 

@@ -3,6 +3,7 @@ from dataclasses import dataclass
 
 from .errors import ConfigurationError
 from .registry import ACTION_REGISTRY
+from .retention.config import RetentionSettings
 from .util import PathMapper, as_bool, as_int, normalise_path, parse_mappings
 
 BACKENDS = {"0": "api", "1": "vfs", "api": "api", "vfs": "vfs", "ssh": "vfs", "2": "vfs"}
@@ -119,6 +120,9 @@ class Settings:
             verify_tls=as_bool(get("sonarr_verify_tls"), True),
             user_agent=user_agent,
         )
+        # Parse retention settings without validating them so disabled or stale
+        # retention configuration never blocks unrelated Managarr actions.
+        self.retention = RetentionSettings(addon)
 
     @staticmethod
     def _known_action_ids(raw, known_ids):

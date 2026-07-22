@@ -13,15 +13,14 @@ from .errors import (
 from .fileops import make_direct_backend
 from .kodi import KodiLogger, KodiUI, selected_item_from_context
 from .messages import message
-from .pin import authorize_action, hash_pin, validate_pin, verify_pin
+from .pin import authorize_action, authorize_destructive, hash_pin, validate_pin, verify_pin
 from .registry import ACTION_REGISTRY, get_action_by_id, get_action_by_mode
 from .resolver import resolve_episode_context, resolve_movie, resolve_series
+from .retention.service import RetentionService
 
 SUPPORTED_MEDIA_TYPES = ("movie", "tvshow", "episode")
-DIRECT_ACTIONS = {
-    "menu", "status", "search_now", "monitor", "unmonitor", "change_quality_profile",
-    "queue_view", "queue_remove", "delete_exclude", "delete_replace",
-    "monitoring_menu", "queue_menu", "tools_menu", "configure_menu", "manage_pin",
+DIRECT_ACTIONS = {action["mode"] for action in ACTION_REGISTRY} | {
+    "menu", "configure_menu", "manage_pin",
 }
 
 
@@ -155,11 +154,16 @@ def _run_menu_group(group, addon, settings, logger, ui):
     return None
 
 
+def _retention_service(manager, ui, logger):
+    return RetentionService(manager, ui.jsonrpc, ui, logger)
+
+
 def _run_action(action_mode, addon, settings, logger, ui):
     group_modes = {
         "menu": "root",
         "monitoring_menu": "monitoring",
         "queue_menu": "queue",
+        "retention_menu": "retention",
     }
     if action_mode in group_modes:
         return _run_menu_group(group_modes[action_mode], addon, settings, logger, ui)
@@ -178,6 +182,29 @@ def _run_action(action_mode, addon, settings, logger, ui):
         raise ResolutionError(f"Action {action_mode} does not support {selected.media_type}")
     if not authorize_action(action["id"], settings, ui):
         return _m(addon, "cancelled")
+
+    if action_mode.startswith("retention_"):
+        authorized = True
+        if action_mode == "retention_run" and not settings.dry_run:
+            authorized = authorize_destructive(settings, ui)
+        elif action_mode == "retention_enable" and not settings.retention.background_dry_run:
+            authorized = authorize_destructive(settings, ui)
+        if not authorized:
+            return _m(addon, "cancelled")
+
+        manager = ArrManager(settings, ui, logger)
+        logger.info("Action %s requested", action_mode)
+        service = _retention_service(manager, ui, logger)
+        if action_mode == "retention_preview":
+            return service.run_preview()
+        if action_mode == "retention_run":
+            return service.run_cleanup_now(authorized=True)
+        if action_mode == "retention_enable":
+            return service.enable_periodic(authorized=True)
+        if action_mode == "retention_disable":
+            return service.disable_periodic()
+        if action_mode == "retention_report":
+            return service.view_report()
 
     manager = ArrManager(settings, ui, logger)
     if selected:
@@ -278,9 +305,14 @@ def _run_configure_menu(addon, settings, logger, ui):
         addon.setSetting("action_order", ",".join(settings.action_order))
 
 
+def _invalidate_periodic_retention(addon):
+    addon.setSetting("retention_periodic_enabled", "false")
+
+
 def _clear_pin(addon, settings):
     addon.setSetting("pin_hash", "")
     addon.setSetting("pin_salt", "")
+    _invalidate_periodic_retention(addon)
     settings.pin_hash = b""
     settings.pin_salt = b""
     settings.pin_invalid = False
@@ -326,6 +358,7 @@ def _run_manage_pin(addon, settings, logger, ui):
     pin_hash, pin_salt = hash_pin(new_pin)
     addon.setSetting("pin_hash", pin_hash.hex())
     addon.setSetting("pin_salt", pin_salt.hex())
+    _invalidate_periodic_retention(addon)
     settings.pin_hash = pin_hash
     settings.pin_salt = pin_salt
     settings.pin_invalid = False

@@ -38,7 +38,15 @@ ACTION_REGISTRY = [
     _action("queue_remove", 32011, "Remove from queue", "queue", "queue_remove", 42, simple=False, mutating=True),
     _action("delete_exclude", 32001, "Delete & Exclude", "root", "delete_exclude", 50, simple=True, mutating=True, destructive=True),
     _action("delete_replace", 32002, "Delete & Replace", "root", "delete_replace", 60, simple=True, mutating=True, destructive=True),
-    _action("tools", 32500, "Tools & settings", "root", "tools_menu", 70, simple=True, requires_selection=False, submenu=True, media_types=()),
+    _action("retention", 33000, "Retention", "root", "retention_menu", 70, simple=False, requires_selection=False, submenu=True, media_types=()),
+    _action("retention_preview", 33037, "Preview eligible media", "retention", "retention_preview", 71, simple=False, requires_selection=False, media_types=()),
+    # These actions are conditionally destructive. The entrypoint invokes the
+    # central PIN authoriser only when the selected run can perform real deletion.
+    _action("retention_run", 33039, "Run cleanup now", "retention", "retention_run", 72, simple=False, mutating=True, requires_selection=False, media_types=()),
+    _action("retention_enable", 33041, "Enable periodic cleanup", "retention", "retention_enable", 73, simple=False, mutating=True, requires_selection=False, media_types=()),
+    _action("retention_disable", 33043, "Disable periodic cleanup", "retention", "retention_disable", 74, simple=False, mutating=True, requires_selection=False, media_types=()),
+    _action("retention_report", 33045, "View last cleanup report", "retention", "retention_report", 75, simple=False, requires_selection=False, media_types=()),
+    _action("tools", 32500, "Tools & settings", "root", "tools_menu", 80, simple=True, requires_selection=False, submenu=True, media_types=()),
 ]
 
 

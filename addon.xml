@@ -1,23 +1,25 @@
-<?xml version='1.0' encoding='UTF-8'?>
-<addon id="context.arr.manager" name="Kodi Managarr" version="1.1.1" provider-name="CB">
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<addon id="context.arr.manager" name="Kodi Managarr" version="1.2.0" provider-name="CB">
   <requires>
-    <import addon="xbmc.python" version="3.0.0" />
+    <import addon="xbmc.python" version="3.0.0"/>
   </requires>
   <extension point="kodi.context.item">
     <menu id="kodi.core.main">
-      <item library="context.py" args="menu"><label>Managarr</label><visible>String.IsEqual(ListItem.DBType,movie) | String.IsEqual(ListItem.DBType,tvshow) | String.IsEqual(ListItem.DBType,episode)</visible></item></menu>
+      <item library="context.py" args="menu"><label>Managarr</label><visible>String.IsEqual(ListItem.DBType,movie) | String.IsEqual(ListItem.DBType,tvshow) | String.IsEqual(ListItem.DBType,episode)</visible></item>
+    </menu>
   </extension>
   <extension point="xbmc.python.script" library="default.py">
     <provides>executable</provides>
   </extension>
+  <extension point="xbmc.service" library="service.py"/>
   <extension point="xbmc.addon.metadata">
-    <summary lang="en_GB">Manage Radarr and Sonarr media from Kodi.</summary>
-    <description lang="en_GB">Kodi-native status, search, monitoring, quality-profile, download-queue, delete, exclude and replacement controls for Radarr movies and Sonarr series or episodes.</description>
+    <summary lang="en_GB">Manage and safely retain Radarr and Sonarr media from Kodi.</summary>
+    <description lang="en_GB">Kodi-native status, search, monitoring, queue and destructive controls, with watched/added-age retention preview, manual cleanup and optional dry-run-first periodic cleanup for Radarr movies and Sonarr episode files.</description>
     <platform>all</platform>
     <license>GPL-3.0-or-later</license>
     <source>https://github.com/cbkii/kodi-managarr</source>
     <website>https://github.com/cbkii/kodi-managarr</website>
-    <news>Introduce repository.managarr for automatic updates, highly configurable context menus via settings, and optional PIN protection for destructive actions.</news>
+    <news>Add watched and added-age retention preview, PIN-authorised API cleanup, and optional dry-run-first scheduled cleanup for movies and episode files.</news>
     <assets>
       <icon>resources/icon.png</icon>
       <fanart>resources/fanart.jpg</fanart>

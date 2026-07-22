@@ -1,4 +1,4 @@
-<?xml version='1.0' encoding='utf-8'?>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <settings version="1">
   <section id="context.arr.manager">
     <category id="general" label="32100" help="32120">
@@ -6,34 +6,34 @@
         <setting id="deletion_backend" type="integer" label="32101" help="32121">
           <level>0</level><default>0</default>
           <constraints><options><option label="32110">0</option><option label="32111">1</option></options></constraints>
-          <control type="spinner" format="string" />
+          <control type="spinner" format="string"/>
         </setting>
-        <setting id="confirm_actions" type="boolean" label="32102" help="32122"><level>0</level><default>true</default><control type="toggle" /></setting>
-        <setting id="dry_run" type="boolean" label="32103" help="32123"><level>0</level><default>false</default><control type="toggle" /></setting>
-        <setting id="require_blocklist" type="boolean" label="32104" help="32124"><level>1</level><default>true</default><control type="toggle" /></setting>
+        <setting id="confirm_actions" type="boolean" label="32102" help="32122"><level>0</level><default>true</default><control type="toggle"/></setting>
+        <setting id="dry_run" type="boolean" label="32103" help="32123"><level>0</level><default>false</default><control type="toggle"/></setting>
+        <setting id="require_blocklist" type="boolean" label="32104" help="32124"><level>1</level><default>true</default><control type="toggle"/></setting>
         <setting id="http_timeout" type="integer" label="32106" help="32125"><level>1</level><default>15</default><constraints><minimum>3</minimum><step>1</step><maximum>120</maximum></constraints><control type="slider" format="integer"><popup>false</popup></control></setting>
       </group>
     </category>
     <category id="menu" label="32900" help="32901">
       <group id="1" label="">
-        <setting id="menu_mode" type="integer" label="32902" help="32903"><level>0</level><default>1</default><constraints><options><option label="32904">0</option><option label="32905">1</option></options></constraints><control type="spinner" format="string" /></setting>
+        <setting id="menu_mode" type="integer" label="32902" help="32903"><level>0</level><default>1</default><constraints><options><option label="32904">0</option><option label="32905">1</option></options></constraints><control type="spinner" format="string"/></setting>
         <setting id="configure_menu" type="action" label="32906" help="32907"><level>0</level><data>RunScript(context.arr.manager,mode=configure_menu)</data><control type="button" format="action"><close>true</close></control></setting>
-        <setting id="hidden_actions" type="string" label="32912" help="32912"><level>4</level><default /></setting>
-        <setting id="action_order" type="string" label="32912" help="32912"><level>4</level><default /></setting>
+        <setting id="hidden_actions" type="string" label="32912" help="32912"><level>4</level><default/></setting>
+        <setting id="action_order" type="string" label="32912" help="32912"><level>4</level><default/></setting>
       </group>
       <group id="2" label="">
         <setting id="manage_pin" type="action" label="32910" help="32911"><level>0</level><data>RunScript(context.arr.manager,mode=manage_pin)</data><control type="button" format="action"><close>true</close></control></setting>
-        <setting id="pin_hash" type="string" label="32912" help="32912"><level>4</level><default /></setting>
-        <setting id="pin_salt" type="string" label="32912" help="32912"><level>4</level><default /></setting>
+        <setting id="pin_hash" type="string" label="32912" help="32912"><level>4</level><default/></setting>
+        <setting id="pin_salt" type="string" label="32912" help="32912"><level>4</level><default/></setting>
       </group>
     </category>
     <category id="radarr" label="32200" help="32220">
       <group id="1" label="">
-        <setting id="radarr_enabled" type="boolean" label="32201" help="32221"><level>0</level><default>true</default><control type="toggle" /></setting>
-        <setting id="radarr_url" type="string" label="32202" help="32222"><level>0</level><default /><constraints><allowempty>true</allowempty></constraints><control type="edit" format="string"><heading>32202</heading></control></setting>
-        <setting id="radarr_api_key" type="string" label="32203" help="32223"><level>0</level><default /><constraints><allowempty>true</allowempty></constraints><control type="edit" format="string"><heading>32203</heading><hidden>true</hidden></control></setting>
+        <setting id="radarr_enabled" type="boolean" label="32201" help="32221"><level>0</level><default>true</default><control type="toggle"/></setting>
+        <setting id="radarr_url" type="string" label="32202" help="32222"><level>0</level><default/><constraints><allowempty>true</allowempty></constraints><control type="edit" format="string"><heading>32202</heading></control></setting>
+        <setting id="radarr_api_key" type="string" label="32203" help="32223"><level>0</level><default/><constraints><allowempty>true</allowempty></constraints><control type="edit" format="string"><heading>32203</heading><hidden>true</hidden></control></setting>
         <setting id="radarr_api_version" type="string" label="32204" help="32224"><level>2</level><default>v3</default><control type="edit" format="string"><heading>32204</heading></control></setting>
-        <setting id="radarr_verify_tls" type="boolean" label="32205" help="32225"><level>1</level><default>true</default><control type="toggle" /></setting>
+        <setting id="radarr_verify_tls" type="boolean" label="32205" help="32225"><level>1</level><default>true</default><control type="toggle"/></setting>
       </group>
       <group id="2" label="">
         <setting id="test_radarr" type="action" label="32206" help="32226"><level>0</level><data>RunScript(context.arr.manager,mode=test_radarr)</data><control type="button" format="action"><close>true</close></control></setting>
@@ -41,11 +41,11 @@
     </category>
     <category id="sonarr" label="32300" help="32320">
       <group id="1" label="">
-        <setting id="sonarr_enabled" type="boolean" label="32301" help="32321"><level>0</level><default>true</default><control type="toggle" /></setting>
-        <setting id="sonarr_url" type="string" label="32302" help="32322"><level>0</level><default /><constraints><allowempty>true</allowempty></constraints><control type="edit" format="string"><heading>32302</heading></control></setting>
-        <setting id="sonarr_api_key" type="string" label="32303" help="32323"><level>0</level><default /><constraints><allowempty>true</allowempty></constraints><control type="edit" format="string"><heading>32303</heading><hidden>true</hidden></control></setting>
+        <setting id="sonarr_enabled" type="boolean" label="32301" help="32321"><level>0</level><default>true</default><control type="toggle"/></setting>
+        <setting id="sonarr_url" type="string" label="32302" help="32322"><level>0</level><default/><constraints><allowempty>true</allowempty></constraints><control type="edit" format="string"><heading>32302</heading></control></setting>
+        <setting id="sonarr_api_key" type="string" label="32303" help="32323"><level>0</level><default/><constraints><allowempty>true</allowempty></constraints><control type="edit" format="string"><heading>32303</heading><hidden>true</hidden></control></setting>
         <setting id="sonarr_api_version" type="string" label="32304" help="32324"><level>2</level><default>v3</default><control type="edit" format="string"><heading>32304</heading></control></setting>
-        <setting id="sonarr_verify_tls" type="boolean" label="32305" help="32325"><level>1</level><default>true</default><control type="toggle" /></setting>
+        <setting id="sonarr_verify_tls" type="boolean" label="32305" help="32325"><level>1</level><default>true</default><control type="toggle"/></setting>
       </group>
       <group id="2" label="">
         <setting id="test_sonarr" type="action" label="32306" help="32326"><level>0</level><data>RunScript(context.arr.manager,mode=test_sonarr)</data><control type="button" format="action"><close>true</close></control></setting>
@@ -53,7 +53,7 @@
     </category>
     <category id="paths" label="32400" help="32420">
       <group id="1" label="">
-        <setting id="path_mappings" type="string" label="32401" help="32421"><level>1</level><default /><constraints><allowempty>true</allowempty></constraints><control type="edit" format="string"><heading>32401</heading></control></setting>
+        <setting id="path_mappings" type="string" label="32401" help="32421"><level>1</level><default/><constraints><allowempty>true</allowempty></constraints><control type="edit" format="string"><heading>32401</heading></control></setting>
         <setting id="protected_paths" type="string" label="32402" help="32422"><level>1</level><default>/</default><constraints><allowempty>true</allowempty></constraints><control type="edit" format="string"><heading>32402</heading></control></setting>
         <setting id="rescan_poll_timeout" type="integer" label="32403" help="32423"><level>1</level><default>45</default><constraints><minimum>5</minimum><step>5</step><maximum>300</maximum></constraints><control type="slider" format="integer"><popup>false</popup></control></setting>
       </group>
@@ -61,9 +61,36 @@
         <setting id="test_backend" type="action" label="32404" help="32424"><level>0</level><data>RunScript(context.arr.manager,mode=test_backend)</data><control type="button" format="action"><close>true</close></control></setting>
       </group>
     </category>
+    <category id="retention" label="33000" help="33001">
+      <group id="1" label="">
+        <setting id="retention_enabled" type="boolean" label="33002" help="33003"><level>0</level><default>false</default><control type="toggle"/></setting>
+        <setting id="retention_include_movies" type="boolean" label="33004" help="33005"><level>0</level><default>true</default><control type="toggle"/></setting>
+        <setting id="retention_include_episodes" type="boolean" label="33006" help="33007"><level>0</level><default>true</default><control type="toggle"/></setting>
+        <setting id="retention_watched_only" type="boolean" label="33008" help="33009"><level>0</level><default>true</default><control type="toggle"/></setting>
+        <setting id="retention_use_added_age" type="boolean" label="33010" help="33011"><level>0</level><default>true</default><control type="toggle"/></setting>
+        <setting id="retention_added_age_days" type="integer" label="33012" help="33013"><level>0</level><default>30</default><constraints><minimum>0</minimum><step>1</step><maximum>9999</maximum></constraints><control type="edit" format="integer"/></setting>
+        <setting id="retention_use_watched_age" type="boolean" label="33014" help="33015"><level>0</level><default>true</default><control type="toggle"/></setting>
+        <setting id="retention_watched_age_days" type="integer" label="33016" help="33017"><level>0</level><default>7</default><constraints><minimum>0</minimum><step>1</step><maximum>9999</maximum></constraints><control type="edit" format="integer"/></setting>
+        <setting id="retention_criteria_mode" type="string" label="33018" help="33019"><level>0</level><default>all</default><constraints><options><option label="33020">all</option><option label="33021">any</option></options></constraints><control type="spinner" format="string"/></setting>
+      </group>
+      <group id="2" label="33022">
+        <setting id="retention_periodic_enabled" type="boolean" label="33023" help="33024"><level>4</level><default>false</default></setting>
+        <setting id="retention_interval_hours" type="integer" label="33025" help="33026"><level>0</level><default>24</default><constraints><minimum>1</minimum><step>1</step><maximum>720</maximum></constraints><control type="edit" format="integer"/></setting>
+        <setting id="retention_max_deletions" type="integer" label="33027" help="33028"><level>0</level><default>5</default><constraints><minimum>1</minimum><step>1</step><maximum>100</maximum></constraints><control type="edit" format="integer"/></setting>
+        <setting id="retention_background_dry_run" type="boolean" label="33029" help="33030"><level>0</level><default>true</default><control type="toggle"/></setting>
+        <setting id="retention_notification_mode" type="string" label="33031" help="33032"><level>0</level><default>errors_only</default><constraints><options><option label="33033">errors_only</option><option label="33034">deletions_and_errors</option><option label="33035">silent</option></options></constraints><control type="spinner" format="string"/></setting>
+      </group>
+      <group id="3" label="33036">
+        <setting id="retention_preview" type="action" label="33037" help="33038"><level>0</level><data>RunScript(context.arr.manager,mode=retention_preview)</data><control type="button" format="action"><close>true</close></control></setting>
+        <setting id="retention_run" type="action" label="33039" help="33040"><level>0</level><data>RunScript(context.arr.manager,mode=retention_run)</data><control type="button" format="action"><close>true</close></control></setting>
+        <setting id="retention_enable" type="action" label="33041" help="33042"><level>0</level><data>RunScript(context.arr.manager,mode=retention_enable)</data><control type="button" format="action"><close>true</close></control></setting>
+        <setting id="retention_disable" type="action" label="33043" help="33044"><level>0</level><data>RunScript(context.arr.manager,mode=retention_disable)</data><control type="button" format="action"><close>true</close></control></setting>
+        <setting id="retention_report" type="action" label="33045" help="33046"><level>0</level><data>RunScript(context.arr.manager,mode=retention_report)</data><control type="button" format="action"><close>true</close></control></setting>
+      </group>
+    </category>
     <category id="diagnostics" label="32600" help="32620">
       <group id="1" label="">
-        <setting id="debug" type="boolean" label="32601" help="32621"><level>2</level><default>false</default><control type="toggle" /></setting>
+        <setting id="debug" type="boolean" label="32601" help="32621"><level>2</level><default>false</default><control type="toggle"/></setting>
         <setting id="diagnostics" type="action" label="32602" help="32622"><level>0</level><data>RunScript(context.arr.manager,mode=diagnostics)</data><control type="button" format="action"><close>true</close></control></setting>
       </group>
     </category>

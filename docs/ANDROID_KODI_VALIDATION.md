@@ -1,214 +1,157 @@
 # Android Kodi validation runbook
 
-This is the practical device check for a stable Managarr release. Use disposable Radarr/Sonarr entries and sacrificial media. Keep **Dry run** enabled until the dry-run checks pass.
+Use disposable Radarr/Sonarr entries and sacrificial media. Keep both the global **Dry run** and retention **Background dry run** enabled until their checks pass. Do not publish URLs, API keys, SMB/SFTP credentials or unrelated Kodi logs.
 
-## 1. Record the test environment
+## 1. Record the environment
 
 ```text
 Date/time:
 Tester:
-Android TV model:
-Android version / OS family:
-Kodi version:
-Kodi skin:
+Android TV model / OS family / Android version:
+Kodi version / skin:
 Managarr version:
 Repository ZIP filename and SHA-256:
-Add-on version installed through repository:
+Clean install or upgrade from:
 Radarr version:
 Sonarr version:
-Deletion backend tested: API / SMB VFS / SFTP VFS
-vfs.sftp version, if used:
-Network connection: Wi-Fi / Ethernet
-Clean install / upgrade from version:
+Normal deletion backend: API / SMB VFS / SFTP VFS
+Network: Wi-Fi / Ethernet
 ```
 
-Do not publish private URLs, API keys, SMB/SFTP credentials or unrelated Kodi logs.
+## 2. Install or upgrade
 
-## 2. Install the repository and add-on
+1. Verify and install `repository.managarr-X.Y.Z.zip`.
+2. Install or upgrade Kodi Managarr through the repository.
+3. Confirm the expected version under **My add-ons → Context menus → Kodi Managarr**.
+4. For upgrades, confirm Radarr/Sonarr, menu, PIN, dry-run and retention settings persist.
+5. Confirm Kodi auto-update remains enabled.
 
-1. Download the exact `repository.managarr-X.Y.Z.zip` from the project Pages site.
-2. Confirm its SHA-256 against the adjacent `.sha256` file.
-3. In Kodi, enable **Unknown sources** if required.
-4. Open **Add-ons → Install from zip file** and install the repository ZIP.
-5. Open **Install from repository → Kodi Managarr Repository → Context menus**.
-6. Confirm **Kodi Managarr** is listed with the expected stable version and install it.
-7. Open **My add-ons → Context menus → Kodi Managarr → Information** and confirm the installed version.
-8. Confirm Kodi's normal add-on auto-update setting is enabled.
+## 3. Menu and PIN smoke test
 
-Evidence:
+1. On one movie, TV show and episode, confirm the context root is exactly **Managarr**.
+2. In Advanced mode confirm Status, Search, Monitoring, Download queue, both Delete actions, Retention and Tools are present.
+3. Confirm Retention contains Preview, Run, Enable, Disable and Report.
+4. Confirm Simple mode omits Retention by default.
+5. Hide/reorder one action, restart Kodi and verify persistence; restore defaults.
+6. Confirm a hidden direct `RunScript(...,mode=...)` action remains callable.
+7. Create a 4–8 digit PIN; verify cancellation and three wrong attempts stop a destructive action.
+8. Confirm queue removal retains normal confirmation but is not PIN-gated.
 
-- repository ZIP filename and checksum;
-- repository and add-on information/version screenshots;
-- note whether this was a clean install or upgrade.
-
-## 3. Verify upgrade and automatic-update behaviour
-
-For an upgrade test, start with the previous stable release and do not clear add-on data.
-
-1. Record the current menu mode, hidden/order customisation, PIN state, Radarr/Sonarr settings and dry-run state.
-2. Publish or expose the next stable version in the repository feed.
-3. In Kodi, run **Check for updates** or wait for the normal update check.
-4. Confirm Kodi offers the intended newer stable version—not a draft or prerelease.
-5. Install the update through the repository.
-6. Confirm all recorded settings remain intact.
-7. Confirm stale or unknown stored menu IDs do not appear and do not break the menu.
-
-## 4. Verify the context root and Advanced mode
-
-Use one Kodi-library movie, one TV show and one episode.
-
-For each item:
-
-1. Open Kodi's context menu.
-2. Confirm the root item is exactly **Managarr**, with no missing-glyph box, emoji or decorative prefix.
-3. Open it and confirm Advanced mode exposes:
-   - Status
-   - Search & download now
-   - Monitoring
-   - Download queue
-   - Delete & Exclude
-   - Delete & Replace
-   - Tools & settings
-4. Open **Monitoring** and confirm:
-   - Monitor
-   - Unmonitor
-   - Change quality profile
-5. Open **Download queue** and confirm:
-   - View status
-   - Remove
-6. Select **Status** and confirm a Kodi-native dialog opens rather than a browser or silent failure.
-
-## 5. Verify Simple mode and menu customisation
-
-1. Change **Menu mode** to **Simple**.
-2. Confirm the root menu contains:
-   - Status
-   - Search & download now
-   - Delete & Exclude
-   - Delete & Replace
-   - Tools & settings
-3. Return to Advanced mode.
-4. Open **Configure menu** using only the TV remote.
-5. Hide one non-destructive action, move another action up or down, then save.
-6. Reopen the menu and confirm visibility and order persisted.
-7. Invoke the hidden action through a direct `RunScript(...,mode=...)` key mapping and confirm it remains callable.
-8. Choose **Restore defaults** and confirm all registered actions return in default order.
-9. Restart Kodi and confirm the final state persists.
-
-## 6. Verify PIN protection
-
-Use only disposable media.
-
-1. Open **Manage PIN** and create a 4-digit PIN.
-2. Confirm PIN entry is masked.
-3. Attempt a 3-digit, 9-digit and non-numeric PIN and confirm each is rejected.
-4. With **Dry run** enabled, invoke **Delete & Exclude** from the menu:
-   - cancel the PIN prompt and confirm the action does not proceed;
-   - enter an incorrect PIN three times and confirm the action is cancelled;
-   - enter the correct PIN and confirm the normal destructive confirmation/dry-run flow opens.
-5. Repeat the direct-mode path using `RunScript(...,mode=delete_replace)` and confirm the PIN is still required.
-6. Open **Download queue → Remove** and confirm it uses its normal explicit confirmation but does not request the media-deletion PIN.
-7. Change the PIN and confirm the old PIN no longer works.
-8. Remove the PIN and confirm destructive actions no longer show a PIN prompt, while normal confirmations remain.
-9. Optional repair check: deliberately corrupt only disposable local PIN settings, then confirm destructive actions fail closed and **Manage PIN** offers a reset path.
-
-PIN protection prevents accidental local use; it is not a security boundary against a user who can modify Kodi's local add-on data.
-
-## 7. Verify configuration and read-only diagnostics
+## 4. Connection and existing actions
 
 1. Run **Test Radarr** and **Test Sonarr**.
-2. Confirm each reports the expected instance name and version.
-3. Run **Write diagnostics**.
-4. Confirm Kodi reports the path of `diagnostics.json`.
-5. Check that it contains versions and configuration shape but no API keys, passwords or credential-bearing URLs.
-6. Confirm a missing prior transaction-state file produces no warning.
-7. Confirm malformed or unreadable transaction state reports only the exception type, not sensitive content.
+2. With global Dry run enabled, verify Delete & Exclude and Delete & Replace identify the correct disposable movie and episode without mutation.
+3. Perform one disposable API-backend mutation and verify Servarr and Kodi state.
+4. Confirm diagnostics/logs expose no credentials.
 
-API-backend users may leave malformed or old VFS-only values unused; they must not prevent API actions. Repair those values before selecting the VFS backend.
+## 5. Configure retention safely
 
-## 8. Dry-run destructive actions
+1. Enable Retention.
+2. Include movies and episodes.
+3. Keep **Watched only**, both age criteria and **All criteria** enabled.
+4. Choose thresholds so exactly one watched disposable movie is eligible.
+5. Keep global Dry run and Background dry run enabled.
+6. Set a small batch cap such as 1–2.
+7. Confirm `0` means immediate after a valid timestamp exists and that `9999` is accepted.
 
-Prepare one disposable movie and one disposable episode file. A multi-episode file is preferred.
+## 6. Preview eligibility
 
-1. Enable **Dry run**.
-2. On the disposable movie, run **Delete & Exclude** and confirm the preview identifies the correct movie and makes no change.
-3. Run **Delete & Replace** and confirm the preview identifies the correct movie and release/blocklist state without changing anything.
-4. Repeat both actions on the disposable episode.
-5. Confirm cancellation at each confirmation stage leaves all state unchanged.
+1. Run **Preview eligible media**.
+2. Confirm only the intended movie appears and the displayed added/watched age is correct.
+3. Confirm an unwatched item is skipped.
+4. Confirm an item below either threshold is skipped in **All** mode.
+5. Change to **Any** mode and confirm an item passing one enabled age criterion becomes eligible.
+6. View the last report and confirm candidate/count/reason data contains no paths, URLs or credentials.
 
-## 9. Execute one API-backend end-to-end mutation
+## 7. Manual dry run
 
-1. Select **Servarr API** as the deletion backend.
-2. Disable **Dry run**.
-3. Use a disposable item whose file can be reacquired.
-4. Run either:
-   - **Delete & Replace** to prove blocklist → delete → search → Kodi synchronisation; or
-   - **Delete & Exclude** to prove delete → exclusion → Kodi synchronisation.
-5. Confirm the final notification reports success.
-6. In Radarr/Sonarr, confirm the intended record/file state.
-7. In Kodi, confirm removed rows are not stale.
-8. For an episode exclusion involving linked episodes, confirm Sonarr monitoring is changed or restored as one coherent operation if a pre-delete failure is induced.
+1. Run **Run cleanup now** with global Dry run enabled.
+2. Confirm no PIN prompt is shown because no deletion can occur.
+3. Confirm the aggregate prompt and progress dialog identify the correct bounded batch.
+4. Cancel before a candidate and confirm no change.
+5. Complete the dry run and confirm Radarr, Sonarr, files and Kodi rows are unchanged.
 
-## 10. Optional SMB/SFTP VFS validation
+## 8. Manual real movie cleanup
 
-Complete this only when the release is intended to support your direct VFS configuration.
+1. Select the Servarr API backend and disable global Dry run.
+2. Run cleanup with exactly one disposable eligible movie.
+3. Cancel the PIN prompt and confirm no mutation.
+4. Re-run with the correct PIN and approve the aggregate confirmation.
+5. Confirm the movie is removed through Radarr with files and import exclusion.
+6. Confirm the targeted Kodi movie row is removed/updated.
+7. Confirm the report says committed/deleted and records no path or credential.
 
-1. Configure one explicit Servarr-to-Kodi child mapping. Never map a target broader than the required media root.
-2. Ensure the mapping root is protected; Managarr also protects configured mapping roots automatically.
-3. For SFTP, install and enable Kodi's official `vfs.sftp` add-on and verify the network location in Kodi first.
-4. Run **Test file backend** on the selected disposable item.
-5. Keep **Dry run** enabled and verify the mapped target is the correct child path.
-6. Disable dry run and perform one disposable child-file delete or replace.
-7. Confirm the child was removed, the mapping root remained intact, Servarr reconciliation completed and Kodi state synchronised.
+## 9. Episode and multi-episode cleanup
 
-Mark an untested optional backend **NOT TESTED**, not PASS.
+1. Prepare one disposable watched episode file; a file containing two episodes is preferred.
+2. Confirm Preview shows one physical-file candidate, not duplicate rows.
+3. For a multi-episode file, mark only one linked Kodi episode watched and confirm it is ineligible; mark all watched and confirm eligibility.
+4. Run one real cleanup.
+5. Confirm every Sonarr episode linked to the physical file is unmonitored and exactly one episode file is deleted.
+6. Confirm the affected Kodi episode rows are removed/updated while the TV-show row remains.
+7. Where safe, induce a failure before file deletion and verify monitoring is restored.
 
-## 11. Quick failure checks
+## 10. Periodic dry run
 
-1. Cancel a destructive confirmation and confirm no mutation occurs.
-2. Temporarily enter an invalid API URL or disable the relevant service, run **Status**, and confirm a clear Kodi error appears without hanging. Restore the setting afterwards.
-3. Interrupt network access during a disposable operation and verify the last transaction report accurately identifies committed stages.
-4. Confirm a progress-dialog close failure cannot replace the primary operation result and is logged without secrets.
+1. Re-enable Background dry run.
+2. Set a short safe test interval and enable periodic cleanup.
+3. Confirm enabling a dry-run schedule does not request the destructive PIN.
+4. Restart Kodi and wait for one due pass.
+5. Confirm no modal dialog opens, one report is written and no media changes occur.
+6. Confirm the batch cap and next-due time are recorded.
+7. Enable twice/concurrently where practical and confirm only one run owns the lock.
 
-## 12. Completion summary
+## 11. Periodic real authorisation
+
+1. With disposable media only, disable Background dry run.
+2. Enable periodic cleanup and confirm the configured PIN is required.
+3. Before it runs, change the PIN; confirm periodic real cleanup is disabled/invalidated and no deletion occurs.
+4. Re-enable with the new PIN and allow one due candidate to complete.
+5. Confirm the same fresh revalidation/API-only deletion semantics as manual cleanup.
+6. Disable periodic cleanup without a PIN and confirm no next candidate executes.
+7. Restore Background dry run before normal use unless real automation is intentionally desired.
+
+## 12. Shutdown, failure and privacy checks
+
+1. Restart/stop Kodi during the service wait and confirm it exits promptly without a busy loop.
+2. Interrupt network access before mutation and confirm no deletion.
+3. Interrupt after a disposable committed deletion and confirm the report states the commit occurred rather than claiming rollback.
+4. Inspect `retention-state.json`, `retention-last-report.json` and `kodi.log`; confirm no paths, URLs, API keys, passwords or credentials appear.
+5. Confirm scheduled retention never performs VFS/SMB/SFTP deletion or whole-series deletion.
+
+## Completion summary
 
 ```markdown
 # Managarr Android Kodi validation
 
 - Result: PASS / PASS WITH LIMITATIONS / FAIL
 - Managarr: vX.Y.Z
-- Repository ZIP/SHA-256: ...
 - Device/Kodi/skin: ...
 - Radarr/Sonarr: ...
-- Backend: ...
+- Install type: clean / upgrade from ...
 
 | Check | Result | Notes/evidence |
 |---|---|---|
-| Repository ZIP install | PASS/FAIL | |
-| Install/update through repository | PASS/FAIL | |
-| Settings preserved on upgrade | PASS/FAIL | |
-| Movie/TV/episode context root | PASS/FAIL | |
-| Advanced menu complete | PASS/FAIL | |
-| Simple menu | PASS/FAIL | |
-| Hide/reorder/restore persistence | PASS/FAIL | |
-| Hidden direct mode remains callable | PASS/FAIL | |
-| PIN create/change/remove | PASS/FAIL | |
-| PIN menu and direct-mode enforcement | PASS/FAIL | |
-| Queue removal confirmation-only | PASS/FAIL | |
-| Radarr/Sonarr tests | PASS/FAIL | |
-| Dry-run movie/episode actions | PASS/FAIL | |
-| API end-to-end mutation | PASS/FAIL | |
-| SMB VFS | PASS/FAIL/NOT TESTED | |
-| SFTP VFS | PASS/FAIL/NOT TESTED | |
-| Diagnostics contain no secrets | PASS/FAIL | |
+| Repository install/update | PASS/FAIL | |
+| Settings/menu/PIN preserved | PASS/FAIL | |
+| Context root and runtime menus | PASS/FAIL | |
+| Existing dry-run and API mutation | PASS/FAIL | |
+| Retention preview/reasons | PASS/FAIL | |
+| Manual dry run | PASS/FAIL | |
+| Manual real movie cleanup | PASS/FAIL | |
+| Episode/multi-episode cleanup | PASS/FAIL/NOT TESTED | |
+| Monitoring rollback | PASS/FAIL/NOT TESTED | |
+| Scheduled dry run | PASS/FAIL | |
+| Real schedule PIN invalidation | PASS/FAIL/NOT TESTED | |
+| Lock/shutdown behaviour | PASS/FAIL | |
+| Reports/logs contain no secrets | PASS/FAIL | |
 
 Known limitations:
-- ...
+- Whole-series automatic deletion is not implemented.
+- Retention uses Servarr API only; unattended VFS deletion is not implemented.
 
 Evidence locations:
 - ...
 ```
 
-## Release decision
-
-A stable release is reasonably evidenced when CI is green, repository installation and update succeeds, upgrade state is preserved, menu and PIN paths work with a TV remote, connection tests and dry runs pass, one disposable API mutation passes, and no unresolved failure risks normal use or destructive safety.
+A stable release is reasonably evidenced when CI is green, installation/upgrade succeeds, existing actions remain stable, the retention dry-run path passes, at least one disposable real API cleanup passes, scheduled dry-run/PIN invalidation works, and no unresolved issue risks destructive safety.

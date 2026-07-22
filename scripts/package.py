@@ -26,7 +26,7 @@ ADDON_ID = ADDON.attrib["id"]
 VERSION = ADDON.attrib["version"]
 OUTPUT_DIR = ROOT / "dist"
 OUTPUT = OUTPUT_DIR / f"{ADDON_ID}-{VERSION}.zip"
-INCLUDED_ROOT_FILES = ("addon.xml", "context.py", "default.py", "LICENSE.txt")
+INCLUDED_ROOT_FILES = ("addon.xml", "context.py", "default.py", "service.py", "LICENSE.txt")
 INCLUDED_ROOT_DIRS = ("resources",)
 ALLOWED_SUFFIXES = {".py", ".xml", ".po", ".png", ".jpg", ".jpeg"}
 MIN_ZIP_EPOCH = 315532800
@@ -122,8 +122,17 @@ def _validate_archive(path):
             f"{ADDON_ID}/addon.xml",
             f"{ADDON_ID}/context.py",
             f"{ADDON_ID}/default.py",
+            f"{ADDON_ID}/service.py",
             f"{ADDON_ID}/resources/settings.xml",
             f"{ADDON_ID}/resources/language/resource.language.en_gb/strings.po",
+            f"{ADDON_ID}/resources/lib/arr_manager/retention/config.py",
+            f"{ADDON_ID}/resources/lib/arr_manager/retention/enumerator.py",
+            f"{ADDON_ID}/resources/lib/arr_manager/retention/executor.py",
+            f"{ADDON_ID}/resources/lib/arr_manager/retention/models.py",
+            f"{ADDON_ID}/resources/lib/arr_manager/retention/policy.py",
+            f"{ADDON_ID}/resources/lib/arr_manager/retention/reports.py",
+            f"{ADDON_ID}/resources/lib/arr_manager/retention/service.py",
+            f"{ADDON_ID}/resources/lib/arr_manager/retention/service_daemon.py",
         }
         names = set(archive.namelist())
         missing = sorted(required - names)
@@ -132,6 +141,8 @@ def _validate_archive(path):
         addon = ET.fromstring(archive.read(f"{ADDON_ID}/addon.xml"))
         if addon.attrib.get("id") != ADDON_ID or addon.attrib.get("version") != VERSION:
             raise RuntimeError("Packaged addon.xml identity/version does not match the build")
+        if addon.find("extension[@point='xbmc.service'][@library='service.py']") is None:
+            raise RuntimeError("Packaged addon.xml is missing the retention service extension")
         _validate_packaged_context(archive, addon)
 
 

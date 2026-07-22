@@ -48,18 +48,45 @@ def verify_pin(pin, stored_hash, salt):
     return hmac.compare_digest(stored_hash, new_hash)
 
 
-def authorize_action(action_id, settings, ui):
-    from .registry import get_action_by_id, get_action_by_mode
+def _policy_generation(stored_hash, salt, invalid=False):
+    if invalid:
+        return "pin-policy:invalid"
+    if not stored_hash or not salt:
+        return "pin-policy:none"
+    digest = hashlib.sha256(b"Kodi-Managarr-PIN-policy-v1\0" + salt + stored_hash).hexdigest()
+    return f"pin-policy:{digest}"
 
-    action = get_action_by_id(action_id) or get_action_by_mode(action_id)
-    if not action or not action.get("destructive"):
-        return True
+
+def pin_policy_generation(settings):
+    return _policy_generation(
+        getattr(settings, "pin_hash", b""),
+        getattr(settings, "pin_salt", b""),
+        getattr(settings, "pin_invalid", False),
+    )
+
+
+def pin_policy_generation_from_addon(addon):
+    hash_text = str(addon.getSetting("pin_hash") or "").strip()
+    salt_text = str(addon.getSetting("pin_salt") or "").strip()
+    if not hash_text and not salt_text:
+        return "pin-policy:none"
+    if not hash_text or not salt_text:
+        return "pin-policy:invalid"
+    try:
+        stored_hash = bytes.fromhex(hash_text)
+        salt = bytes.fromhex(salt_text)
+    except ValueError:
+        return "pin-policy:invalid"
+    invalid = len(stored_hash) != 32 or len(salt) != 16
+    return _policy_generation(stored_hash, salt, invalid)
+
+
+def authorize_destructive(settings, ui):
     if getattr(settings, "pin_invalid", False):
         ui.notification(_m(settings.addon, "pin_configuration_invalid"), error=True)
         return False
     if not settings.pin_enabled:
         return True
-
     for _attempt in range(3):
         pin = ui.numeric_input(_m(settings.addon, "pin_prompt"))
         if not pin:
@@ -69,3 +96,12 @@ def authorize_action(action_id, settings, ui):
         ui.notification(_m(settings.addon, "pin_incorrect"), error=True)
     ui.notification(_m(settings.addon, "pin_retry_exhausted"), error=True)
     return False
+
+
+def authorize_action(action_id, settings, ui):
+    from .registry import get_action_by_id, get_action_by_mode
+
+    action = get_action_by_id(action_id) or get_action_by_mode(action_id)
+    if not action or not action.get("destructive"):
+        return True
+    return authorize_destructive(settings, ui)

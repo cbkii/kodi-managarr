@@ -33,6 +33,8 @@ def main():
         raise SystemExit("addon.xml version must use x.y.z")
     if settings.attrib.get("version") != "1" or settings.find("section[@id='context.arr.manager']") is None:
         raise SystemExit("resources/settings.xml must use the Kodi Matrix+ version 1 schema")
+    if addon.find("extension[@point='xbmc.service'][@library='service.py']") is None:
+        raise SystemExit("addon.xml must register service.py through xbmc.service")
     print("OK XML and metadata")
 
     if not compileall.compile_dir(str(ROOT), quiet=1, rx=re.compile(r"[\\/]\.git[\\/]")):
@@ -44,11 +46,20 @@ def main():
         "addon.xml",
         "context.py",
         "default.py",
+        "service.py",
         "LICENSE.txt",
         "resources/icon.png",
         "resources/fanart.jpg",
         "resources/settings.xml",
         "resources/language/resource.language.en_gb/strings.po",
+        "resources/lib/arr_manager/retention/config.py",
+        "resources/lib/arr_manager/retention/enumerator.py",
+        "resources/lib/arr_manager/retention/executor.py",
+        "resources/lib/arr_manager/retention/models.py",
+        "resources/lib/arr_manager/retention/policy.py",
+        "resources/lib/arr_manager/retention/reports.py",
+        "resources/lib/arr_manager/retention/service.py",
+        "resources/lib/arr_manager/retention/service_daemon.py",
     ]
     missing = [path for path in required if not (ROOT / path).is_file()]
     if missing:
@@ -209,8 +220,8 @@ def _validate_strings(addon, settings):
 
 
 def _validate_spdx():
-    files = [ROOT / "context.py", ROOT / "default.py"]
-    files.extend((ROOT / "resources/lib/arr_manager").glob("*.py"))
+    files = [ROOT / "context.py", ROOT / "default.py", ROOT / "service.py"]
+    files.extend((ROOT / "resources/lib/arr_manager").rglob("*.py"))
     for path in files:
         first_lines = "\n".join(path.read_text(encoding="utf-8").splitlines()[:3])
         if "SPDX-License-Identifier: GPL-3.0-or-later" not in first_lines:
