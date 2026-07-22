@@ -13,15 +13,15 @@ from .errors import (
 from .fileops import make_direct_backend
 from .kodi import KodiLogger, KodiUI, selected_item_from_context
 from .messages import message
-from .resolver import resolve_episode_context, resolve_movie, resolve_series
+from .pin import authorize_action, hash_pin, validate_pin, verify_pin
 from .registry import ACTION_REGISTRY, get_action_by_id, get_action_by_mode
-from .pin import authorize_action, hash_pin, verify_pin
+from .resolver import resolve_episode_context, resolve_movie, resolve_series
 
 SUPPORTED_MEDIA_TYPES = ("movie", "tvshow", "episode")
 DIRECT_ACTIONS = {
     "menu", "status", "search_now", "monitor", "unmonitor", "change_quality_profile",
     "queue_view", "queue_remove", "delete_exclude", "delete_replace",
-    "monitoring_menu", "queue_menu", "tools_menu", "configure_menu", "manage_pin"
+    "monitoring_menu", "queue_menu", "tools_menu", "configure_menu", "manage_pin",
 }
 
 
@@ -125,13 +125,10 @@ def run_script(args):
 
 
 def _get_visible_actions(settings, group):
-    actions = [a for a in ACTION_REGISTRY if a["group"] == group]
-    if str(settings.menu_mode) == "0": # Simple
-        actions = [a for a in actions if a.get("simple_mode", False)]
-    else: # Advanced
-        actions = [a for a in actions if a.get("advanced_mode", False)]
-
-    actions = [a for a in actions if a["id"] not in settings.hidden_actions]
+    actions = [action for action in ACTION_REGISTRY if action["group"] == group]
+    mode_key = "simple_mode" if settings.menu_mode == "0" else "advanced_mode"
+    actions = [action for action in actions if action.get(mode_key, False)]
+    actions = [action for action in actions if action["id"] not in settings.hidden_actions]
 
     def _sort_key(action):
         try:
@@ -145,50 +142,42 @@ def _get_visible_actions(settings, group):
 def _run_menu_group(group, addon, settings, logger, ui):
     actions = _get_visible_actions(settings, group)
     if not actions:
-        return
-
-    options = [_s(addon, a["label_id"], a["default_label"]) for a in actions]
+        return None
+    options = [_s(addon, action["label_id"], action["default_label"]) for action in actions]
     heading = addon.getAddonInfo("name")
     if group != "root":
-        # Find group label
-        for a in ACTION_REGISTRY:
-            if a["id"] == group:
-                heading = _s(addon, a["label_id"], a["default_label"])
-                break
-
+        parent = get_action_by_id(group)
+        if parent:
+            heading = _s(addon, parent["label_id"], parent["default_label"])
     choice = ui.select(heading, options)
     if choice >= 0:
-        _run_action(actions[choice]["mode"], addon, settings, logger, ui)
+        return _run_action(actions[choice]["mode"], addon, settings, logger, ui)
+    return None
 
 
 def _run_action(action_mode, addon, settings, logger, ui):
-    if action_mode == "menu":
-        return _run_menu_group("root", addon, settings, logger, ui)
-
-    if action_mode == "monitoring_menu":
-        return _run_menu_group("monitoring", addon, settings, logger, ui)
-
-    if action_mode == "queue_menu":
-        return _run_menu_group("queue", addon, settings, logger, ui)
-
+    group_modes = {
+        "menu": "root",
+        "monitoring_menu": "monitoring",
+        "queue_menu": "queue",
+    }
+    if action_mode in group_modes:
+        return _run_menu_group(group_modes[action_mode], addon, settings, logger, ui)
     if action_mode == "tools_menu":
         return _run_tools_menu(addon, settings, logger, ui)
-
     if action_mode == "configure_menu":
         return _run_configure_menu(addon, settings, logger, ui)
-
     if action_mode == "manage_pin":
         return _run_manage_pin(addon, settings, logger, ui)
 
     action = get_action_by_mode(action_mode)
-    if action and action.get("requires_selection"):
-        selected = _selected(addon)
-    else:
-        selected = None
-
-    if action and action.get("destructive"):
-        if not authorize_action(action["id"], settings, ui):
-            return _m(addon, "cancelled")
+    if action is None:
+        raise ResolutionError(f"Unknown action: {action_mode}")
+    selected = _selected(addon) if action.get("requires_selection") else None
+    if selected and action.get("media_types") and selected.media_type not in action["media_types"]:
+        raise ResolutionError(f"Action {action_mode} does not support {selected.media_type}")
+    if not authorize_action(action["id"], settings, ui):
+        return _m(addon, "cancelled")
 
     manager = ArrManager(settings, ui, logger)
     if selected:
@@ -215,113 +204,134 @@ def _run_tools_menu(addon, settings, logger, ui):
     options = [
         _s(addon, 32501, "Open settings"), _s(addon, 32502, "Test Radarr"),
         _s(addon, 32503, "Test Sonarr"), _s(addon, 32504, "Test file backend"),
-        _s(addon, 32505, "Write diagnostics"),
-        _s(addon, 32906, "Configure menu"),
+        _s(addon, 32505, "Write diagnostics"), _s(addon, 32906, "Configure menu"),
         _s(addon, 32910, "Manage PIN"),
     ]
     choice = ui.select(addon.getAddonInfo("name"), options)
     if choice == 0:
-        ui.open_settings()
-    elif choice == 1:
-        ui.ok(_s(addon, 32710, "Radarr connection"), _test_radarr(settings, logger))
-    elif choice == 2:
-        ui.ok(_s(addon, 32711, "Sonarr connection"), _test_sonarr(settings, logger))
-    elif choice == 3:
-        ui.ok(_s(addon, 32712, "File backend"), _test_backend(settings, logger))
-    elif choice == 4:
-        ui.ok(_s(addon, 32600, "Diagnostics"), _write_diagnostics(addon, settings, logger))
-    elif choice == 5:
-        _run_configure_menu(addon, settings, logger, ui)
-    elif choice == 6:
-        _run_manage_pin(addon, settings, logger, ui)
+        return ui.open_settings()
+    if choice == 1:
+        return ui.ok(_s(addon, 32710, "Radarr connection"), _test_radarr(settings, logger))
+    if choice == 2:
+        return ui.ok(_s(addon, 32711, "Sonarr connection"), _test_sonarr(settings, logger))
+    if choice == 3:
+        return ui.ok(_s(addon, 32712, "File backend"), _test_backend(settings, logger))
+    if choice == 4:
+        return ui.ok(_s(addon, 32600, "Diagnostics"), _write_diagnostics(addon, settings, logger))
+    if choice == 5:
+        return _run_configure_menu(addon, settings, logger, ui)
+    if choice == 6:
+        return _run_manage_pin(addon, settings, logger, ui)
+    return None
 
 
 def _run_configure_menu(addon, settings, logger, ui):
-    # Very basic menu configuration loop
+    del logger
     while True:
-        # Load order, merge any missing
-        order = list(settings.action_order)
-        for a in ACTION_REGISTRY:
-            if a["id"] not in order:
-                order.append(a["id"])
-
-        # Display options
+        order = [action_id for action_id in settings.action_order if get_action_by_id(action_id)]
+        for action in ACTION_REGISTRY:
+            if action["id"] not in order:
+                order.append(action["id"])
         options = []
+        visible_ids = []
         for action_id in order:
-            a = get_action_by_id(action_id)
-            if not a:
+            action = get_action_by_id(action_id)
+            if not action:
                 continue
-            visible = " " if action_id in settings.hidden_actions else "*"
-            label = _s(addon, a["label_id"], a["default_label"])
-            options.append(f"[{visible}] {label}")
-
-        options.append("Save and Exit")
-        options.append("Restore Defaults")
-
+            marker = " " if action_id in settings.hidden_actions else "*"
+            options.append(f"[{marker}] {_s(addon, action['label_id'], action['default_label'])}")
+            visible_ids.append(action_id)
+        options.extend([_m(addon, "menu_save_exit"), _m(addon, "menu_restore_defaults")])
         choice = ui.select(_s(addon, 32906, "Configure menu"), options)
         if choice < 0 or choice == len(options) - 2:
-            break
-        elif choice == len(options) - 1:
-            addon.setSetting("hidden_actions", "")
-            addon.setSetting("action_order", "")
+            addon.setSetting("hidden_actions", ",".join(settings.hidden_actions))
+            addon.setSetting("action_order", ",".join(settings.action_order))
+            return
+        if choice == len(options) - 1:
             settings.hidden_actions = []
             settings.action_order = []
+            addon.setSetting("hidden_actions", "")
+            addon.setSetting("action_order", "")
+            ui.notification(_m(addon, "menu_defaults_restored"))
             continue
 
-        # Item selected
-        action_id = order[choice]
-
-        # Dialog to toggle visibility, move up, move down
-        item_options = ["Toggle Visibility", "Move Up", "Move Down"]
+        action_id = visible_ids[choice]
+        item_options = [
+            _m(addon, "menu_toggle_visibility"),
+            _m(addon, "menu_move_up"),
+            _m(addon, "menu_move_down"),
+        ]
         action_choice = ui.select(_s(addon, 32906, "Configure menu"), item_options)
-
+        order_index = order.index(action_id)
         if action_choice == 0:
             if action_id in settings.hidden_actions:
                 settings.hidden_actions.remove(action_id)
             else:
                 settings.hidden_actions.append(action_id)
-        elif action_choice == 1 and choice > 0:
-            order[choice], order[choice-1] = order[choice-1], order[choice]
+        elif action_choice == 1 and order_index > 0:
+            order[order_index - 1], order[order_index] = order[order_index], order[order_index - 1]
             settings.action_order = order
-        elif action_choice == 2 and choice < len(order) - 1:
-            order[choice], order[choice+1] = order[choice+1], order[choice]
+        elif action_choice == 2 and order_index < len(order) - 1:
+            order[order_index + 1], order[order_index] = order[order_index], order[order_index + 1]
             settings.action_order = order
-
         addon.setSetting("hidden_actions", ",".join(settings.hidden_actions))
         addon.setSetting("action_order", ",".join(settings.action_order))
 
 
+def _clear_pin(addon, settings):
+    addon.setSetting("pin_hash", "")
+    addon.setSetting("pin_salt", "")
+    settings.pin_hash = b""
+    settings.pin_salt = b""
+    settings.pin_invalid = False
+    settings.pin_enabled = False
+
+
 def _run_manage_pin(addon, settings, logger, ui):
-    if settings.pin_hash:
-        # Require old PIN first
-        old_pin = ui.keyboard_input(_m(addon, "pin_prompt", fallback="Enter current PIN"), hidden=True)
+    del logger
+    if settings.pin_invalid:
+        ui.notification(_m(addon, "pin_reset_invalid"), error=True)
+        _clear_pin(addon, settings)
+
+    if settings.pin_enabled:
+        old_pin = ui.numeric_input(_m(addon, "pin_prompt"))
         if not old_pin or not verify_pin(old_pin, settings.pin_hash, settings.pin_salt):
-            ui.notification(_m(addon, "pin_incorrect", fallback="Incorrect PIN"))
+            ui.notification(_m(addon, "pin_incorrect"), error=True)
             return
-
-        choice = ui.select(_s(addon, 32910, "Manage PIN"), ["Change PIN", "Remove PIN"])
+        choice = ui.select(
+            _s(addon, 32910, "Manage PIN"),
+            [_m(addon, "pin_change"), _m(addon, "pin_remove")],
+        )
         if choice == 1:
-            addon.setSetting("pin_hash", "")
-            addon.setSetting("pin_salt", "")
-            addon.setSetting("pin_enabled", "false")
-            ui.notification("PIN removed")
+            if ui.confirm(_s(addon, 32910, "Manage PIN"), _m(addon, "pin_remove_confirm")):
+                _clear_pin(addon, settings)
+                ui.notification(_m(addon, "pin_removed"))
             return
-        elif choice < 0:
+        if choice < 0:
             return
 
-    new_pin = ui.keyboard_input("Enter new PIN", hidden=True)
+    new_pin = ui.numeric_input(_m(addon, "pin_enter_new"))
     if not new_pin:
         return
-    confirm_pin = ui.keyboard_input("Confirm new PIN", hidden=True)
+    try:
+        validate_pin(new_pin)
+    except ValueError:
+        ui.notification(_m(addon, "pin_invalid_format"), error=True)
+        return
+    confirm_pin = ui.numeric_input(_m(addon, "pin_confirm_new"))
     if new_pin != confirm_pin:
-        ui.notification("PINs do not match")
+        ui.notification(_m(addon, "pin_mismatch"), error=True)
         return
 
     pin_hash, pin_salt = hash_pin(new_pin)
     addon.setSetting("pin_hash", pin_hash.hex())
     addon.setSetting("pin_salt", pin_salt.hex())
-    addon.setSetting("pin_enabled", "true")
-    ui.notification("PIN set successfully")
+    settings.pin_hash = pin_hash
+    settings.pin_salt = pin_salt
+    settings.pin_invalid = False
+    settings.pin_enabled = True
+    ui.notification(_m(addon, "pin_set"))
+
 
 def _change_quality_profile(addon, manager, selected, ui):
     if selected.media_type == "episode":
@@ -433,8 +443,10 @@ def _write_diagnostics(addon, settings, logger):
                 "status": str(candidate.get("status", "")),
                 "errorType": str(candidate.get("errorType", "")),
             }
-    except (OSError, ValueError):
+    except FileNotFoundError:
         pass
+    except (OSError, ValueError) as exc:
+        logger.warning("Could not read non-secret transaction state: %s", type(exc).__name__)
     payload = {
         "generatedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "addonVersion": addon.getAddonInfo("version"),
