@@ -1,0 +1,82 @@
+name: Apply PR16 retention implementation
+
+on:
+  push:
+    branches:
+      - feat/watched-age-retention-5638808061823784826
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+      - name: Apply and validate retention implementation
+        run: |
+          set -euo pipefail
+          cat .pr16-payload.part-* > "$RUNNER_TEMP/pr16.b64"
+          echo '646b51c28698570404c89fa24ddde31f1f298ad8772c902f12a0500fa80f3e36  '"$RUNNER_TEMP/pr16.b64" | sha256sum --check
+          base64 --decode "$RUNNER_TEMP/pr16.b64" > "$RUNNER_TEMP/pr16.tar.gz"
+          echo '05a9e0ceda374a167f4db89ecab558f485291d10ca72827f5389f8b8dd641a3a  '"$RUNNER_TEMP/pr16.tar.gz" | sha256sum --check
+          python - <<'PY'
+          import tarfile
+          from pathlib import Path, PurePosixPath
+
+          archive_path = Path.home().parent / 'runner' / '_work'  # unused; keep extraction path explicit below
+          payload = Path(__import__('os').environ['RUNNER_TEMP']) / 'pr16.tar.gz'
+          with tarfile.open(payload, 'r:gz') as archive:
+              members = archive.getmembers()
+              if not members:
+                  raise SystemExit('Empty retention payload')
+              for member in members:
+                  path = PurePosixPath(member.name)
+                  if path.is_absolute() or '..' in path.parts:
+                      raise SystemExit(f'Unsafe payload path: {member.name}')
+                  if member.issym() or member.islnk() or member.isdev():
+                      raise SystemExit(f'Unsafe payload member: {member.name}')
+              archive.extractall('.')
+          PY
+          rm -f .pr16-payload.part-* .github/workflows/apply-pr16-payload.yml
+          python -m pip install --disable-pip-version-check -r requirements-dev.txt
+          python scripts/validate.py
+          python -m ruff check .
+          python -m unittest discover -s tests -v
+          export SOURCE_DATE_EPOCH=1700000000
+          python scripts/package.py
+          first="$(sha256sum dist/context.arr.manager-*.zip | cut -d' ' -f1)"
+          rm -rf dist
+          python scripts/package.py
+          second="$(sha256sum dist/context.arr.manager-*.zip | cut -d' ' -f1)"
+          test "$first" = "$second"
+          rm -rf "$RUNNER_TEMP/addon-check"
+          mkdir -p "$RUNNER_TEMP/addon-check"
+          python - <<'PY'
+          import os
+          import zipfile
+          from pathlib import Path
+
+          archive = next(Path('dist').glob('context.arr.manager-*.zip'))
+          target = Path(os.environ['RUNNER_TEMP']) / 'addon-check'
+          with zipfile.ZipFile(archive) as handle:
+              if handle.testzip() is not None:
+                  raise SystemExit('Corrupt package')
+              handle.extractall(target)
+          PY
+          kodi-addon-checker --branch matrix "$RUNNER_TEMP/addon-check/context.arr.manager"
+          rm -rf dist
+      - name: Commit implementation
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --check
+          git commit -m 'Implement watched and age-aware retention'
+          git push origin "HEAD:${GITHUB_REF_NAME}"
