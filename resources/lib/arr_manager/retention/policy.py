@@ -1,104 +1,94 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-import math
 import time
-
-from .models import RetentionEligibility
-
-SECONDS_PER_DAY = 86400
-
-
-def timestamp_state(timestamp, now):
-    if timestamp is None:
-        return "missing", None
-    try:
-        value = float(timestamp)
-    except (TypeError, ValueError):
-        return "invalid", None
-    if not math.isfinite(value) or value <= 0:
-        return "invalid", None
-    if value > now:
-        return "future", value
-    return "valid", value
-
-
-def complete_days(now, timestamp):
-    state, value = timestamp_state(timestamp, float(now))
-    if state != "valid":
-        return None
-    return int((float(now) - value) // SECONDS_PER_DAY)
-
+from .models import RetentionCandidate, RetentionEligibility
 
 class RetentionPolicy:
     def __init__(self, settings, current_time=None):
         self.settings = settings
-        self.current_time = float(current_time if current_time is not None else time.time())
+        # Used for testing/stable execution
+        self.current_time = current_time if current_time is not None else time.time()
+        self.SECONDS_PER_DAY = 86400
 
-    def evaluate(self, candidate):
+    def evaluate(self, candidate: RetentionCandidate) -> RetentionEligibility:
+        """
+        Evaluate if a candidate is eligible for retention (deletion).
+        """
         passed = []
         failed = []
 
+        # 1. Check watched requirement (mandatory gate if enabled)
         if self.settings.watched_only and not candidate.watched:
-            return RetentionEligibility(
-                False,
-                "not_watched",
-                failed_rules=("watched_required",),
-            )
+            return RetentionEligibility(False, "Not watched", passed_rules=passed, failed_rules=["watched"])
 
-        added_state, _ = timestamp_state(candidate.date_added, self.current_time)
-        watched_state, _ = timestamp_state(candidate.last_played, self.current_time)
-        added_age = complete_days(self.current_time, candidate.date_added)
-        watched_age = complete_days(self.current_time, candidate.last_played)
-        outcomes = []
+        has_rules = False
 
+        # 2. Check Added Age
+        added_ok = None
         if self.settings.use_added_age:
-            if added_state == "future":
-                outcomes.append(False)
-                failed.append("added_date_in_future")
-            elif added_state != "valid":
-                outcomes.append(False)
-                failed.append("added_date_missing_or_invalid")
-            elif added_age >= self.settings.added_age_days:
-                outcomes.append(True)
-                passed.append("added_age")
+            has_rules = True
+            if candidate.date_added is None:
+                added_ok = False
+                failed.append("added_age_missing_date")
+            elif candidate.date_added > self.current_time:
+                added_ok = False
+                failed.append("added_age_future_date")
             else:
-                outcomes.append(False)
-                failed.append("added_age_too_recent")
+                age_seconds = self.current_time - candidate.date_added
+                age_days = int(age_seconds / self.SECONDS_PER_DAY)
+                if age_days >= self.settings.added_age_days:
+                    added_ok = True
+                    passed.append(f"added_age_passed ({age_days} >= {self.settings.added_age_days})")
+                else:
+                    added_ok = False
+                    failed.append(f"added_age_failed ({age_days} < {self.settings.added_age_days})")
 
+        # 3. Check Watched Age
+        watched_ok = None
         if self.settings.use_watched_age:
+            has_rules = True
             if not candidate.watched:
-                outcomes.append(False)
-                failed.append("watched_age_requires_watched")
-            elif watched_state == "future":
-                outcomes.append(False)
-                failed.append("watched_date_in_future")
-            elif watched_state != "valid":
-                outcomes.append(False)
-                failed.append("watched_date_missing_or_invalid")
-            elif watched_age >= self.settings.watched_age_days:
-                outcomes.append(True)
-                passed.append("watched_age")
+                 watched_ok = False
+                 failed.append("watched_age_not_watched")
+            elif candidate.last_played is None:
+                watched_ok = False
+                failed.append("watched_age_missing_date")
+            elif candidate.last_played > self.current_time:
+                watched_ok = False
+                failed.append("watched_age_future_date")
             else:
-                outcomes.append(False)
-                failed.append("watched_age_too_recent")
+                age_seconds = self.current_time - candidate.last_played
+                age_days = int(age_seconds / self.SECONDS_PER_DAY)
+                if age_days >= self.settings.watched_age_days:
+                    watched_ok = True
+                    passed.append(f"watched_age_passed ({age_days} >= {self.settings.watched_age_days})")
+                else:
+                    watched_ok = False
+                    failed.append(f"watched_age_failed ({age_days} < {self.settings.watched_age_days})")
 
-        if not outcomes:
-            return RetentionEligibility(
-                False,
-                "no_criteria",
-                failed_rules=("no_criteria",),
-                added_age_days=added_age,
-                watched_age_days=watched_age,
-            )
+        if not has_rules:
+            # Reject configuration with no meaningful criteria instead of making entire library eligible
+            return RetentionEligibility(False, "No enabled criteria", passed_rules=[], failed_rules=["no_criteria"])
 
-        eligible = all(outcomes) if self.settings.criteria_mode == "all" else any(outcomes)
-        reason = "eligible" if eligible else (
-            "criteria_not_all_met" if self.settings.criteria_mode == "all" else "criteria_none_met"
-        )
-        return RetentionEligibility(
-            eligible,
-            reason,
-            passed_rules=tuple(passed),
-            failed_rules=tuple(failed),
-            added_age_days=added_age,
-            watched_age_days=watched_age,
-        )
+        # 4. AND/OR Evaluation
+        is_all = self.settings.criteria_mode == "all"
+
+        eligible = False
+        if is_all:
+            # All ENABLED rules must pass
+            eligible = True
+            if self.settings.use_added_age and not added_ok:
+                eligible = False
+            if self.settings.use_watched_age and not watched_ok:
+                eligible = False
+        else:
+            # ANY ENABLED rule must pass
+            if self.settings.use_added_age and added_ok:
+                eligible = True
+            if self.settings.use_watched_age and watched_ok:
+                eligible = True
+
+        if eligible:
+            return RetentionEligibility(True, "Criteria met", passed_rules=passed, failed_rules=failed)
+        else:
+            reason = "Failed all required criteria" if is_all else "Failed to meet any criteria"
+            return RetentionEligibility(False, reason, passed_rules=passed, failed_rules=failed)

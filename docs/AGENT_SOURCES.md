@@ -193,7 +193,6 @@ Verified contracts central to this project:
 - Delete episode file: `DELETE /api/v3/episodeFile/{id}`.
 - Bulk delete episode files: verify the current `/api/v3/episodeFile/bulk` request resource before modifying payloads.
 - Update monitoring: `PUT /api/v3/episode/{id}` with a complete compatible episode resource.
-- Bulk update monitoring: `PUT /api/v3/episode/monitor` with `episodeIds` and `monitored`.
 - Search episodes: command `EpisodeSearch` with `episodeIds`.
 - Search series: command `SeriesSearch` with `seriesId`.
 - Rescan series: command `RescanSeries` with `seriesId`.

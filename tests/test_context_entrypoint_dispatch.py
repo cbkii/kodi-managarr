@@ -42,8 +42,7 @@ class Logger:
 
 class ContextEntrypointDispatchTests(unittest.TestCase):
     def test_manifest_actions_match_supported_direct_actions(self):
-        self.assertEqual(manifest_actions(), {"menu"})
-        self.assertTrue(manifest_actions().issubset(set(entrypoints.DIRECT_ACTIONS)))
+        self.assertEqual(manifest_actions(), set(entrypoints.DIRECT_ACTIONS))
 
     def test_context_script_forwards_every_manifest_action(self):
         for action in sorted(manifest_actions()):

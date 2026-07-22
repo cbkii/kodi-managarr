@@ -93,26 +93,23 @@ def _tvshow_matches(details, selected, require_strong):
     return strong if require_strong else True
 
 
-def _get_listitem():
-    import sys
-    return getattr(sys, "listitem", None)
-
-def _get_video_tag(item):
+def selected_item_from_context():
+    import xbmc
+    import xbmcgui  # noqa: F401
+    item = getattr(sys, "listitem", None)
+    tag = None
     if item is not None:
         try:
-            return item.getVideoInfoTag()
+            tag = item.getVideoInfoTag()
         except Exception:
-            return None
-    return None
+            tag = None
 
-def _get_label(name):
-    import xbmc
-    try:
-        return xbmc.getInfoLabel(name) or ""
-    except Exception:
-        return ""
+    def label(name):
+        try:
+            return xbmc.getInfoLabel(name) or ""
+        except Exception:
+            return ""
 
-def _extract_unique_ids(tag):
     unique_ids = {}
     for key in ("tmdb", "tvdb", "imdb"):
         value = ""
@@ -121,12 +118,12 @@ def _extract_unique_ids(tag):
                 value = tag.getUniqueID(key) or ""
             except Exception:
                 pass
-        value = value or _get_label(f"ListItem.UniqueID({key})")
+        value = value or label(f"ListItem.UniqueID({key})")
         if value:
             unique_ids[key] = str(value)
-    return unique_ids
-
-def _extract_file_path(item, tag):
+    media_type = (_tag_value(tag, "getMediaType") if tag else "") or label("ListItem.DBType")
+    title = (_tag_value(tag, "getTitle") if tag else "") or label("ListItem.Title")
+    tvshow_title = (_tag_value(tag, "getTVShowTitle") if tag else "") or label("ListItem.TVShowTitle")
     file_path = ""
     if tag is not None:
         file_path = _tag_value(tag, "getFilenameAndPath") or _tag_value(tag, "getPath")
@@ -135,27 +132,16 @@ def _extract_file_path(item, tag):
             file_path = item.getPath() or ""
         except Exception:
             file_path = ""
-    return file_path or _get_label("ListItem.FileNameAndPath")
-
-def selected_item_from_context():
-    import xbmcgui  # noqa: F401
-    item = _get_listitem()
-    tag = _get_video_tag(item)
-    unique_ids = _extract_unique_ids(tag)
-    media_type = (_tag_value(tag, "getMediaType") if tag else "") or _get_label("ListItem.DBType")
-    title = (_tag_value(tag, "getTitle") if tag else "") or _get_label("ListItem.Title")
-    tvshow_title = (_tag_value(tag, "getTVShowTitle") if tag else "") or _get_label("ListItem.TVShowTitle")
-    file_path = _extract_file_path(item, tag)
-
+    file_path = file_path or label("ListItem.FileNameAndPath")
     return SelectedItem(
         media_type=str(media_type).lower(),
-        db_id=as_int(_first_present(_tag_value(tag, "getDbId", "") if tag else "", _get_label("ListItem.DBID"), invalid=(0, "0")), 0),
+        db_id=as_int(_first_present(_tag_value(tag, "getDbId", "") if tag else "", label("ListItem.DBID"), invalid=(0, "0")), 0),
         title=str(title),
-        year=as_int(_first_present(_tag_value(tag, "getYear", "") if tag else "", _get_label("ListItem.Year"), invalid=(0, "0")), 0),
+        year=as_int(_first_present(_tag_value(tag, "getYear", "") if tag else "", label("ListItem.Year"), invalid=(0, "0")), 0),
         tvshow_title=str(tvshow_title),
-        tvshow_db_id=as_int(_get_label("ListItem.TVShowDBID"), 0),
-        season=as_int(_first_present(_tag_value(tag, "getSeason", "") if tag else "", _get_label("ListItem.Season"), invalid=(-1, "-1")), -1),
-        episode=as_int(_first_present(_tag_value(tag, "getEpisode", "") if tag else "", _get_label("ListItem.Episode"), invalid=(-1, "-1")), -1),
+        tvshow_db_id=as_int(label("ListItem.TVShowDBID"), 0),
+        season=as_int(_first_present(_tag_value(tag, "getSeason", "") if tag else "", label("ListItem.Season"), invalid=(-1, "-1")), -1),
+        episode=as_int(_first_present(_tag_value(tag, "getEpisode", "") if tag else "", label("ListItem.Episode"), invalid=(-1, "-1")), -1),
         file_path=str(file_path),
         unique_ids=unique_ids,
     )

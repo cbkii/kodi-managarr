@@ -58,14 +58,14 @@ class SharedSafetyMixin:
         except Exception:
             return False
 
-    def _close_progress(self, dialog):
+    @staticmethod
+    def _close_progress(dialog):
         closer = getattr(dialog, "close", None) if dialog is not None else None
         if closer:
             try:
                 closer()
             except Exception:
-                if self.logger:
-                    self.logger.exception("Could not close progress dialog")
+                pass
 
     def _record_transaction(self, transaction, exc=None):
         recorder = getattr(self.ui, "record_transaction", None)

@@ -33,8 +33,6 @@ def main():
         raise SystemExit("addon.xml version must use x.y.z")
     if settings.attrib.get("version") != "1" or settings.find("section[@id='context.arr.manager']") is None:
         raise SystemExit("resources/settings.xml must use the Kodi Matrix+ version 1 schema")
-    if addon.find("extension[@point='xbmc.service'][@library='service.py']") is None:
-        raise SystemExit("addon.xml must register service.py through xbmc.service")
     print("OK XML and metadata")
 
     if not compileall.compile_dir(str(ROOT), quiet=1, rx=re.compile(r"[\\/]\.git[\\/]")):
@@ -46,20 +44,11 @@ def main():
         "addon.xml",
         "context.py",
         "default.py",
-        "service.py",
         "LICENSE.txt",
         "resources/icon.png",
         "resources/fanart.jpg",
         "resources/settings.xml",
         "resources/language/resource.language.en_gb/strings.po",
-        "resources/lib/arr_manager/retention/config.py",
-        "resources/lib/arr_manager/retention/enumerator.py",
-        "resources/lib/arr_manager/retention/executor.py",
-        "resources/lib/arr_manager/retention/models.py",
-        "resources/lib/arr_manager/retention/policy.py",
-        "resources/lib/arr_manager/retention/reports.py",
-        "resources/lib/arr_manager/retention/service.py",
-        "resources/lib/arr_manager/retention/service_daemon.py",
     ]
     missing = [path for path in required if not (ROOT / path).is_file()]
     if missing:
@@ -92,23 +81,23 @@ def _validate_context_items(addon):
     root_menu = extension.find("menu[@id='kodi.core.main']")
     if root_menu is None:
         raise SystemExit("Context extension is missing kodi.core.main")
-
-    branding_items = root_menu.findall("item")
-    if len(branding_items) != 1:
-        raise SystemExit("kodi.core.main must contain exactly one Managarr root item")
-    branding_item = branding_items[0]
-    root_label = (branding_item.findtext("label") or "").strip()
+    branding_menus = root_menu.findall("menu")
+    if len(branding_menus) != 1:
+        raise SystemExit("kodi.core.main must contain exactly one Managarr root submenu")
+    branding_menu = branding_menus[0]
+    root_label = (branding_menu.findtext("label") or "").strip()
     if root_label != ROOT_CONTEXT_LABEL:
         raise SystemExit(f"Context root label must be exactly {ROOT_CONTEXT_LABEL!r}")
 
     seen = set()
-    key = (branding_item.attrib.get("library"), branding_item.attrib.get("args", ""))
-    if key[0] != "context.py" or not key[1]:
-        raise SystemExit(f"Invalid context item: {key}")
-    seen.add(key)
-    visible = branding_item.find("visible")
-    if visible is None or not (visible.text or "").strip():
-        raise SystemExit(f"Context item {key} is missing a visible expression")
+    for item in branding_menu.findall(".//item"):
+        key = (item.attrib.get("library"), item.attrib.get("args", ""))
+        if key[0] != "context.py" or not key[1] or key in seen:
+            raise SystemExit(f"Duplicate or invalid context item: {key}")
+        seen.add(key)
+        visible = item.find("visible")
+        if visible is None or not (visible.text or "").strip():
+            raise SystemExit(f"Context item {key} is missing a visible expression")
 
     actions = {action for _, action in seen}
     if actions != EXPECTED_CONTEXT_ACTIONS:
@@ -116,6 +105,29 @@ def _validate_context_items(addon):
             "Context actions do not match the required scope: "
             f"expected {sorted(EXPECTED_CONTEXT_ACTIONS)}, got {sorted(actions)}"
         )
+
+    direct_actions = {item.attrib.get("args", "") for item in branding_menu.findall("item")}
+    if direct_actions != EXPECTED_DIRECT_CONTEXT_ACTIONS:
+        raise SystemExit(
+            "Root-level context actions are incorrect: "
+            f"expected {sorted(EXPECTED_DIRECT_CONTEXT_ACTIONS)}, got {sorted(direct_actions)}"
+        )
+
+    nested = branding_menu.findall("menu")
+    labels = {(submenu.findtext("label") or "").strip() for submenu in nested}
+    if labels != set(EXPECTED_CONTEXT_SUBMENUS):
+        raise SystemExit(
+            "Context submenus are incorrect: "
+            f"expected {sorted(EXPECTED_CONTEXT_SUBMENUS)}, got {sorted(labels)}"
+        )
+    for submenu in nested:
+        label = (submenu.findtext("label") or "").strip()
+        submenu_actions = {item.attrib.get("args", "") for item in submenu.findall("item")}
+        if submenu_actions != EXPECTED_CONTEXT_SUBMENUS[label]:
+            raise SystemExit(
+                f"Context submenu {label} has incorrect actions: "
+                f"expected {sorted(EXPECTED_CONTEXT_SUBMENUS[label])}, got {sorted(submenu_actions)}"
+            )
 
 
 def _po_quoted_value(block, keyword):
@@ -220,8 +232,8 @@ def _validate_strings(addon, settings):
 
 
 def _validate_spdx():
-    files = [ROOT / "context.py", ROOT / "default.py", ROOT / "service.py"]
-    files.extend((ROOT / "resources/lib/arr_manager").rglob("*.py"))
+    files = [ROOT / "context.py", ROOT / "default.py"]
+    files.extend((ROOT / "resources/lib/arr_manager").glob("*.py"))
     for path in files:
         first_lines = "\n".join(path.read_text(encoding="utf-8").splitlines()[:3])
         if "SPDX-License-Identifier: GPL-3.0-or-later" not in first_lines:

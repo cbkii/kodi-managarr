@@ -1,138 +1,154 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-from ..errors import SafetyError
-from ..models import SelectedItem, TransactionState
-from ..resolver import resolve_episode_context, resolve_series
-from .models import RetentionReportItem
-from .policy import RetentionPolicy
-
+from .models import RetentionCandidate, RetentionReportItem
+from ..models import SelectedItem
+from ..errors import SafetyError, ResolutionError, ApiError
 
 class RetentionExecutor:
-    def __init__(self, arr_manager, enumerator, logger=None):
+    def __init__(self, arr_manager, kodi_client, kodi_ui, enumerator, logger):
         self.manager = arr_manager
+        self.kodi = kodi_client
+        self.ui = kodi_ui
         self.enumerator = enumerator
         self.logger = logger
 
-    def execute(self, candidate, settings, dry_run=False, can_continue=None):
-        eligibility = RetentionPolicy(settings).evaluate(candidate)
-        if not eligibility.eligible:
-            return self._item(candidate, eligibility.reason, "skipped", eligible=False)
-        if dry_run:
-            return self._item(candidate, eligibility.reason, "dry_run")
+    def revalidate_candidate(self, candidate: RetentionCandidate) -> RetentionCandidate:
+        """
+        Re-fetches and validates the candidate before a destructive commit.
+        Ensures the candidate identity and timestamps haven't materially changed.
+        """
+        if candidate.media_type == "movie":
+            try:
+                response = self.kodi.call("VideoLibrary.GetMovieDetails", {
+                    "movieid": candidate.db_id,
+                    "properties": self.enumerator.MOVIE_PROPS
+                })
+                k_item = response.get("moviedetails")
+                if not k_item:
+                    raise SafetyError("Movie not found in Kodi during revalidation")
+                new_candidate = self.enumerator._process_kodi_movie(k_item)
+            except Exception as e:
+                raise SafetyError(f"Failed to revalidate movie: {e}")
 
-        tx = TransactionState(f"retention {candidate.media_type} deletion")
-        try:
-            fresh = self.enumerator.revalidate(candidate)
-            if fresh.identity_tuple() != candidate.identity_tuple():
-                raise SafetyError("Retention candidate identity changed during revalidation")
-            if fresh.state_tuple() != candidate.state_tuple():
-                raise SafetyError("Retention candidate watched or age state changed during revalidation")
-            fresh_eligibility = RetentionPolicy(settings).evaluate(fresh)
-            if not fresh_eligibility.eligible:
-                raise SafetyError("Retention candidate is no longer eligible")
-            if can_continue is not None and not can_continue():
-                raise SafetyError("Retention run was cancelled before destructive changes")
-            if fresh.media_type == "movie":
-                self._delete_movie(fresh, tx)
-            elif fresh.media_type == "episode":
-                self._delete_episode(fresh, tx)
-            else:
-                raise SafetyError("Unsupported retention media type")
-        except Exception as exc:
-            self.manager._record_transaction(tx, exc)
-            if self.logger:
-                self.logger.warning(
-                    "Retention deletion failed for %s1 %s",
-                    candidate.stable_key,
-                    type(exc).__name__,
-                )
-            action = "failed_after_commit" if tx.committed else "failed_before_commit"
-            return self._item(
-                candidate,
-                eligibility.reason,
-                action,
-                error_type=type(exc).__name__,
-                committed=tx.committed,
-                stages=tx.stages,
+        elif candidate.media_type == "episode":
+            try:
+                response = self.kodi.call("VideoLibrary.GetEpisodeDetails", {
+                    "episodeid": candidate.db_id,
+                    "properties": self.enumerator.EPISODE_PROPS
+                })
+                k_item = response.get("episodedetails")
+                if not k_item:
+                    raise SafetyError("Episode not found in Kodi during revalidation")
+                new_candidate = self.enumerator._process_kodi_episode(k_item)
+            except Exception as e:
+                raise SafetyError(f"Failed to revalidate episode: {e}")
+        else:
+            raise SafetyError("Unknown media type during revalidation")
+
+        if not new_candidate:
+             raise SafetyError("Candidate no longer valid or found in Servarr during revalidation")
+
+        if new_candidate.arr_id != candidate.arr_id or new_candidate.file_id != candidate.file_id:
+            raise SafetyError("Candidate identity changed during revalidation")
+
+        if abs((new_candidate.date_added or 0) - (candidate.date_added or 0)) > 86400:
+             raise SafetyError("Candidate addition date materially changed during revalidation")
+
+        if new_candidate.watched != candidate.watched:
+             raise SafetyError("Candidate watched state changed during revalidation")
+
+        return new_candidate
+
+    def execute_deletion(self, candidate: RetentionCandidate, dry_run: bool) -> RetentionReportItem:
+        """
+        Executes the safe deletion pipeline using Servarr APIs only.
+        """
+        if dry_run:
+            return RetentionReportItem(
+                candidate.media_type, candidate.display_name, candidate.db_id, True, "Criteria met", "dry_run"
             )
 
-        self.manager._record_transaction(tx)
-        return self._item(
-            candidate,
-            eligibility.reason,
-            "deleted",
-            committed=True,
-            stages=tx.stages,
-        )
-
-    def _delete_movie(self, candidate, tx):
-        selected = SelectedItem(
-            media_type="movie",
-            db_id=candidate.primary_kodi_id,
-            title=candidate.title,
-            file_path=candidate.file_path,
-            unique_ids=dict(candidate.unique_ids),
-        )
-        kodi_plan = self.manager._plan_kodi("movie", selected)
-        self.manager.radarr.delete_movie(candidate.arr_id, delete_files=True, add_exclusion=True)
-        tx.mark("Radarr movie deletion and exclusion", committed=True)
-        self.manager._sync_kodi("movie", selected, plan=kodi_plan)
-        tx.mark("Kodi library synchronisation")
-
-    def _delete_episode(self, candidate, tx):
-        selected = SelectedItem(
-            media_type="episode",
-            db_id=candidate.primary_kodi_id,
-            title=candidate.title,
-            tvshow_title=candidate.tvshow_title,
-            season=candidate.season,
-            episode=candidate.episode,
-            file_path=candidate.file_path,
-            unique_ids=dict(candidate.unique_ids),
-        )
-        series = resolve_series(selected, self.manager.sonarr, self.manager.settings.path_mapper)
-        _episode, linked, file_record = resolve_episode_context(selected, self.manager.sonarr, series)
-        linked_ids = tuple(sorted(int(item["id"]) for item in linked))
-        if int(series["id"]) != candidate.arr_id:
-            raise SafetyError("Sonarr series identity changed before retention deletion")
-        if int(file_record["id"]) != candidate.file_id:
-            raise SafetyError("Sonarr episode-file identity changed before retention deletion")
-        if linked_ids != candidate.linked_episode_ids:
-            raise SafetyError("Linked Sonarr episode set changed before retention deletion")
-
-        kodi_plan = self.manager._plan_kodi("episodes", selected, linked)
-        monitored_ids = [int(item["id"]) for item in linked if item.get("monitored")]
-        committed = False
         try:
-            if monitored_ids:
-                self.manager.sonarr.set_episodes_monitored(monitored_ids, False)
-            tx.mark("episode monitoring update")
-            self.manager.sonarr.delete_episode_file(candidate.file_id)
-            committed = True
-            tx.mark("episode file deletion", committed=True)
-            self.manager._sync_kodi("episodes", selected, linked, plan=kodi_plan)
-            tx.mark("Kodi library synchronisation")
-        except Exception:
-            if not committed and monitored_ids:
-                try:
-                    self.manager.sonarr.set_episodes_monitored(monitored_ids, True)
-                except Exception:
-                    if self.logger:
-                        self.logger.exception("Could not restore episode monitoring after retention failure")
-            raise
+            # Revalidate fresh identity before acting
+            fresh_candidate = self.revalidate_candidate(candidate)
+        except SafetyError as e:
+            return RetentionReportItem(
+                candidate.media_type, candidate.display_name, candidate.db_id, True, "Criteria met", "failed", str(e)
+            )
 
-    @staticmethod
-    def _item(candidate, reason, action, error_type="", committed=False, stages=None, eligible=True):
-        return RetentionReportItem(
-            media_type=candidate.media_type,
-            display_name=candidate.display_name,
-            stable_key=candidate.stable_key,
-            kodi_db_ids=list(candidate.kodi_db_ids),
-            arr_id=int(candidate.arr_id),
-            file_id=int(candidate.file_id),
-            eligible=bool(eligible),
-            reason=reason,
-            action_taken=action,
-            error_type=error_type,
-            committed=bool(committed),
-            stages=list(stages or []),
-        )
+        try:
+            if fresh_candidate.media_type == "movie":
+                self._delete_movie(fresh_candidate)
+            elif fresh_candidate.media_type == "episode":
+                self._delete_episode(fresh_candidate)
+            else:
+                 raise SafetyError(f"Unsupported media type for deletion: {fresh_candidate.media_type}")
+
+            return RetentionReportItem(
+                fresh_candidate.media_type, fresh_candidate.display_name, fresh_candidate.db_id, True, "Criteria met", "deleted"
+            )
+        except Exception as e:
+            if self.logger:
+                 self.logger.error("Deletion failed for %s: %s", fresh_candidate.display_name, e)
+            return RetentionReportItem(
+                fresh_candidate.media_type, fresh_candidate.display_name, fresh_candidate.db_id, True, "Criteria met", "failed", str(e)
+            )
+
+    def _delete_movie(self, candidate: RetentionCandidate):
+        # Movie: Delete & Exclude semantics
+        # remove through Radarr, add import-list exclusion, apply targeted Kodi synchronization
+        try:
+            self.manager.radarr.delete_movie(candidate.arr_id, delete_files=True, add_exclusion=True)
+            selected = SelectedItem("movie", db_id=candidate.db_id)
+            if hasattr(self.manager, '_sync_kodi'):
+                kodi_plan = self.manager._plan_kodi("movie", selected)
+                self.manager._sync_kodi("movie", selected, plan=kodi_plan)
+        except ApiError as e:
+             raise SafetyError(f"Radarr API error: {e}") from e
+
+    def _delete_episode(self, candidate: RetentionCandidate):
+        # Episode: resolve exact file, unmonitor all linked episodes, delete file, restore monitoring if failure, sync kodi
+        try:
+            # Re-fetch linked episodes to ensure accuracy
+            selected = SelectedItem(
+                "episode", db_id=candidate.db_id, season=candidate.season, episode=candidate.episode,
+                file_path=candidate.file_path, title=candidate.title
+            )
+            from ..resolver import resolve_series, resolve_episode_context
+            series = resolve_series(selected, self.manager.sonarr, self.manager.settings.path_mapper)
+            _, linked_episodes, file_record = resolve_episode_context(selected, self.manager.sonarr, series)
+
+            if file_record['id'] != candidate.file_id:
+                raise SafetyError("Episode file ID mismatch before unmonitoring")
+
+            episode_ids = [int(ep["id"]) for ep in linked_episodes]
+            original_states = {ep["id"]: ep.get("monitored", False) for ep in linked_episodes}
+
+            # Unmonitor linked episodes
+            for ep in linked_episodes:
+                if ep.get("monitored"):
+                    ep_copy = dict(ep)
+                    ep_copy["monitored"] = False
+                    self.manager.sonarr.update_episode(ep_copy)
+
+            try:
+                # Delete File
+                self.manager.sonarr.delete_episode_file(candidate.file_id)
+            except ApiError as e:
+                # Rollback monitoring on failure
+                for ep in linked_episodes:
+                    if original_states.get(ep["id"]):
+                         ep_copy = dict(ep)
+                         ep_copy["monitored"] = True
+                         try:
+                             self.manager.sonarr.update_episode(ep_copy)
+                         except Exception as rollback_err:
+                             if self.logger:
+                                 self.logger.error("Rollback failed for episode %s: %s", ep["id"], rollback_err)
+                raise SafetyError(f"Sonarr API error during file deletion: {e}") from e
+
+            if hasattr(self.manager, '_sync_kodi'):
+                kodi_plan = self.manager._plan_kodi("episodes", selected, linked_episodes)
+                self.manager._sync_kodi("episodes", selected, linked_episodes, plan=kodi_plan)
+
+        except Exception as e:
+             raise SafetyError(str(e)) from e

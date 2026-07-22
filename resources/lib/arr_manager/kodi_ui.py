@@ -46,12 +46,6 @@ class KodiUI:
             nolabel=self.localize("cancel"),
         )
 
-    def numeric_input(self, heading, default=""):
-        return self.xbmcgui.Dialog().numeric(0, heading, default, True)
-
-    def keyboard_input(self, heading, default="", hidden=False):
-        return self.xbmcgui.Dialog().input(heading, default, type=self.xbmcgui.INPUT_ALPHANUM, option=self.xbmcgui.ALPHANUM_HIDE_INPUT if hidden else 0)
-
     def select(self, heading, options):
         return self.xbmcgui.Dialog().select(heading, options)
 
