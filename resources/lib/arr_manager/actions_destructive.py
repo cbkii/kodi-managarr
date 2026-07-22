@@ -107,13 +107,12 @@ class DestructiveMixin:
                 return self._m("cancelled")
             if self.settings.dry_run:
                 return self._m("dry_episode_exclude", episodes=names)
-            changed, committed = [], False
+            committed = False
             tx = TransactionState("episode delete and unmonitor")
+            originally_monitored = [int(episode["id"]) for episode in linked if episode.get("monitored") and "id" in episode]
             try:
-                for episode in linked:
-                    if episode.get("monitored"):
-                        updated = dict(episode); updated["monitored"] = False
-                        self.sonarr.update_episode(updated); changed.append(episode)
+                if originally_monitored:
+                    self.sonarr.set_episodes_monitored(originally_monitored, False)
                 tx.mark("episode monitoring update")
                 if backend is None:
                     committed = True
@@ -129,13 +128,12 @@ class DestructiveMixin:
                 self._sync_kodi("episodes", selected, linked, plan=kodi_plan)
                 tx.mark("Kodi library synchronisation")
             except Exception as exc:
-                if not committed:
-                    for episode in changed:
-                        try:
-                            self.sonarr.update_episode(episode)
-                        except Exception:
-                            if self.logger:
-                                self.logger.exception("Could not restore episode monitoring after failed deletion")
+                if not committed and originally_monitored:
+                    try:
+                        self.sonarr.set_episodes_monitored(originally_monitored, True)
+                    except Exception:
+                        if self.logger:
+                            self.logger.exception("Could not restore episode monitoring after failed deletion")
                 self._record_transaction(tx, exc)
                 raise SafetyError(tx.failure_message(exc)) from exc
             self._record_transaction(tx)
@@ -223,7 +221,7 @@ class DestructiveMixin:
             if backend:
                 backend.close()
 
-    def _series_replace(self, selected):
+    def _resolve_series_replacement_plan(self, selected):
         series = resolve_series(selected, self.sonarr, self.settings.path_mapper)
         files = self.sonarr.episode_files(series["id"])
         if not files:
@@ -240,34 +238,81 @@ class DestructiveMixin:
         missing = sum(1 for match in matches if not match)
         if missing and self.settings.require_blocklist:
             raise BlocklistError(self._m("series_history_missing", missing=missing, files=len(files)))
-        matched = unique_history_matches(matches)
-        backend = make_direct_backend(self.settings, self.logger)
+        return series, files, affected, kodi_plan, matches, unique_history_matches(matches)
+
+    def _preflight_direct_replacement_targets(self, series, files, backend):
         paths = []
+        if backend is None:
+            return paths
+        preflight_progress = self._open_progress(
+            self._m("delete_replace_heading"),
+            self._m("progress_preflight", current=0, total=len(files)),
+        )
         try:
-            preflight_progress = None
-            if backend:
-                preflight_progress = self._open_progress(
-                    self._m("delete_replace_heading"),
-                    self._m("progress_preflight", current=0, total=len(files)),
+            for index, record in enumerate(files, start=1):
+                self._update_progress(
+                    preflight_progress,
+                    int(index / max(len(files), 1) * 100),
+                    self._m("progress_preflight", current=index, total=len(files)),
                 )
-                try:
-                    for index, record in enumerate(files, start=1):
-                        self._update_progress(
-                            preflight_progress,
-                            int(index / max(len(files), 1) * 100),
-                            self._m("progress_preflight", current=index, total=len(files)),
-                        )
-                        if self._progress_cancelled(preflight_progress):
-                            raise SafetyError(self._m("cancelled_precommit"))
-                        remote = self._remote_file_path(series.get("path", ""), record)
-                        path = self._backend_path(remote, backend)
-                        if any(paths_equal(path, existing) for existing in paths):
-                            raise SafetyError("Multiple Sonarr file records resolved to the same direct-delete target")
-                        if hasattr(backend, "preflight_file"):
-                            backend.preflight_file(path)
-                        paths.append(path)
-                finally:
-                    self._close_progress(preflight_progress)
+                if self._progress_cancelled(preflight_progress):
+                    raise SafetyError(self._m("cancelled_precommit"))
+                remote = self._remote_file_path(series.get("path", ""), record)
+                path = self._backend_path(remote, backend)
+                if any(paths_equal(path, existing) for existing in paths):
+                    raise SafetyError("Multiple Sonarr file records resolved to the same direct-delete target")
+                if hasattr(backend, "preflight_file"):
+                    backend.preflight_file(path)
+                paths.append(path)
+        finally:
+            self._close_progress(preflight_progress)
+        return paths
+
+    def _execute_series_replacement(self, selected, series, files, affected, kodi_plan, matched, backend, paths):
+        tx = TransactionState("series replacement")
+        progress = self._open_progress(self._m("delete_replace_heading"), self._m("progress_blocklist"))
+        file_ids = {int(record["id"]) for record in files}
+        try:
+            self._update_progress(progress, 5, self._m("progress_blocklist"))
+            for history_match in matched:
+                self._mark_failed(self.sonarr, history_match)
+            tx.mark("release blocklists", committed=bool(matched))
+            if backend is None:
+                self._update_progress(progress, 35, self._m("progress_delete", current=0, total=len(files)))
+                self.sonarr.delete_episode_files([record["id"] for record in files])
+                tx.mark("episode file deletion", committed=True)
+            else:
+                for index, path in enumerate(paths, start=1):
+                    self._update_progress(
+                        progress,
+                        10 + int(index / max(len(paths), 1) * 50),
+                        self._m("progress_delete", current=index, total=len(paths)),
+                    )
+                    backend.delete_file(path)
+                    tx.mark(f"episode file deletion {index}/{len(paths)}", committed=True)
+                self._update_progress(progress, 65, self._m("progress_reconcile"))
+                self._poll_command(self.sonarr, self.sonarr.rescan_series(series["id"]), "Sonarr rescan")
+                self._wait_for_episode_files_removed(series["id"], file_ids)
+                tx.mark("Sonarr reconciliation")
+            self._update_progress(progress, 80, self._m("progress_search"))
+            self._queue_search(self.sonarr, self.sonarr.search_series(series["id"]), "Sonarr series search")
+            tx.mark("replacement search")
+            self._update_progress(progress, 95, self._m("progress_kodi"))
+            self._sync_kodi("episodes", selected, affected, plan=kodi_plan)
+            tx.mark("Kodi library synchronisation")
+            self._update_progress(progress, 100, self._m("progress_kodi"))
+        except Exception as exc:
+            self._record_transaction(tx, exc)
+            raise SafetyError(tx.failure_message(exc)) from exc
+        finally:
+            self._close_progress(progress)
+        self._record_transaction(tx)
+
+    def _series_replace(self, selected):
+        series, files, affected, kodi_plan, matches, matched = self._resolve_series_replacement_plan(selected)
+        backend = make_direct_backend(self.settings, self.logger)
+        try:
+            paths = self._preflight_direct_replacement_targets(series, files, backend)
             prompt = self._m(
                 "series_replace_confirm",
                 blocklist=self._blocklist_confirmation(matches),
@@ -282,43 +327,7 @@ class DestructiveMixin:
                     title=series.get("title"),
                     blocklist=self._blocklist_summary(matches),
                 )
-            tx = TransactionState("series replacement")
-            progress = self._open_progress(self._m("delete_replace_heading"), self._m("progress_blocklist"))
-            try:
-                self._update_progress(progress, 5, self._m("progress_blocklist"))
-                for history_match in matched:
-                    self._mark_failed(self.sonarr, history_match)
-                tx.mark("release blocklists", committed=bool(matched))
-                if backend is None:
-                    self._update_progress(progress, 35, self._m("progress_delete", current=0, total=len(files)))
-                    self.sonarr.delete_episode_files([record["id"] for record in files])
-                    tx.mark("episode file deletion", committed=True)
-                else:
-                    for index, path in enumerate(paths, start=1):
-                        self._update_progress(
-                            progress,
-                            10 + int(index / max(len(paths), 1) * 50),
-                            self._m("progress_delete", current=index, total=len(paths)),
-                        )
-                        backend.delete_file(path)
-                        tx.mark(f"episode file deletion {index}/{len(paths)}", committed=True)
-                    self._update_progress(progress, 65, self._m("progress_reconcile"))
-                    self._poll_command(self.sonarr, self.sonarr.rescan_series(series["id"]), "Sonarr rescan")
-                    self._wait_for_episode_files_removed(series["id"], file_ids)
-                    tx.mark("Sonarr reconciliation")
-                self._update_progress(progress, 80, self._m("progress_search"))
-                self._queue_search(self.sonarr, self.sonarr.search_series(series["id"]), "Sonarr series search")
-                tx.mark("replacement search")
-                self._update_progress(progress, 95, self._m("progress_kodi"))
-                self._sync_kodi("episodes", selected, affected, plan=kodi_plan)
-                tx.mark("Kodi library synchronisation")
-                self._update_progress(progress, 100, self._m("progress_kodi"))
-            except Exception as exc:
-                self._record_transaction(tx, exc)
-                raise SafetyError(tx.failure_message(exc)) from exc
-            finally:
-                self._close_progress(progress)
-            self._record_transaction(tx)
+            self._execute_series_replacement(selected, series, files, affected, kodi_plan, matched, backend, paths)
             return self._m(
                 "series_replace_done",
                 blocklist=self._blocklist_summary(matches),

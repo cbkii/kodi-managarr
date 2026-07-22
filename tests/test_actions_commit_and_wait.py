@@ -40,7 +40,8 @@ class Backend:
 
 class Sonarr:
     def __init__(self): self.updated = []
-    def update_episode(self, episode): self.updated.append(dict(episode)); return episode
+    def set_episodes_monitored(self, ids, monitored): self.updated.append((ids, monitored))
+    def delete_episode_file(self, *args): pass
     def rescan_series(self, series_id): return {"id": 5}
     def command_status(self, command_id): return {"id": command_id, "status": "failed", "result": "unsuccessful", "message": "boom"}
     def episode_files(self, series_id): return [{"id": 9, "path": "/shows/Show/file.mkv"}]
@@ -73,7 +74,7 @@ class CommitAndWaitTests(unittest.TestCase):
                 manager._episode_exclude(SelectedItem(media_type="episode", tvshow_title="Show", season=1, episode=2))
         self.assertEqual(backend.deleted, ["smb://pi/Shows/Show/file.mkv"])
         self.assertEqual(len(manager._sonarr.updated), 1)
-        self.assertFalse(manager._sonarr.updated[0]["monitored"])
+        self.assertEqual(manager._sonarr.updated[0], ([1], False))
 
 
 if __name__ == "__main__":
