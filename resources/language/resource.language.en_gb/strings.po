@@ -8,8 +8,8 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 
 msgctxt "#32000"
-msgid "🗑️ Managarr"
-msgstr "🗑️ Managarr"
+msgid "Managarr"
+msgstr "Managarr"
 
 msgctxt "#32001"
 msgid "Delete & Exclude"
@@ -762,7 +762,6 @@ msgctxt "#32886"
 msgid "The selected episode file has no allowlisted Kodi mapping."
 msgstr "The selected episode file has no allowlisted Kodi mapping."
 
-
 #. quality_episode_scope_confirm
 msgctxt "#32887"
 msgid "Changing the quality profile for an episode applies to the entire series '{title}'. Continue?"
@@ -820,13 +819,13 @@ msgstr "Show, hide, and reorder items in the Managarr menu."
 
 #. pin_enabled
 msgctxt "#32908"
-msgid "Require PIN for destructive actions"
-msgstr "Require PIN for destructive actions"
+msgid "PIN protection"
+msgstr "PIN protection"
 
 #. pin_enabled_help
 msgctxt "#32909"
-msgid "Prompt for a PIN before deleting media or modifying the queue."
-msgstr "Prompt for a PIN before deleting media or modifying the queue."
+msgid "Protect media deletion and replacement with a local numeric PIN."
+msgstr "Protect media deletion and replacement with a local numeric PIN."
 
 #. manage_pin
 msgctxt "#32910"
@@ -835,11 +834,100 @@ msgstr "Manage PIN"
 
 #. manage_pin_help
 msgctxt "#32911"
-msgid "Set, change, or remove the protection PIN."
-msgstr "Set, change, or remove the protection PIN."
-
+msgid "Set, change, remove, or repair the protection PIN."
+msgstr "Set, change, remove, or repair the protection PIN."
 
 #. hidden_state
 msgctxt "#32912"
-msgid "Hidden State"
-msgstr "Hidden State"
+msgid "Internal menu state"
+msgstr "Internal menu state"
+
+#. menu_save_exit
+msgctxt "#32920"
+msgid "Save and exit"
+msgstr "Save and exit"
+
+#. menu_restore_defaults
+msgctxt "#32921"
+msgid "Restore defaults"
+msgstr "Restore defaults"
+
+#. menu_toggle_visibility
+msgctxt "#32922"
+msgid "Toggle visibility"
+msgstr "Toggle visibility"
+
+#. menu_move_up
+msgctxt "#32923"
+msgid "Move up"
+msgstr "Move up"
+
+#. menu_move_down
+msgctxt "#32924"
+msgid "Move down"
+msgstr "Move down"
+
+#. pin_change
+msgctxt "#32925"
+msgid "Change PIN"
+msgstr "Change PIN"
+
+#. pin_remove
+msgctxt "#32926"
+msgid "Remove PIN"
+msgstr "Remove PIN"
+
+#. pin_removed
+msgctxt "#32927"
+msgid "PIN removed"
+msgstr "PIN removed"
+
+#. pin_enter_new
+msgctxt "#32928"
+msgid "Enter a new 4–8 digit PIN"
+msgstr "Enter a new 4–8 digit PIN"
+
+#. pin_confirm_new
+msgctxt "#32929"
+msgid "Confirm the new PIN"
+msgstr "Confirm the new PIN"
+
+#. pin_mismatch
+msgctxt "#32930"
+msgid "PINs do not match"
+msgstr "PINs do not match"
+
+#. pin_invalid_format
+msgctxt "#32931"
+msgid "PIN must contain 4 to 8 digits"
+msgstr "PIN must contain 4 to 8 digits"
+
+#. pin_set
+msgctxt "#32932"
+msgid "PIN protection enabled"
+msgstr "PIN protection enabled"
+
+#. pin_configuration_invalid
+msgctxt "#32933"
+msgid "Stored PIN protection data is incomplete or invalid. Open Manage PIN to reset it."
+msgstr "Stored PIN protection data is incomplete or invalid. Open Manage PIN to reset it."
+
+#. pin_retry_exhausted
+msgctxt "#32934"
+msgid "Too many incorrect PIN attempts. The action was cancelled."
+msgstr "Too many incorrect PIN attempts. The action was cancelled."
+
+#. pin_reset_invalid
+msgctxt "#32935"
+msgid "Stored PIN data is invalid and will be reset before a new PIN is created."
+msgstr "Stored PIN data is invalid and will be reset before a new PIN is created."
+
+#. pin_remove_confirm
+msgctxt "#32936"
+msgid "Remove PIN protection from destructive actions?"
+msgstr "Remove PIN protection from destructive actions?"
+
+#. menu_defaults_restored
+msgctxt "#32937"
+msgid "Default menu visibility and ordering restored."
+msgstr "Default menu visibility and ordering restored."
