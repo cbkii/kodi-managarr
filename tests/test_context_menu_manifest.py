@@ -9,12 +9,7 @@ LIB_DIR = ROOT / "resources" / "lib"
 if str(LIB_DIR) not in sys.path:
     sys.path.insert(0, str(LIB_DIR))
 
-from arr_manager.context_manifest import (  # noqa: E402
-    EXPECTED_CONTEXT_ACTIONS,
-    EXPECTED_CONTEXT_SUBMENUS,
-    EXPECTED_DIRECT_CONTEXT_ACTIONS,
-    ROOT_CONTEXT_LABEL,
-)
+from arr_manager.context_manifest import EXPECTED_CONTEXT_ACTIONS, ROOT_CONTEXT_LABEL  # noqa: E402
 
 
 def load_validator():
@@ -29,31 +24,35 @@ class ContextMenuManifestTests(unittest.TestCase):
     def setUpClass(cls):
         cls.addon = ET.parse(ROOT / "addon.xml").getroot()
         cls.validator = load_validator()
-        try:
-            cls.po_ids = cls.validator._po_ids(
-                ROOT / "resources/language/resource.language.en_gb/strings.po"
-            )
-        except SystemExit as exc:
-            raise AssertionError(f"Failed to parse PO file: {exc}") from exc
+        cls.po_ids = cls.validator._po_ids(
+            ROOT / "resources/language/resource.language.en_gb/strings.po"
+        )
 
-    def _context_extension(self):
+    def _branding_item(self):
         extension = self.addon.find("extension[@point='kodi.context.item']")
         self.assertIsNotNone(extension)
-        return extension
-
-    def _branding_menu(self):
-        extension = self.addon.find("extension[@point='kodi.context.item']")
         root_menu = extension.find("menu[@id='kodi.core.main']")
-        branding_items = root_menu.findall("item")
-        self.assertEqual(len(branding_items), 1)
-        self.assertEqual(branding_items[0].findtext("label").strip(), ROOT_CONTEXT_LABEL)
-        return branding_items[0]
+        self.assertIsNotNone(root_menu)
+        items = root_menu.findall("item")
+        self.assertEqual(len(items), 1)
+        return items[0]
 
-    def test_complete_submenu_tree_is_registered(self):
-        pass
+    def test_single_runtime_root_item_is_registered(self):
+        item = self._branding_item()
+        self.assertEqual(item.attrib.get("library"), "context.py")
+        self.assertEqual(item.attrib.get("args"), "menu")
+        self.assertEqual(item.findtext("label").strip(), ROOT_CONTEXT_LABEL)
+        self.assertEqual(EXPECTED_CONTEXT_ACTIONS, {"menu"})
+        self.assertIn("ListItem.DBType(movie)", item.findtext("visible"))
+        self.assertIn("ListItem.DBType(tvshow)", item.findtext("visible"))
+        self.assertIn("ListItem.DBType(episode)", item.findtext("visible"))
+        self.assertFalse(item.findall("menu"))
 
-    def test_every_numeric_context_label_is_localised(self):
-        pass
+    def test_runtime_root_label_is_plain_ascii(self):
+        label = self._branding_item().findtext("label").strip()
+        self.assertTrue(label.isascii())
+        self.assertEqual(label, "Managarr")
+
 
 if __name__ == "__main__":
     unittest.main()
