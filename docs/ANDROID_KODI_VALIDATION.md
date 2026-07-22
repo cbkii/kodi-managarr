@@ -202,3 +202,16 @@ A stable release is reasonably evidenced when:
 - no unresolved failure risks normal use or destructive safety.
 
 A prerelease or release-candidate cycle is optional. Use it when the change is broad or when you want wider testing, not as a mandatory blocker for an owner-initiated stable release.
+
+## 9. Retention Automation (Optional / Destructive)
+1. Configure thresholds so exactly one watched movie is eligible.
+2. Run `Preview eligible media` and confirm only that movie appears.
+3. Run `Run cleanup now` with background dry-run enabled and confirm no changes.
+4. Disable background dry-run and perform one real API-backend movie deletion through `Run cleanup now`.
+5. Confirm Radarr exclusion and Kodi row cleanup.
+6. Configure one disposable watched episode and verify multi-episode file warning if applicable.
+7. Perform one episode cleanup manually.
+8. Enable scheduled dry run with a short test interval.
+9. Verify one background report appears in the add-on data folder.
+10. Disable periodic cleanup.
+11. Inspect logs and reports for secrets.

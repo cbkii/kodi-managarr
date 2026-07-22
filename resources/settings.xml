@@ -54,5 +54,43 @@
         <setting id="diagnostics" type="action" label="32602" help="32622"><level>0</level><data>RunScript(context.arr.manager,mode=diagnostics)</data><control type="button" format="action"><close>true</close></control></setting>
       </group>
     </category>
+    <category id="retention" label="32900" help="32901">
+      <group id="1" label="">
+        <setting id="retention_enabled" type="boolean" label="32902" help="32903"><level>0</level><default>false</default><control type="toggle"/></setting>
+        <setting id="retention_include_movies" type="boolean" label="32904" help="32905"><level>0</level><default>true</default><control type="toggle"/></setting>
+        <setting id="retention_include_episodes" type="boolean" label="32906" help="32907"><level>0</level><default>true</default><control type="toggle"/></setting>
+        <setting id="retention_watched_only" type="boolean" label="32908" help="32909"><level>0</level><default>true</default><control type="toggle"/></setting>
+
+        <setting id="retention_use_added_age" type="boolean" label="32910" help="32911"><level>0</level><default>true</default><control type="toggle"/></setting>
+        <setting id="retention_added_age_days" type="integer" label="32912" help="32913"><level>0</level><default>0</default><constraints><minimum>0</minimum><step>1</step><maximum>9999</maximum></constraints><control type="edit" format="integer"/></setting>
+
+        <setting id="retention_use_watched_age" type="boolean" label="32914" help="32915"><level>0</level><default>true</default><control type="toggle"/></setting>
+        <setting id="retention_watched_age_days" type="integer" label="32916" help="32917"><level>0</level><default>0</default><constraints><minimum>0</minimum><step>1</step><maximum>9999</maximum></constraints><control type="edit" format="integer"/></setting>
+
+        <setting id="retention_criteria_mode" type="string" label="32918" help="32919">
+            <level>0</level><default>all</default>
+            <constraints><options><option label="32920">all</option><option label="32921">any</option></options></constraints>
+            <control type="spinner" format="string"/>
+        </setting>
+      </group>
+      <group id="2" label="32922">
+        <setting id="retention_periodic_enabled" type="boolean" label="32923" help="32924"><level>0</level><default>false</default><control type="toggle"/></setting>
+        <setting id="retention_interval_hours" type="integer" label="32925" help="32926"><level>0</level><default>24</default><constraints><minimum>1</minimum><step>1</step><maximum>720</maximum></constraints><control type="edit" format="integer"/></setting>
+        <setting id="retention_max_deletions" type="integer" label="32927" help="32928"><level>0</level><default>10</default><constraints><minimum>1</minimum><step>1</step><maximum>100</maximum></constraints><control type="edit" format="integer"/></setting>
+        <setting id="retention_background_dry_run" type="boolean" label="32929" help="32930"><level>0</level><default>true</default><control type="toggle"/></setting>
+        <setting id="retention_notification_mode" type="string" label="32931" help="32932">
+            <level>0</level><default>errors_only</default>
+            <constraints><options><option label="32933">errors_only</option><option label="32934">deletions_and_errors</option><option label="32935">silent</option></options></constraints>
+            <control type="spinner" format="string"/>
+        </setting>
+      </group>
+      <group id="3" label="32936">
+        <setting id="retention_preview" type="action" label="32937" help="32938"><level>0</level><data>RunScript(context.arr.manager,mode=retention_preview)</data><control type="button" format="action"><close>true</close></control></setting>
+        <setting id="retention_run" type="action" label="32939" help="32940"><level>0</level><data>RunScript(context.arr.manager,mode=retention_run)</data><control type="button" format="action"><close>true</close></control></setting>
+        <setting id="retention_enable" type="action" label="32941" help="32942"><level>0</level><data>RunScript(context.arr.manager,mode=retention_enable)</data><control type="button" format="action"><close>true</close></control></setting>
+        <setting id="retention_disable" type="action" label="32943" help="32944"><level>0</level><data>RunScript(context.arr.manager,mode=retention_disable)</data><control type="button" format="action"><close>true</close></control></setting>
+        <setting id="retention_report" type="action" label="32945" help="32946"><level>0</level><data>RunScript(context.arr.manager,mode=retention_report)</data><control type="button" format="action"><close>true</close></control></setting>
+      </group>
+    </category>
   </section>
 </settings>

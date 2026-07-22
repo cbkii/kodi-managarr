@@ -1,7 +1,7 @@
-<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<?xml version='1.0' encoding='UTF-8'?>
 <addon id="context.arr.manager" name="Kodi Managarr" version="1.1.1" provider-name="CB">
   <requires>
-    <import addon="xbmc.python" version="3.0.0"/>
+    <import addon="xbmc.python" version="3.0.0" />
   </requires>
   <extension point="kodi.context.item">
     <menu id="kodi.core.main">
@@ -25,7 +25,7 @@
       </menu>
     </menu>
   </extension>
-  <extension point="xbmc.python.script" library="default.py">
+  <extension point="xbmc.service" library="service.py" /><extension point="xbmc.python.script" library="default.py">
     <provides>executable</provides>
   </extension>
   <extension point="xbmc.addon.metadata">

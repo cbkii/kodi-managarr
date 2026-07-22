@@ -9,6 +9,7 @@
 - `history.py` proves imported-release identity.
 - `fileops.py` owns Kodi VFS inspection and deletion boundaries.
 - `actions.py` owns preflight, transaction ordering, reconciliation and management operations.
+- `retention/` subpackage owns retention policy models, automated Kodi json-rpc candidate enumeration, background service scheduling, state/report files, and execution API routing.
 - `context_manifest.py` is the single source of truth for the required context-menu label, actions and submenu grouping used by validation and packaging.
 
 Kodi UI waits reuse one `xbmc.Monitor` for the lifetime of the action. This keeps cancellation and shutdown checks responsive without repeatedly creating monitor instances.

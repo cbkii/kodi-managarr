@@ -232,7 +232,7 @@ def _run_tools_menu(addon, settings, logger, ui):
     options = [
         _s(addon, 32501, "Open settings"), _s(addon, 32502, "Test Radarr"),
         _s(addon, 32503, "Test Sonarr"), _s(addon, 32504, "Test file backend"),
-        _s(addon, 32505, "Write diagnostics"),
+        _s(addon, 32505, "Write diagnostics"), _s(addon, 32900, "Retention Cleanup"),
     ]
     choice = ui.select(addon.getAddonInfo("name"), options)
     if choice == 0:
@@ -245,6 +245,8 @@ def _run_tools_menu(addon, settings, logger, ui):
         ui.ok(_s(addon, 32712, "File backend"), _test_backend(settings, logger))
     elif choice == 4:
         ui.ok(_s(addon, 32600, "Diagnostics"), _write_diagnostics(addon, settings, logger))
+    elif choice == 5:
+        _run_retention_menu(addon, settings, logger, ui)
 
 
 def _test_radarr(settings, logger):
@@ -351,3 +353,39 @@ def _parse_args(args):
                 key, value = part.split("=", 1)
                 output[key.lstrip("?")] = value
     return output
+
+from .retention.service import RetentionService
+
+def _run_retention_action(action, addon, settings, logger, ui):
+    manager = ArrManager(settings, ui, logger)
+    service = RetentionService(manager, ui.jsonrpc, ui, logger, settings.retention_authoriser)
+    if action == "preview":
+        service.run_preview()
+    elif action == "run":
+        service.run_cleanup_now()
+    elif action == "enable":
+        service.enable_periodic()
+    elif action == "disable":
+        service.disable_periodic()
+    elif action == "report":
+        service.view_report()
+
+def _run_retention_menu(addon, settings, logger, ui):
+    options = [
+        _s(addon, 32937, "Preview eligible media"),
+        _s(addon, 32939, "Run cleanup now"),
+        _s(addon, 32941, "Enable periodic cleanup"),
+        _s(addon, 32943, "Disable periodic cleanup"),
+        _s(addon, 32945, "View last cleanup report")
+    ]
+    choice = ui.select(_s(addon, 32900, "Retention Cleanup"), options)
+    if choice == 0:
+        return _run_retention_action("preview", addon, settings, logger, ui)
+    elif choice == 1:
+        return _run_retention_action("run", addon, settings, logger, ui)
+    elif choice == 2:
+        return _run_retention_action("enable", addon, settings, logger, ui)
+    elif choice == 3:
+        return _run_retention_action("disable", addon, settings, logger, ui)
+    elif choice == 4:
+        return _run_retention_action("report", addon, settings, logger, ui)

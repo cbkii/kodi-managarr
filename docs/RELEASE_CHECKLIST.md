@@ -72,3 +72,5 @@ Run **Actions → Build and publish Kodi release**:
 5. run the workflow.
 
 The workflow validates, packages, renames the public asset to `managarr-addon_vX.Y.Z.zip`, checksums and publishes the release. No RC promotion sequence is required.
+
+- [ ] Retention features verified against safe/dummy Servarr instances using physical device.

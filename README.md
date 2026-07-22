@@ -9,6 +9,8 @@ Kodi Managarr is a Kodi 19+ Python 3 context-menu add-on for managing Radarr mov
 - **Monitoring** — monitor, unmonitor, or change quality profile. An episode quality-profile change is explicitly series-wide because Sonarr profiles are assigned to series.
 - **Download queue** — view matching queue entries or remove one from Servarr and its download client without blocklisting it.
 - **Delete & Exclude** — removes the selected movie/series, or deletes and unmonitors the selected episode file.
+
+- **Retention Cleanup** — (Under Tools & settings) Preview eligible media, manually run cleanup, or configure/enable a background service to periodically remove movies and episode files based on their watched state, addition age, and watched age.
 - **Delete & Replace** — proves and blocklists the imported release, deletes the file, reconciles Servarr, searches for a replacement and synchronises Kodi.
 
 ## Safety model

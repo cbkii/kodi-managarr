@@ -767,3 +767,238 @@ msgstr "The selected episode file has no allowlisted Kodi mapping."
 msgctxt "#32887"
 msgid "Changing the quality profile for an episode applies to the entire series '{title}'. Continue?"
 msgstr "Changing the quality profile for an episode applies to the entire series '{title}'. Continue?"
+
+#. 32900
+msgctxt "#32900"
+msgid "Retention strings 32900"
+msgstr "Retention strings 32900"
+
+#. 32901
+msgctxt "#32901"
+msgid "Retention strings 32901"
+msgstr "Retention strings 32901"
+
+#. 32902
+msgctxt "#32902"
+msgid "Retention strings 32902"
+msgstr "Retention strings 32902"
+
+#. 32903
+msgctxt "#32903"
+msgid "Retention strings 32903"
+msgstr "Retention strings 32903"
+
+#. 32904
+msgctxt "#32904"
+msgid "Retention strings 32904"
+msgstr "Retention strings 32904"
+
+#. 32905
+msgctxt "#32905"
+msgid "Retention strings 32905"
+msgstr "Retention strings 32905"
+
+#. 32906
+msgctxt "#32906"
+msgid "Retention strings 32906"
+msgstr "Retention strings 32906"
+
+#. 32907
+msgctxt "#32907"
+msgid "Retention strings 32907"
+msgstr "Retention strings 32907"
+
+#. 32908
+msgctxt "#32908"
+msgid "Retention strings 32908"
+msgstr "Retention strings 32908"
+
+#. 32909
+msgctxt "#32909"
+msgid "Retention strings 32909"
+msgstr "Retention strings 32909"
+
+#. 32910
+msgctxt "#32910"
+msgid "Retention strings 32910"
+msgstr "Retention strings 32910"
+
+#. 32911
+msgctxt "#32911"
+msgid "Retention strings 32911"
+msgstr "Retention strings 32911"
+
+#. 32912
+msgctxt "#32912"
+msgid "Retention strings 32912"
+msgstr "Retention strings 32912"
+
+#. 32913
+msgctxt "#32913"
+msgid "Retention strings 32913"
+msgstr "Retention strings 32913"
+
+#. 32914
+msgctxt "#32914"
+msgid "Retention strings 32914"
+msgstr "Retention strings 32914"
+
+#. 32915
+msgctxt "#32915"
+msgid "Retention strings 32915"
+msgstr "Retention strings 32915"
+
+#. 32916
+msgctxt "#32916"
+msgid "Retention strings 32916"
+msgstr "Retention strings 32916"
+
+#. 32917
+msgctxt "#32917"
+msgid "Retention strings 32917"
+msgstr "Retention strings 32917"
+
+#. 32918
+msgctxt "#32918"
+msgid "Retention strings 32918"
+msgstr "Retention strings 32918"
+
+#. 32919
+msgctxt "#32919"
+msgid "Retention strings 32919"
+msgstr "Retention strings 32919"
+
+#. 32920
+msgctxt "#32920"
+msgid "Retention strings 32920"
+msgstr "Retention strings 32920"
+
+#. 32921
+msgctxt "#32921"
+msgid "Retention strings 32921"
+msgstr "Retention strings 32921"
+
+#. 32922
+msgctxt "#32922"
+msgid "Retention strings 32922"
+msgstr "Retention strings 32922"
+
+#. 32923
+msgctxt "#32923"
+msgid "Retention strings 32923"
+msgstr "Retention strings 32923"
+
+#. 32924
+msgctxt "#32924"
+msgid "Retention strings 32924"
+msgstr "Retention strings 32924"
+
+#. 32925
+msgctxt "#32925"
+msgid "Retention strings 32925"
+msgstr "Retention strings 32925"
+
+#. 32926
+msgctxt "#32926"
+msgid "Retention strings 32926"
+msgstr "Retention strings 32926"
+
+#. 32927
+msgctxt "#32927"
+msgid "Retention strings 32927"
+msgstr "Retention strings 32927"
+
+#. 32928
+msgctxt "#32928"
+msgid "Retention strings 32928"
+msgstr "Retention strings 32928"
+
+#. 32929
+msgctxt "#32929"
+msgid "Retention strings 32929"
+msgstr "Retention strings 32929"
+
+#. 32930
+msgctxt "#32930"
+msgid "Retention strings 32930"
+msgstr "Retention strings 32930"
+
+#. 32931
+msgctxt "#32931"
+msgid "Retention strings 32931"
+msgstr "Retention strings 32931"
+
+#. 32932
+msgctxt "#32932"
+msgid "Retention strings 32932"
+msgstr "Retention strings 32932"
+
+#. 32933
+msgctxt "#32933"
+msgid "Retention strings 32933"
+msgstr "Retention strings 32933"
+
+#. 32934
+msgctxt "#32934"
+msgid "Retention strings 32934"
+msgstr "Retention strings 32934"
+
+#. 32935
+msgctxt "#32935"
+msgid "Retention strings 32935"
+msgstr "Retention strings 32935"
+
+#. 32936
+msgctxt "#32936"
+msgid "Retention strings 32936"
+msgstr "Retention strings 32936"
+
+#. 32937
+msgctxt "#32937"
+msgid "Retention strings 32937"
+msgstr "Retention strings 32937"
+
+#. 32938
+msgctxt "#32938"
+msgid "Retention strings 32938"
+msgstr "Retention strings 32938"
+
+#. 32939
+msgctxt "#32939"
+msgid "Retention strings 32939"
+msgstr "Retention strings 32939"
+
+#. 32940
+msgctxt "#32940"
+msgid "Retention strings 32940"
+msgstr "Retention strings 32940"
+
+#. 32941
+msgctxt "#32941"
+msgid "Retention strings 32941"
+msgstr "Retention strings 32941"
+
+#. 32942
+msgctxt "#32942"
+msgid "Retention strings 32942"
+msgstr "Retention strings 32942"
+
+#. 32943
+msgctxt "#32943"
+msgid "Retention strings 32943"
+msgstr "Retention strings 32943"
+
+#. 32944
+msgctxt "#32944"
+msgid "Retention strings 32944"
+msgstr "Retention strings 32944"
+
+#. 32945
+msgctxt "#32945"
+msgid "Retention strings 32945"
+msgstr "Retention strings 32945"
+
+#. 32946
+msgctxt "#32946"
+msgid "Retention strings 32946"
+msgstr "Retention strings 32946"

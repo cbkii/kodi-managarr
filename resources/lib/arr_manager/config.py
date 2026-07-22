@@ -3,6 +3,8 @@ from dataclasses import dataclass
 
 from .errors import ConfigurationError
 from .util import PathMapper, as_bool, as_int, normalise_path, parse_mappings
+from .retention.config import RetentionSettings
+from .retention.auth import DummyPINAuthoriser
 
 BACKENDS = {"0": "api", "1": "vfs", "api": "api", "vfs": "vfs", "ssh": "vfs", "2": "vfs"}
 
@@ -87,6 +89,11 @@ class Settings:
             verify_tls=as_bool(get("sonarr_verify_tls"), True),
             user_agent=user_agent,
         )
+        self.retention = RetentionSettings(addon)
+
+        # Inject dummy authoriser to conform to expected structure
+        self.retention_authoriser = DummyPINAuthoriser(addon, None)
+
 
     def validate_backend(self):
         if self.backend not in {"api", "vfs"}:
