@@ -20,8 +20,9 @@ on:
         type: choice
         options: [stable, prerelease, draft]
       release_notes:
-        description: Release highlights; also written to addon.xml news
-        required: true
+        description: Optional release-highlights override; blank uses the maintained addon.xml news
+        required: false
+        default: ""
         type: string
       mark_latest:
         description: Mark a stable release as Latest
@@ -73,7 +74,7 @@ jobs:
           expected = os.environ['EXPECTED_ADDON_ID']
           requested_raw = os.environ.get('REQUESTED_VERSION', '').strip()
           requested = requested_raw[1:] if requested_raw.startswith('v') else requested_raw
-          notes = ' '.join(os.environ['RELEASE_NOTES'].split())
+          manual_notes = ' '.join(os.environ.get('RELEASE_NOTES', '').split())
           path = Path('addon.xml')
           content = path.read_text(encoding='utf-8')
           root = ET.fromstring(content)
@@ -81,6 +82,21 @@ jobs:
           pattern = re.compile(r'^[0-9]+\.[0-9]+\.[0-9]+$')
           if root.attrib.get('id') != expected or not pattern.fullmatch(current):
               raise SystemExit('Invalid add-on identity or version')
+
+          metadata = root.find("extension[@point='xbmc.addon.metadata']")
+          if metadata is None:
+              raise SystemExit('addon.xml is missing xbmc.addon.metadata')
+          summary = ' '.join((metadata.findtext('summary') or '').split())
+          description = ' '.join((metadata.findtext('description') or '').split())
+          current_news = ' '.join((metadata.findtext('news') or '').split())
+          maintained_news = re.sub(
+              r'^v?[0-9]+\.[0-9]+\.[0-9]+(?:\s*\([^)]*\))?\s*[-:]\s*',
+              '',
+              current_news,
+              count=1,
+          ).strip()
+          notes = manual_notes or maintained_news or description or summary or 'Maintenance release.'
+
           tags = []
           existing = set()
           for raw in subprocess.check_output(['git', 'tag', '--list', 'v*'], text=True).splitlines():
@@ -111,7 +127,13 @@ jobs:
           updated, count = re.subn(r'(<addon\b[^>]*\bversion=")[^"]+("[^>]*>)', rf'\g<1>{version}\2', content, count=1)
           if count != 1:
               raise SystemExit('Could not update version')
-          news = escape(f'{tag} ({date.today().isoformat()}) - {notes}')
+          news_prefix = f'{tag} ({date.today().isoformat()}) - '
+          max_news_chars = 1500
+          notes_for_addon = notes
+          if len(news_prefix) + len(notes_for_addon) > max_news_chars:
+              available = max_news_chars - len(news_prefix) - 3
+              notes_for_addon = notes_for_addon[:available].rstrip() + '...'
+          news = escape(news_prefix + notes_for_addon)
           updated, count = re.subn(
               r'(<news>).*?(</news>)',
               lambda match: f'{match.group(1)}{news}{match.group(2)}',
@@ -120,7 +142,7 @@ jobs:
               raise SystemExit('Could not update news')
           path.write_text(updated, encoding='utf-8')
           with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as out:
-              out.write(f'addon_id={expected}\nversion={version}\ntag={tag}\nversion_source={source}\n')
+              out.write(f'addon_id={expected}\nversion={version}\ntag={tag}\nversion_source={source}\nrelease_notes={notes}\n')
           PY
 
       - name: Set up Python 3.8
@@ -164,28 +186,32 @@ jobs:
           set -euo pipefail
           SOURCE_DATE_EPOCH="$(git show -s --format=%ct HEAD)"
           export SOURCE_DATE_EPOCH
+          internal_asset="dist/context.arr.manager-$VERSION.zip"
+          release_asset="dist/managarr-addon_v$VERSION.zip"
+          release_checksum="$release_asset.sha256"
           python scripts/package.py
-          first="$(sha256sum "dist/context.arr.manager-$VERSION.zip" | cut -d' ' -f1)"
-          cp "dist/context.arr.manager-$VERSION.zip" "$RUNNER_TEMP/first.zip"
-          rm "dist/context.arr.manager-$VERSION.zip"
+          first="$(sha256sum "$internal_asset" | cut -d' ' -f1)"
+          cp "$internal_asset" "$RUNNER_TEMP/first.zip"
+          rm "$internal_asset"
           python scripts/package.py
-          second="$(sha256sum "dist/context.arr.manager-$VERSION.zip" | cut -d' ' -f1)"
+          second="$(sha256sum "$internal_asset" | cut -d' ' -f1)"
           test "$first" = "$second"
+          cp "$internal_asset" "$release_asset"
           (
             cd dist
-            sha256sum "context.arr.manager-$VERSION.zip" > "context.arr.manager-$VERSION.zip.sha256"
-            sha256sum --check "context.arr.manager-$VERSION.zip.sha256"
+            sha256sum "managarr-addon_v$VERSION.zip" > "managarr-addon_v$VERSION.zip.sha256"
+            sha256sum --check "managarr-addon_v$VERSION.zip.sha256"
           )
           rm -rf dist/addon-check && mkdir -p dist/addon-check
           python - <<'PY'
           import os, zipfile
           version = os.environ['VERSION']
-          with zipfile.ZipFile(f'dist/context.arr.manager-{version}.zip') as archive:
+          with zipfile.ZipFile(f'dist/managarr-addon_v{version}.zip') as archive:
               archive.extractall('dist/addon-check')
               assert archive.testzip() is None
           PY
-          echo "asset=dist/context.arr.manager-$VERSION.zip" >> "$GITHUB_OUTPUT"
-          echo "checksum=dist/context.arr.manager-$VERSION.zip.sha256" >> "$GITHUB_OUTPUT"
+          echo "asset=$release_asset" >> "$GITHUB_OUTPUT"
+          echo "checksum=$release_checksum" >> "$GITHUB_OUTPUT"
       - name: Run Kodi addon checker
         timeout-minutes: 5
         run: kodi-addon-checker --branch matrix dist/addon-check/context.arr.manager
@@ -209,7 +235,7 @@ jobs:
       - name: Upload workflow artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: context.arr.manager-${{ steps.metadata.outputs.version }}
+          name: managarr-addon_v${{ steps.metadata.outputs.version }}
           path: |
             ${{ steps.package.outputs.asset }}
             ${{ steps.package.outputs.checksum }}
@@ -222,7 +248,7 @@ jobs:
           VERSION: ${{ steps.metadata.outputs.version }}
           TAG: ${{ steps.metadata.outputs.tag }}
           TARGET_SHA: ${{ steps.commit.outputs.target_sha }}
-          MANUAL_NOTES: ${{ inputs.release_notes }}
+          RELEASE_HIGHLIGHTS: ${{ steps.metadata.outputs.release_notes }}
           VERSION_SOURCE: ${{ steps.metadata.outputs.version_source }}
           ASSET: ${{ steps.package.outputs.asset }}
         run: |
@@ -232,11 +258,11 @@ jobs:
           {
             echo '## Release highlights'
             echo
-            printf '%s\n' "$MANUAL_NOTES"
+            printf '%s\n' "$RELEASE_HIGHLIGHTS"
             echo
             echo '## Install on Kodi'
             echo
-            echo "1. Download \`context.arr.manager-$VERSION.zip\` from **Assets**."
+            echo "1. Download \`managarr-addon_v$VERSION.zip\` from **Assets**."
             echo '2. In Kodi, open **Add-ons → Install from zip file**.'
             echo '3. Configure **My add-ons → Context menus → Kodi Managarr**.'
             echo

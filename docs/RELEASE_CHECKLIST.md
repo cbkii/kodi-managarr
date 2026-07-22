@@ -12,7 +12,8 @@ A release candidate is optional. The repository owner may publish stable, prerel
 - [ ] CI passes on that commit.
 - [ ] `python scripts/validate.py` passes.
 - [ ] `python -m unittest discover -s tests -v` passes.
-- [ ] `python scripts/package.py` produces the expected `context.arr.manager-<version>.zip`.
+- [ ] `python scripts/package.py` produces the expected internal `context.arr.manager-<version>.zip` package.
+- [ ] The release workflow publishes the user-facing asset as `managarr-addon_v<version>.zip` with a matching `.sha256` file.
 - [ ] Kodi add-on checker passes against the extracted ZIP.
 - [ ] The release ZIP contains one `context.arr.manager/` root, the expected version, all nine context actions and all runtime assets.
 - [ ] The generated checksum matches the uploaded ZIP.
@@ -65,9 +66,9 @@ These are useful but not mandatory for every owner-triggered maintenance release
 Run **Actions → Build and publish Kodi release**:
 
 1. choose the branch;
-2. enter `1.1.0` or leave version blank when the manifest already contains the intended untagged version;
+2. enter the intended version or leave it blank to use the untagged manifest version / automatic patch increment;
 3. choose stable, prerelease or draft;
-4. enter concise release highlights;
+4. optionally enter a one-off release-highlights override, or leave it blank to use the maintained `addon.xml` news;
 5. run the workflow.
 
-The workflow validates, packages, checksums and publishes the release. No RC promotion sequence is required.
+The workflow validates, packages, renames the public asset to `managarr-addon_vX.Y.Z.zip`, checksums and publishes the release. No RC promotion sequence is required.

@@ -26,7 +26,7 @@ Kodi Managarr is a Kodi 19+ Python 3 context-menu add-on for managing Radarr mov
 
 ## Install
 
-1. Download `context.arr.manager-<version>.zip` from a GitHub release.
+1. Download `managarr-addon_v<version>.zip` from a GitHub release.
 2. In Kodi, open **Add-ons → Install from zip file**.
 3. Configure **My add-ons → Context menus → Kodi Managarr**.
 4. Enter the Radarr and Sonarr URLs and API keys.
