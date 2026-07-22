@@ -39,7 +39,6 @@ def _safe_member_name(name):
 def _validate_release_zip(path):
     if not path.is_file() or not zipfile.is_zipfile(path):
         raise ValueError(f"Release asset is not a valid ZIP: {path}")
-
     with zipfile.ZipFile(path) as archive:
         if archive.testzip() is not None:
             raise ValueError("Release ZIP failed integrity validation")
@@ -56,8 +55,11 @@ def _validate_release_zip(path):
                 raise ValueError("Release ZIP must contain exactly one context.arr.manager root")
 
         manifest_name = f"{ADDON_ID}/addon.xml"
+        licence_name = f"{ADDON_ID}/LICENSE.txt"
         if names.count(manifest_name) != 1:
             raise ValueError("Release ZIP must contain exactly one context.arr.manager/addon.xml")
+        if names.count(licence_name) != 1:
+            raise ValueError("Release ZIP must contain exactly one context.arr.manager/LICENSE.txt")
         manifest_bytes = archive.read(manifest_name)
         try:
             manifest = ET.fromstring(manifest_bytes)
@@ -69,34 +71,23 @@ def _validate_release_zip(path):
         if not version:
             raise ValueError("Release addon.xml is missing a version")
 
-        metadata = {"addon.xml": manifest_bytes}
-        for source, target in (
-            (f"{ADDON_ID}/resources/icon.png", "icon.png"),
-            (f"{ADDON_ID}/resources/fanart.jpg", "fanart.jpg"),
-        ):
+        metadata = {"addon.xml": manifest_bytes, "LICENSE.txt": archive.read(licence_name)}
+        for relative in ("resources/icon.png", "resources/fanart.jpg"):
+            source = f"{ADDON_ID}/{relative}"
             if source in names:
-                metadata[target] = archive.read(source)
+                metadata[relative] = archive.read(source)
         return version, manifest, metadata
 
 
 def create_repository_manifest(repo_version, repo_url):
     repo_url = repo_url.rstrip("/")
     root = ET.Element(
-        "addon",
-        id=REPOSITORY_ID,
-        name="Kodi Managarr Repository",
-        version=repo_version,
-        **{"provider-name": "CB"},
+        "addon", id=REPOSITORY_ID, name="Kodi Managarr Repository",
+        version=repo_version, **{"provider-name": "CB"},
     )
     requires = ET.SubElement(root, "requires")
     ET.SubElement(requires, "import", addon="xbmc.addon", version="19.0.0")
-
-    repository = ET.SubElement(
-        root,
-        "extension",
-        point="xbmc.addon.repository",
-        name="Kodi Managarr Repository",
-    )
+    repository = ET.SubElement(root, "extension", point="xbmc.addon.repository", name="Kodi Managarr Repository")
     directory = ET.SubElement(repository, "dir", minversion="19.0.0")
     ET.SubElement(directory, "info", compressed="false").text = f"{repo_url}/addons.xml"
     ET.SubElement(directory, "checksum").text = f"{repo_url}/addons.xml.md5"
@@ -105,10 +96,11 @@ def create_repository_manifest(repo_version, repo_url):
 
     metadata = ET.SubElement(root, "extension", point="xbmc.addon.metadata")
     ET.SubElement(metadata, "summary", lang="en_GB").text = "Repository for Kodi Managarr"
-    ET.SubElement(metadata, "description", lang="en_GB").text = (
-        "Install Kodi Managarr and receive normal Kodi add-on updates."
-    )
+    ET.SubElement(metadata, "description", lang="en_GB").text = "Install Kodi Managarr and receive normal Kodi add-on updates."
     ET.SubElement(metadata, "platform").text = "all"
+    ET.SubElement(metadata, "license").text = "GPL-3.0-or-later"
+    ET.SubElement(metadata, "website").text = repo_url
+    ET.SubElement(metadata, "source").text = "https://github.com/cbkii/kodi-managarr"
     assets = ET.SubElement(metadata, "assets")
     ET.SubElement(assets, "icon").text = "icon.png"
     ET.SubElement(assets, "fanart").text = "fanart.jpg"
@@ -122,26 +114,16 @@ def _xml_bytes(element):
 def _deterministic_zip(out_path, source_dir, epoch):
     epoch = max(int(epoch), 315532800)
     timestamp = datetime.fromtimestamp(epoch, timezone.utc)
-    zip_time = (
-        timestamp.year,
-        timestamp.month,
-        timestamp.day,
-        timestamp.hour,
-        timestamp.minute,
-        timestamp.second // 2 * 2,
-    )
+    zip_time = (timestamp.year, timestamp.month, timestamp.day, timestamp.hour, timestamp.minute, timestamp.second // 2 * 2)
     source_dir = source_dir.resolve()
     out_path = out_path.resolve()
     if out_path == source_dir or source_dir in out_path.parents:
         raise ValueError("Repository ZIP output must be outside the directory being archived")
-
     with zipfile.ZipFile(out_path, "w") as archive:
-        files = sorted(path for path in source_dir.rglob("*") if path.is_file())
-        for path in files:
+        for path in sorted(path for path in source_dir.rglob("*") if path.is_file()):
             if path.is_symlink():
                 raise ValueError(f"Symlink is not permitted in repository package: {path}")
-            relative = path.relative_to(source_dir.parent).as_posix()
-            info = zipfile.ZipInfo(relative, zip_time)
+            info = zipfile.ZipInfo(path.relative_to(source_dir.parent).as_posix(), zip_time)
             info.compress_type = zipfile.ZIP_DEFLATED
             info.create_system = 3
             info.flag_bits |= 0x800
@@ -151,6 +133,12 @@ def _deterministic_zip(out_path, source_dir, epoch):
 
 def _write_hash(path):
     _write_text(path.with_name(path.name + ".sha256"), f"{_sha256(path)}  {path.name}\n")
+
+
+def _write_relative(root, relative, content):
+    target = root / relative
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(content)
 
 
 def generate_repository(release_zip, out_dir, repo_version, repo_url, epoch):
@@ -171,18 +159,20 @@ def generate_repository(release_zip, out_dir, repo_version, repo_url, epoch):
     canonical_zip = addon_dir / f"{ADDON_ID}-{addon_version}.zip"
     shutil.copyfile(release_zip, canonical_zip)
     _write_hash(canonical_zip)
-    (addon_dir / "addon.xml").write_bytes(metadata["addon.xml"])
-    for name in ("icon.png", "fanart.jpg"):
-        if name in metadata:
-            (addon_dir / name).write_bytes(metadata[name])
+    _write_relative(addon_dir, "addon.xml", metadata["addon.xml"])
+    for relative in ("resources/icon.png", "resources/fanart.jpg"):
+        if relative in metadata:
+            _write_relative(addon_dir, relative, metadata[relative])
 
     repository_dir = out_dir / REPOSITORY_ID
     repository_dir.mkdir()
     repository_manifest = create_repository_manifest(repo_version, repo_url)
-    (repository_dir / "addon.xml").write_bytes(_xml_bytes(repository_manifest))
-    for name in ("icon.png", "fanart.jpg"):
-        if name in metadata:
-            (repository_dir / name).write_bytes(metadata[name])
+    _write_relative(repository_dir, "addon.xml", _xml_bytes(repository_manifest))
+    _write_relative(repository_dir, "LICENSE.txt", metadata["LICENSE.txt"])
+    if "resources/icon.png" in metadata:
+        _write_relative(repository_dir, "icon.png", metadata["resources/icon.png"])
+    if "resources/fanart.jpg" in metadata:
+        _write_relative(repository_dir, "fanart.jpg", metadata["resources/fanart.jpg"])
 
     repository_zip = repository_dir / f"{REPOSITORY_ID}-{repo_version}.zip"
     temporary_zip = out_dir / f".{repository_zip.name}.tmp"
@@ -197,15 +187,13 @@ def generate_repository(release_zip, out_dir, repo_version, repo_url, epoch):
     (out_dir / "addons.xml").write_bytes(addons_bytes)
     _write_text(out_dir / "addons.xml.md5", hashlib.md5(addons_bytes).hexdigest() + "\n")  # nosec B303: Kodi change token
     _write_text(out_dir / "addons.xml.sha256", hashlib.sha256(addons_bytes).hexdigest() + "\n")
-    _write_text(
-        out_dir / "index.html",
-        "<!doctype html><meta charset=\"utf-8\"><title>Kodi Managarr Repository</title>"
-        "<h1>Kodi Managarr Repository</h1>\n",
-    )
+    _write_text(out_dir / "index.html", "<!doctype html><meta charset=\"utf-8\"><title>Kodi Managarr Repository</title><h1>Kodi Managarr Repository</h1>\n")
 
     with zipfile.ZipFile(repository_zip) as archive:
         if archive.testzip() is not None or repository_zip.name in archive.namelist():
             raise ValueError("Generated repository add-on ZIP failed validation")
+        if not {f"{REPOSITORY_ID}/addon.xml", f"{REPOSITORY_ID}/LICENSE.txt"}.issubset(archive.namelist()):
+            raise ValueError("Generated repository add-on ZIP is missing required files")
     return addon_version, repository_zip
 
 
@@ -217,13 +205,7 @@ def main():
     parser.add_argument("--out-dir", type=Path, default=Path("pages_output"))
     args = parser.parse_args()
     epoch = int(os.environ.get("SOURCE_DATE_EPOCH", DEFAULT_EPOCH))
-    addon_version, repository_zip = generate_repository(
-        args.release_zip,
-        args.out_dir,
-        args.repo_version,
-        args.repo_url,
-        epoch,
-    )
+    addon_version, repository_zip = generate_repository(args.release_zip, args.out_dir, args.repo_version, args.repo_url, epoch)
     print(f"Repository generated for {ADDON_ID} {addon_version}: {repository_zip}")
 
 
