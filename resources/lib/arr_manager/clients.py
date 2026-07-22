@@ -150,12 +150,19 @@ class SonarrClient(ServarrClient):
         return _object(self.http.request("PUT", f"/episode/{_id(episode.get('id'), 'Episode')}", payload=episode), "Episode update")
 
     def set_episodes_monitored(self, episode_ids, monitored):
-        valid_ids = [_id(eid, "Episode") for eid in episode_ids]
+        valid_ids = []
+        seen = set()
+        for value in episode_ids:
+            episode_id = _id(value, "Episode")
+            if episode_id not in seen:
+                seen.add(episode_id)
+                valid_ids.append(episode_id)
         if not valid_ids:
             return None
-        return _object(
-            self.http.request("PUT", "/episode/monitor", payload={"episodeIds": valid_ids, "monitored": bool(monitored)}),
-            "Episode monitoring update"
+        return self.http.request(
+            "PUT",
+            "/episode/monitor",
+            payload={"episodeIds": valid_ids, "monitored": bool(monitored)},
         )
 
     def episode_files(self, series_id):
