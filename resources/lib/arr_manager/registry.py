@@ -1,163 +1,50 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-ACTION_REGISTRY = [
-    {
-        "id": "status",
-        "label_id": 32003,
-        "default_label": "Status",
-        "group": "root",
-        "mode": "status",
-        "destructive": False,
-        "requires_selection": True,
-        "simple_mode": True,
+ALL_MEDIA = ("movie", "tvshow", "episode")
+
+
+def _action(action_id, label_id, label, group, mode, order, *, simple, mutating=False,
+            destructive=False, requires_selection=True, submenu=False, media_types=ALL_MEDIA):
+    return {
+        "id": action_id,
+        "label_id": label_id,
+        "default_label": label,
+        "group": group,
+        "mode": mode,
+        "default_mode": "simple" if simple else "advanced",
+        "default_order": order,
+        "media_types": tuple(media_types),
+        "mutating": bool(mutating),
+        "destructive": bool(destructive),
+        "requires_selection": bool(requires_selection),
+        "simple_mode": bool(simple),
         "advanced_mode": True,
-        "default_order": 10,
-    },
-    {
-        "id": "search_now",
-        "label_id": 32004,
-        "default_label": "Search & download now",
-        "group": "root",
-        "mode": "search_now",
-        "destructive": False,
-        "requires_selection": True,
-        "simple_mode": True,
-        "advanced_mode": True,
-        "default_order": 20,
-    },
-    {
-        "id": "monitoring",
-        "label_id": 32005,
-        "default_label": "Monitoring",
-        "group": "root",
-        "mode": "monitoring_menu",
-        "destructive": False,
-        "requires_selection": True,
-        "simple_mode": False,
-        "advanced_mode": True,
-        "default_order": 30,
-        "is_submenu": True,
-    },
-    {
-        "id": "monitor",
-        "label_id": 32006,
-        "default_label": "Monitor",
-        "group": "monitoring",
-        "mode": "monitor",
-        "destructive": False,
-        "requires_selection": True,
-        "simple_mode": False,
-        "advanced_mode": True,
-        "default_order": 31,
-    },
-    {
-        "id": "unmonitor",
-        "label_id": 32007,
-        "default_label": "Unmonitor",
-        "group": "monitoring",
-        "mode": "unmonitor",
-        "destructive": False,
-        "requires_selection": True,
-        "simple_mode": False,
-        "advanced_mode": True,
-        "default_order": 32,
-    },
-    {
-        "id": "change_quality_profile",
-        "label_id": 32008,
-        "default_label": "Change quality profile",
-        "group": "monitoring",
-        "mode": "change_quality_profile",
-        "destructive": False,
-        "requires_selection": True,
-        "simple_mode": False,
-        "advanced_mode": True,
-        "default_order": 33,
-    },
-    {
-        "id": "queue",
-        "label_id": 32009,
-        "default_label": "Download queue",
-        "group": "root",
-        "mode": "queue_menu",
-        "destructive": False,
-        "requires_selection": True,
-        "simple_mode": False,
-        "advanced_mode": True,
-        "default_order": 40,
-        "is_submenu": True,
-    },
-    {
-        "id": "queue_view",
-        "label_id": 32010,
-        "default_label": "View status",
-        "group": "queue",
-        "mode": "queue_view",
-        "destructive": False,
-        "requires_selection": True,
-        "simple_mode": False,
-        "advanced_mode": True,
-        "default_order": 41,
-    },
-    {
-        "id": "queue_remove",
-        "label_id": 32011,
-        "default_label": "Remove from queue",
-        "group": "queue",
-        "mode": "queue_remove",
-        "destructive": True,
-        "requires_selection": True,
-        "simple_mode": False,
-        "advanced_mode": True,
-        "default_order": 42,
-    },
-    {
-        "id": "delete_exclude",
-        "label_id": 32001,
-        "default_label": "Delete & Exclude",
-        "group": "root",
-        "mode": "delete_exclude",
-        "destructive": True,
-        "requires_selection": True,
-        "simple_mode": True,
-        "advanced_mode": True,
-        "default_order": 50,
-    },
-    {
-        "id": "delete_replace",
-        "label_id": 32002,
-        "default_label": "Delete & Replace",
-        "group": "root",
-        "mode": "delete_replace",
-        "destructive": True,
-        "requires_selection": True,
-        "simple_mode": True,
-        "advanced_mode": True,
-        "default_order": 60,
-    },
-    {
-        "id": "tools",
-        "label_id": 32500,
-        "default_label": "Tools & settings",
-        "group": "root",
-        "mode": "tools_menu",
-        "destructive": False,
-        "requires_selection": False,
-        "simple_mode": True,
-        "advanced_mode": True,
-        "default_order": 70,
-        "is_submenu": True,
+        "is_submenu": bool(submenu),
+        "dispatcher_mode": mode,
     }
+
+
+ACTION_REGISTRY = [
+    _action("status", 32003, "Status", "root", "status", 10, simple=True),
+    _action("search_now", 32004, "Search & download now", "root", "search_now", 20, simple=True, mutating=True),
+    _action("monitoring", 32005, "Monitoring", "root", "monitoring_menu", 30, simple=False, submenu=True),
+    _action("monitor", 32006, "Monitor", "monitoring", "monitor", 31, simple=False, mutating=True),
+    _action("unmonitor", 32007, "Unmonitor", "monitoring", "unmonitor", 32, simple=False, mutating=True),
+    _action("change_quality_profile", 32008, "Change quality profile", "monitoring", "change_quality_profile", 33, simple=False, mutating=True),
+    _action("queue", 32009, "Download queue", "root", "queue_menu", 40, simple=False, submenu=True),
+    _action("queue_view", 32010, "View status", "queue", "queue_view", 41, simple=False),
+    # Queue removal is mutating but does not delete imported media; its existing
+    # confirmation remains sufficient and the media-deletion PIN is not required.
+    _action("queue_remove", 32011, "Remove from queue", "queue", "queue_remove", 42, simple=False, mutating=True),
+    _action("delete_exclude", 32001, "Delete & Exclude", "root", "delete_exclude", 50, simple=True, mutating=True, destructive=True),
+    _action("delete_replace", 32002, "Delete & Replace", "root", "delete_replace", 60, simple=True, mutating=True, destructive=True),
+    _action("tools", 32500, "Tools & settings", "root", "tools_menu", 70, simple=True, requires_selection=False, submenu=True, media_types=()),
 ]
 
+
 def get_action_by_id(action_id):
-    for action in ACTION_REGISTRY:
-        if action["id"] == action_id:
-            return action
-    return None
+    return next((action for action in ACTION_REGISTRY if action["id"] == action_id), None)
+
 
 def get_action_by_mode(mode):
-    for action in ACTION_REGISTRY:
-        if action["mode"] == mode:
-            return action
-    return None
+    return next((action for action in ACTION_REGISTRY if action["mode"] == mode), None)
