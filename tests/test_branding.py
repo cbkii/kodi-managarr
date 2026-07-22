@@ -20,11 +20,7 @@ class BrandingTests(unittest.TestCase):
             item.attrib["args"]
             for item in root.findall(".//extension[@point='kodi.context.item']//item")
         }
-        self.assertEqual(args, {
-            "status", "search_now", "monitor", "unmonitor",
-            "change_quality_profile", "queue_view", "queue_remove",
-            "delete_exclude", "delete_replace",
-        })
+        self.assertEqual(args, {"menu"})
 
     def test_legacy_branding_is_absent_from_runtime_metadata(self):
         for relative in (

@@ -5,7 +5,7 @@ class MetadataTests(unittest.TestCase):
     def test_complete_context_scope_and_assets(self):
         root=ET.parse(ROOT/'addon.xml').getroot()
         args={item.attrib.get('args') for item in root.findall(".//extension[@point='kodi.context.item']//item")}
-        self.assertEqual(args,{'status','search_now','monitor','unmonitor','change_quality_profile','queue_view','queue_remove','delete_exclude','delete_replace'})
+        self.assertEqual(args,{'menu'})
         assets=root.find("extension[@point='xbmc.addon.metadata']/assets")
         self.assertEqual(assets.findtext('icon'),'resources/icon.png')
         self.assertEqual(assets.findtext('fanart'),'resources/fanart.jpg')

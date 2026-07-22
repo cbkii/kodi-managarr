@@ -1,29 +1,11 @@
-<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<?xml version='1.0' encoding='UTF-8'?>
 <addon id="context.arr.manager" name="Kodi Managarr" version="1.1.1" provider-name="CB">
   <requires>
-    <import addon="xbmc.python" version="3.0.0"/>
+    <import addon="xbmc.python" version="3.0.0" />
   </requires>
   <extension point="kodi.context.item">
     <menu id="kodi.core.main">
-      <menu>
-        <label>Managarr</label>
-        <item library="context.py" args="status"><label>32003</label><visible>String.IsEqual(ListItem.DBType,movie) | String.IsEqual(ListItem.DBType,tvshow) | String.IsEqual(ListItem.DBType,episode)</visible></item>
-        <item library="context.py" args="search_now"><label>32004</label><visible>String.IsEqual(ListItem.DBType,movie) | String.IsEqual(ListItem.DBType,tvshow) | String.IsEqual(ListItem.DBType,episode)</visible></item>
-        <menu>
-          <label>32005</label>
-          <item library="context.py" args="monitor"><label>32006</label><visible>String.IsEqual(ListItem.DBType,movie) | String.IsEqual(ListItem.DBType,tvshow) | String.IsEqual(ListItem.DBType,episode)</visible></item>
-          <item library="context.py" args="unmonitor"><label>32007</label><visible>String.IsEqual(ListItem.DBType,movie) | String.IsEqual(ListItem.DBType,tvshow) | String.IsEqual(ListItem.DBType,episode)</visible></item>
-          <item library="context.py" args="change_quality_profile"><label>32008</label><visible>String.IsEqual(ListItem.DBType,movie) | String.IsEqual(ListItem.DBType,tvshow) | String.IsEqual(ListItem.DBType,episode)</visible></item>
-        </menu>
-        <menu>
-          <label>32009</label>
-          <item library="context.py" args="queue_view"><label>32010</label><visible>String.IsEqual(ListItem.DBType,movie) | String.IsEqual(ListItem.DBType,tvshow) | String.IsEqual(ListItem.DBType,episode)</visible></item>
-          <item library="context.py" args="queue_remove"><label>32011</label><visible>String.IsEqual(ListItem.DBType,movie) | String.IsEqual(ListItem.DBType,tvshow) | String.IsEqual(ListItem.DBType,episode)</visible></item>
-        </menu>
-        <item library="context.py" args="delete_exclude"><label>32001</label><visible>String.IsEqual(ListItem.DBType,movie) | String.IsEqual(ListItem.DBType,tvshow) | String.IsEqual(ListItem.DBType,episode)</visible></item>
-        <item library="context.py" args="delete_replace"><label>32002</label><visible>String.IsEqual(ListItem.DBType,movie) | String.IsEqual(ListItem.DBType,tvshow) | String.IsEqual(ListItem.DBType,episode)</visible></item>
-      </menu>
-    </menu>
+      <item library="context.py" args="menu"><label>Managarr</label><visible>String.IsEqual(ListItem.DBType,movie) | String.IsEqual(ListItem.DBType,tvshow) | String.IsEqual(ListItem.DBType,episode)</visible></item></menu>
   </extension>
   <extension point="xbmc.python.script" library="default.py">
     <provides>executable</provides>
@@ -35,7 +17,7 @@
     <license>GPL-3.0-or-later</license>
     <source>https://github.com/cbkii/kodi-managarr</source>
     <website>https://github.com/cbkii/kodi-managarr</website>
-    <news>Use maintained release notes by default and publish clearer managarr-addon_vX.Y.Z.zip assets.</news>
+    <news>Introduce repository.managarr for automatic updates, highly configurable context menus via settings, and optional PIN protection for destructive actions.</news>
     <assets>
       <icon>resources/icon.png</icon>
       <fanart>resources/fanart.jpg</fanart>

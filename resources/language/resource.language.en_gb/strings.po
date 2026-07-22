@@ -767,3 +767,79 @@ msgstr "The selected episode file has no allowlisted Kodi mapping."
 msgctxt "#32887"
 msgid "Changing the quality profile for an episode applies to the entire series '{title}'. Continue?"
 msgstr "Changing the quality profile for an episode applies to the entire series '{title}'. Continue?"
+
+#. pin_prompt
+msgctxt "#32888"
+msgid "Enter PIN"
+msgstr "Enter PIN"
+
+#. pin_incorrect
+msgctxt "#32889"
+msgid "Incorrect PIN"
+msgstr "Incorrect PIN"
+
+#. menu_category
+msgctxt "#32900"
+msgid "Menu"
+msgstr "Menu"
+
+#. menu_category_help
+msgctxt "#32901"
+msgid "Configure context menu and action protection."
+msgstr "Configure context menu and action protection."
+
+#. menu_mode
+msgctxt "#32902"
+msgid "Menu mode"
+msgstr "Menu mode"
+
+#. menu_mode_help
+msgctxt "#32903"
+msgid "Choose between a simplified menu or all available actions."
+msgstr "Choose between a simplified menu or all available actions."
+
+#. menu_mode_simple
+msgctxt "#32904"
+msgid "Simple"
+msgstr "Simple"
+
+#. menu_mode_advanced
+msgctxt "#32905"
+msgid "Advanced"
+msgstr "Advanced"
+
+#. configure_menu
+msgctxt "#32906"
+msgid "Configure menu"
+msgstr "Configure menu"
+
+#. configure_menu_help
+msgctxt "#32907"
+msgid "Show, hide, and reorder items in the Managarr menu."
+msgstr "Show, hide, and reorder items in the Managarr menu."
+
+#. pin_enabled
+msgctxt "#32908"
+msgid "Require PIN for destructive actions"
+msgstr "Require PIN for destructive actions"
+
+#. pin_enabled_help
+msgctxt "#32909"
+msgid "Prompt for a PIN before deleting media or modifying the queue."
+msgstr "Prompt for a PIN before deleting media or modifying the queue."
+
+#. manage_pin
+msgctxt "#32910"
+msgid "Manage PIN"
+msgstr "Manage PIN"
+
+#. manage_pin_help
+msgctxt "#32911"
+msgid "Set, change, or remove the protection PIN."
+msgstr "Set, change, or remove the protection PIN."
+
+
+#. hidden_state
+msgctxt "#32912"
+msgid "Hidden State"
+msgstr "Hidden State"

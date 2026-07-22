@@ -1,0 +1,68 @@
+name: Generate and Publish Repository
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Release tag to fetch (e.g. v1.1.1). Leave empty to use latest stable.'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Fetch Release Asset
+        id: fetch-release
+        uses: dsaltares/fetch-gh-release-asset@master
+        with:
+          version: ${{ github.event.inputs.release_tag || '' }}
+          file: 'managarr-addon_v.*\.zip'
+          regex: true
+          target: 'release.zip'
+
+      - name: Generate Repository
+        run: |
+          # Use fixed epoch for reproducible builds
+          export SOURCE_DATE_EPOCH=1700000000
+          python scripts/generate_repo.py release.zip --repo-url "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './pages_output'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Output Summary
+        run: |
+          echo "## Repository Published :rocket:" >> $GITHUB_STEP_SUMMARY
+          echo "Repository URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}" >> $GITHUB_STEP_SUMMARY
+          echo "Repository zip is located at the URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/repository.managarr/repository.managarr-1.0.0.zip" >> $GITHUB_STEP_SUMMARY

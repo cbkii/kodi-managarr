@@ -35,6 +35,19 @@ class Settings:
         self.dry_run = as_bool(get("dry_run"), False)
         self.require_blocklist = as_bool(get("require_blocklist"), True)
         self.debug = as_bool(get("debug"), False)
+
+        self.menu_mode = get("menu_mode") or "simple"
+        self.hidden_actions = [a.strip() for a in get("hidden_actions").split(",") if a.strip()]
+        self.action_order = [a.strip() for a in get("action_order").split(",") if a.strip()]
+
+        self.pin_enabled = as_bool(get("pin_enabled"), False)
+
+        pin_hash_hex = get("pin_hash")
+        self.pin_hash = bytes.fromhex(pin_hash_hex) if pin_hash_hex else b""
+
+        pin_salt_hex = get("pin_salt")
+        self.pin_salt = bytes.fromhex(pin_salt_hex) if pin_salt_hex else b""
+
         self.path_mapping_warning = ""
 
         raw_mappings = get("path_mappings")
