@@ -1,154 +1,231 @@
 #!/usr/bin/env python3
-"""
-Deterministically generate a Kodi repository structure from a released Managarr zip.
-"""
+"""Deterministically build the Managarr Kodi repository from a release ZIP."""
+
 import argparse
 import hashlib
 import os
 import shutil
+import stat
 import xml.etree.ElementTree as ET
 import zipfile
-from pathlib import Path
+from datetime import datetime, timezone
+from pathlib import Path, PurePosixPath
 
-def create_addon_xml(repo_version, addon_version, repo_url):
-    root = ET.Element("addon", id="repository.managarr", name="Kodi Managarr Repository", version=repo_version, provider_name="CB")
+ADDON_ID = "context.arr.manager"
+REPOSITORY_ID = "repository.managarr"
+DEFAULT_REPOSITORY_URL = "https://cbkii.github.io/kodi-managarr"
+DEFAULT_EPOCH = 1700000000
 
+
+def _sha256(path):
+    digest = hashlib.sha256()
+    with open(path, "rb") as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _write_text(path, value):
+    path.write_text(value, encoding="utf-8", newline="\n")
+
+
+def _safe_member_name(name):
+    if not name or "\\" in name:
+        return False
+    path = PurePosixPath(name)
+    return not path.is_absolute() and ".." not in path.parts
+
+
+def _validate_release_zip(path):
+    if not path.is_file() or not zipfile.is_zipfile(path):
+        raise ValueError(f"Release asset is not a valid ZIP: {path}")
+
+    with zipfile.ZipFile(path) as archive:
+        if archive.testzip() is not None:
+            raise ValueError("Release ZIP failed integrity validation")
+        names = archive.namelist()
+        if not names:
+            raise ValueError("Release ZIP is empty")
+        for info in archive.infolist():
+            if not _safe_member_name(info.filename):
+                raise ValueError(f"Unsafe release ZIP member: {info.filename}")
+            mode = (info.external_attr >> 16) & 0xFFFF
+            if stat.S_ISLNK(mode):
+                raise ValueError(f"Symlink is not permitted in release ZIP: {info.filename}")
+            if PurePosixPath(info.filename).parts[0] != ADDON_ID:
+                raise ValueError("Release ZIP must contain exactly one context.arr.manager root")
+
+        manifest_name = f"{ADDON_ID}/addon.xml"
+        if names.count(manifest_name) != 1:
+            raise ValueError("Release ZIP must contain exactly one context.arr.manager/addon.xml")
+        manifest_bytes = archive.read(manifest_name)
+        try:
+            manifest = ET.fromstring(manifest_bytes)
+        except ET.ParseError as exc:
+            raise ValueError("Release addon.xml is malformed") from exc
+        if manifest.tag != "addon" or manifest.attrib.get("id") != ADDON_ID:
+            raise ValueError("Release addon.xml has the wrong add-on ID")
+        version = (manifest.attrib.get("version") or "").strip()
+        if not version:
+            raise ValueError("Release addon.xml is missing a version")
+
+        metadata = {"addon.xml": manifest_bytes}
+        for source, target in (
+            (f"{ADDON_ID}/resources/icon.png", "icon.png"),
+            (f"{ADDON_ID}/resources/fanart.jpg", "fanart.jpg"),
+        ):
+            if source in names:
+                metadata[target] = archive.read(source)
+        return version, manifest, metadata
+
+
+def create_repository_manifest(repo_version, repo_url):
+    repo_url = repo_url.rstrip("/")
+    root = ET.Element(
+        "addon",
+        id=REPOSITORY_ID,
+        name="Kodi Managarr Repository",
+        version=repo_version,
+        **{"provider-name": "CB"},
+    )
     requires = ET.SubElement(root, "requires")
     ET.SubElement(requires, "import", addon="xbmc.addon", version="19.0.0")
 
-    extension_repo = ET.SubElement(root, "extension", point="xbmc.addon.repository", name="Kodi Managarr Repository")
-    dir_node = ET.SubElement(extension_repo, "dir")
-    ET.SubElement(dir_node, "info", compressed="false").text = f"{repo_url}/addons.xml"
-    ET.SubElement(dir_node, "checksum").text = f"{repo_url}/addons.xml.md5"
-    ET.SubElement(dir_node, "datadir", zip="true").text = f"{repo_url}/"
+    repository = ET.SubElement(
+        root,
+        "extension",
+        point="xbmc.addon.repository",
+        name="Kodi Managarr Repository",
+    )
+    directory = ET.SubElement(repository, "dir", minversion="19.0.0")
+    ET.SubElement(directory, "info", compressed="false").text = f"{repo_url}/addons.xml"
+    ET.SubElement(directory, "checksum").text = f"{repo_url}/addons.xml.md5"
+    ET.SubElement(directory, "datadir", zip="true").text = f"{repo_url}/"
+    ET.SubElement(directory, "hashes").text = "sha256"
 
-    extension_meta = ET.SubElement(root, "extension", point="xbmc.addon.metadata")
-    ET.SubElement(extension_meta, "summary", lang="en_GB").text = "Official repository for Kodi Managarr."
-    ET.SubElement(extension_meta, "description", lang="en_GB").text = "Provides automatic updates for Kodi Managarr."
-    ET.SubElement(extension_meta, "platform").text = "all"
-
-    assets = ET.SubElement(extension_meta, "assets")
+    metadata = ET.SubElement(root, "extension", point="xbmc.addon.metadata")
+    ET.SubElement(metadata, "summary", lang="en_GB").text = "Repository for Kodi Managarr"
+    ET.SubElement(metadata, "description", lang="en_GB").text = (
+        "Install Kodi Managarr and receive normal Kodi add-on updates."
+    )
+    ET.SubElement(metadata, "platform").text = "all"
+    assets = ET.SubElement(metadata, "assets")
     ET.SubElement(assets, "icon").text = "icon.png"
+    ET.SubElement(assets, "fanart").text = "fanart.jpg"
+    return root
 
-    return ET.tostring(root, encoding="utf-8", xml_declaration=True).decode("utf-8")
+
+def _xml_bytes(element):
+    return ET.tostring(element, encoding="utf-8", xml_declaration=True)
+
 
 def _deterministic_zip(out_path, source_dir, epoch):
-    import stat
-    import time
-    from datetime import datetime, timezone
+    epoch = max(int(epoch), 315532800)
+    timestamp = datetime.fromtimestamp(epoch, timezone.utc)
+    zip_time = (
+        timestamp.year,
+        timestamp.month,
+        timestamp.day,
+        timestamp.hour,
+        timestamp.minute,
+        timestamp.second // 2 * 2,
+    )
+    source_dir = source_dir.resolve()
+    out_path = out_path.resolve()
+    if out_path == source_dir or source_dir in out_path.parents:
+        raise ValueError("Repository ZIP output must be outside the directory being archived")
 
-    if epoch < 315532800:
-        epoch = 315532800
+    with zipfile.ZipFile(out_path, "w") as archive:
+        files = sorted(path for path in source_dir.rglob("*") if path.is_file())
+        for path in files:
+            if path.is_symlink():
+                raise ValueError(f"Symlink is not permitted in repository package: {path}")
+            relative = path.relative_to(source_dir.parent).as_posix()
+            info = zipfile.ZipInfo(relative, zip_time)
+            info.compress_type = zipfile.ZIP_DEFLATED
+            info.create_system = 3
+            info.flag_bits |= 0x800
+            info.external_attr = ((stat.S_IFREG | 0o644) & 0xFFFF) << 16
+            archive.writestr(info, path.read_bytes(), compress_type=zipfile.ZIP_DEFLATED, compresslevel=9)
 
-    dt = datetime.fromtimestamp(epoch, timezone.utc)
-    ts = (dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second // 2 * 2)
 
-    with zipfile.ZipFile(out_path, "w") as zf:
-        for root, _, files in os.walk(source_dir):
-            for file in sorted(files):
-                full_path = os.path.join(root, file)
-                rel_path = os.path.relpath(full_path, source_dir.parent)
+def _write_hash(path):
+    _write_text(path.with_name(path.name + ".sha256"), f"{_sha256(path)}  {path.name}\n")
 
-                info = zipfile.ZipInfo(rel_path, ts)
-                info.compress_type = zipfile.ZIP_DEFLATED
-                info.create_system = 3
-                info.flag_bits |= 0x800
-                info.external_attr = ((stat.S_IFREG | 0o644) & 0xFFFF) << 16
 
-                with open(full_path, "rb") as f:
-                    zf.writestr(info, f.read(), compress_type=zipfile.ZIP_DEFLATED, compresslevel=9)
+def generate_repository(release_zip, out_dir, repo_version, repo_url, epoch):
+    addon_version, addon_manifest, metadata = _validate_release_zip(release_zip)
+    repo_version = str(repo_version or "").strip()
+    if not repo_version:
+        raise ValueError("Repository add-on version is required")
+    if not str(repo_url).lower().startswith("https://"):
+        raise ValueError("Repository URL must use HTTPS")
+
+    out_dir = out_dir.resolve()
+    if out_dir.exists():
+        shutil.rmtree(out_dir)
+    out_dir.mkdir(parents=True)
+
+    addon_dir = out_dir / ADDON_ID
+    addon_dir.mkdir()
+    canonical_zip = addon_dir / f"{ADDON_ID}-{addon_version}.zip"
+    shutil.copyfile(release_zip, canonical_zip)
+    _write_hash(canonical_zip)
+    (addon_dir / "addon.xml").write_bytes(metadata["addon.xml"])
+    for name in ("icon.png", "fanart.jpg"):
+        if name in metadata:
+            (addon_dir / name).write_bytes(metadata[name])
+
+    repository_dir = out_dir / REPOSITORY_ID
+    repository_dir.mkdir()
+    repository_manifest = create_repository_manifest(repo_version, repo_url)
+    (repository_dir / "addon.xml").write_bytes(_xml_bytes(repository_manifest))
+    for name in ("icon.png", "fanart.jpg"):
+        if name in metadata:
+            (repository_dir / name).write_bytes(metadata[name])
+
+    repository_zip = repository_dir / f"{REPOSITORY_ID}-{repo_version}.zip"
+    temporary_zip = out_dir / f".{repository_zip.name}.tmp"
+    _deterministic_zip(temporary_zip, repository_dir, epoch)
+    os.replace(temporary_zip, repository_zip)
+    _write_hash(repository_zip)
+
+    addons = ET.Element("addons")
+    addons.append(repository_manifest)
+    addons.append(addon_manifest)
+    addons_bytes = _xml_bytes(addons)
+    (out_dir / "addons.xml").write_bytes(addons_bytes)
+    _write_text(out_dir / "addons.xml.md5", hashlib.md5(addons_bytes).hexdigest() + "\n")  # nosec B303: Kodi change token
+    _write_text(out_dir / "addons.xml.sha256", hashlib.sha256(addons_bytes).hexdigest() + "\n")
+    _write_text(
+        out_dir / "index.html",
+        "<!doctype html><meta charset=\"utf-8\"><title>Kodi Managarr Repository</title>"
+        "<h1>Kodi Managarr Repository</h1>\n",
+    )
+
+    with zipfile.ZipFile(repository_zip) as archive:
+        if archive.testzip() is not None or repository_zip.name in archive.namelist():
+            raise ValueError("Generated repository add-on ZIP failed validation")
+    return addon_version, repository_zip
+
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("release_zip", type=Path)
     parser.add_argument("--repo-version", default="1.0.0")
-    parser.add_argument("--repo-url", default="https://cbkii.github.io/kodi-managarr")
+    parser.add_argument("--repo-url", default=DEFAULT_REPOSITORY_URL)
     parser.add_argument("--out-dir", type=Path, default=Path("pages_output"))
     args = parser.parse_args()
+    epoch = int(os.environ.get("SOURCE_DATE_EPOCH", DEFAULT_EPOCH))
+    addon_version, repository_zip = generate_repository(
+        args.release_zip,
+        args.out_dir,
+        args.repo_version,
+        args.repo_url,
+        epoch,
+    )
+    print(f"Repository generated for {ADDON_ID} {addon_version}: {repository_zip}")
 
-    if not args.release_zip.is_file():
-        raise FileNotFoundError(f"Missing release zip: {args.release_zip}")
-
-    out_dir = args.out_dir
-    if out_dir.exists():
-        shutil.rmtree(out_dir)
-    out_dir.mkdir(parents=True)
-
-    # 1. Extract addon.xml from the release zip to find its version
-    addon_version = "unknown"
-    with zipfile.ZipFile(args.release_zip, "r") as zf:
-        for name in zf.namelist():
-            if name.endswith("addon.xml") and name.startswith("context.arr.manager/"):
-                addon_xml_content = zf.read(name)
-                root = ET.fromstring(addon_xml_content)
-                addon_version = root.attrib.get("version")
-                break
-
-    if addon_version == "unknown":
-        raise ValueError("Could not find addon.xml in the release zip")
-
-    # 2. Copy the release zip to canonical path
-    addon_dir = out_dir / "context.arr.manager"
-    addon_dir.mkdir()
-
-    canonical_zip_path = addon_dir / f"context.arr.manager-{addon_version}.zip"
-    shutil.copy2(args.release_zip, canonical_zip_path)
-
-    # 3. Extract metadata beside the zip (addon.xml, icon, fanart)
-    with zipfile.ZipFile(args.release_zip, "r") as zf:
-        zf.extract("context.arr.manager/addon.xml", out_dir)
-        try:
-            zf.extract("context.arr.manager/resources/icon.png", out_dir)
-            shutil.copy2(out_dir / "context.arr.manager/resources/icon.png", addon_dir / "icon.png")
-        except KeyError:
-            pass
-        try:
-            zf.extract("context.arr.manager/resources/fanart.jpg", out_dir)
-            shutil.copy2(out_dir / "context.arr.manager/resources/fanart.jpg", addon_dir / "fanart.jpg")
-        except KeyError:
-            pass
-    shutil.rmtree(out_dir / "context.arr.manager/resources", ignore_errors=True)
-
-    # 4. Generate repository.managarr structure
-    repo_dir = out_dir / "repository.managarr"
-    repo_dir.mkdir()
-    repo_xml_content = create_addon_xml(args.repo_version, addon_version, args.repo_url)
-
-    with open(repo_dir / "addon.xml", "w") as f:
-        f.write(repo_xml_content)
-
-    # Provide a basic icon for the repo (copy from main addon if it exists)
-    if (addon_dir / "icon.png").exists():
-        shutil.copy2(addon_dir / "icon.png", repo_dir / "icon.png")
-
-    # Package the repository addon zip deterministically
-    repo_zip_path = repo_dir / f"repository.managarr-{args.repo_version}.zip"
-    epoch = int(os.environ.get("SOURCE_DATE_EPOCH", 1700000000))
-    _deterministic_zip(repo_zip_path, repo_dir, epoch)
-
-    # Generate index for Pages (optional but good)
-    with open(out_dir / "index.html", "w") as f:
-        f.write("<html><body><h1>Kodi Managarr Repository</h1></body></html>")
-
-    # 5. Generate addons.xml
-    addons_root = ET.Element("addons")
-    # Add repo addon info
-    repo_addon = ET.fromstring(repo_xml_content)
-    addons_root.append(repo_addon)
-    # Add main addon info
-    main_addon = ET.fromstring(addon_xml_content)
-    addons_root.append(main_addon)
-
-    addons_xml = ET.tostring(addons_root, encoding="utf-8", xml_declaration=True).decode("utf-8")
-    with open(out_dir / "addons.xml", "w") as f:
-        f.write(addons_xml)
-
-    # 6. Generate addons.xml.md5
-    md5 = hashlib.md5(addons_xml.encode("utf-8")).hexdigest()
-    with open(out_dir / "addons.xml.md5", "w") as f:
-        f.write(md5)
-
-    print("Repository generated successfully.")
 
 if __name__ == "__main__":
     main()
