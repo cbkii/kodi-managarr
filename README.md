@@ -6,7 +6,7 @@ Kodi Managarr is a Kodi 19+ Python 3 context-menu add-on for managing Radarr mov
 
 - **Status** — service, monitoring, quality-profile and file status for the selected item.
 - **Search & download now** — queues and verifies the appropriate Radarr movie, Sonarr series or Sonarr episode search.
-- **Monitoring** — monitor, unmonitor, or change quality profile. An episode quality-profile change is explicitly series-wide because Sonarr profiles are assigned to series.
+- **Monitoring** — monitor, unmonitor, or change quality profile. An episode quality-profile change is series-wide because Sonarr profiles are assigned to series.
 - **Download queue** — view matching queue entries or remove one from Servarr and its download client without blocklisting it.
 - **Delete & Exclude** — removes the selected movie/series, or deletes and unmonitors the selected episode file.
 - **Delete & Replace** — proves and blocklists the imported release, deletes the file, reconciles Servarr, searches for a replacement and synchronises Kodi.
@@ -17,26 +17,35 @@ Kodi Managarr is a Kodi 19+ Python 3 context-menu add-on for managing Radarr mov
 - Direct SMB/SFTP deletion uses Kodi VFS and Kodi-managed credentials.
 - Direct deletion always requires confirmation, even if confirmation is disabled for API-only operations.
 - Empty, malformed, root, share-root, mapping-root, protected, traversal and ambiguous paths fail closed.
-- SMB path components are compared case-sensitively; scheme and host identity are normalised.
 - Every multi-file direct operation validates every target before blocklisting or deleting anything.
-- Confirmed VFS folder plans are re-enumerated before deletion, including empty directories, and removals are verified against parent listings.
-- Servarr commands are successful only when the command has terminal `Completed` status and `Successful` result.
+- Confirmed VFS folder plans are re-enumerated before deletion and removals are verified against parent listings.
+- Servarr commands succeed only with terminal `Completed` status and `Successful` result.
 - Partial commits are persisted without secrets and reported with completed transaction stages.
 - API keys and credential-bearing URLs are never written to diagnostics or logs.
 
-## Install
+## Install and automatic updates
 
-1. Download `repository.managarr-X.Y.Z.zip` from a GitHub release or the [project page](https://cbkii.github.io/kodi-managarr/).
-2. Enable 'Unknown sources' in Kodi settings if required.
-3. In Kodi, open **Add-ons → Install from zip file** and select the repository zip.
-4. Open **Install from repository**, select the Managarr repository, and install Kodi Managarr.
-5. Leave Kodi's normal auto-update setting enabled.
+1. Download `repository.managarr-X.Y.Z.zip` from the [project repository page](https://cbkii.github.io/kodi-managarr/).
+2. Enable **Unknown sources** in Kodi settings if required.
+3. Open **Add-ons → Install from zip file** and select the repository ZIP.
+4. Open **Install from repository → Kodi Managarr Repository → Context menus** and install **Kodi Managarr**.
+5. Leave Kodi's normal add-on auto-update setting enabled. Stable releases are then offered through the repository.
 6. Configure **My add-ons → Context menus → Kodi Managarr**.
-4. Enter the Radarr and Sonarr URLs and API keys.
-5. Run both connection tests.
-6. Keep **Dry run** enabled for the first end-to-end validation.
+7. Enter the Radarr and Sonarr URLs and API keys.
+8. Run both connection tests.
+9. Keep **Dry run** enabled for the first end-to-end validation.
 
-The plain-text **Managarr** submenu appears for Kodi library movies, TV shows and episodes. It intentionally avoids emoji and decorative Unicode glyphs so it remains readable across Android Kodi skins and font packages. Selecting it exposes all direct actions plus the nested **Monitoring** and **Download queue** menus.
+The repository publishes canonical Kodi filenames, `addons.xml`, Kodi's `addons.xml.md5` change token and SHA-256 checksum files. It validates the exact stable release ZIP before publication and does not claim cryptographic signing.
+
+## Menu configuration
+
+The plain-text **Managarr** root item appears for Kodi library movies, TV shows and episodes. It intentionally avoids emoji and decorative Unicode glyphs so it remains readable across Android Kodi skins and font packages.
+
+**Advanced** is the upgrade-safe default and preserves every existing action. **Simple** keeps the common actions visible while reducing menu depth. **Configure menu** can hide or reorder registered actions and restore defaults using Kodi-native TV-remote dialogs. Hiding an action affects menu presentation only; direct `RunScript(...,mode=...)` key mappings remain callable.
+
+## PIN protection
+
+**Manage PIN** can create, change, remove or repair a local 4–8 digit numeric PIN. The PIN is salted and derived with PBKDF2-HMAC; plaintext is not stored. It protects media deletion, exclusion and replacement actions, including direct-mode invocations. Queue removal retains its existing explicit confirmation and is not PIN-protected. This protects against accidental local use; it is not a boundary against a user who can modify Kodi's local add-on data.
 
 ## Path mappings
 
@@ -50,7 +59,7 @@ Every configured Kodi mapping root is protected automatically. The add-on may de
 
 ## Keymap Editor
 
-Keymap Editor exposes **Launch Kodi Managarr** under its Add-ons actions. The launcher presents Status, Search, Monitoring, Download queue, Delete actions, and Tools & settings for the currently highlighted library item.
+Keymap Editor exposes **Launch Kodi Managarr** under its Add-ons actions. The launcher presents the configured native menu for the currently highlighted library item.
 
 Advanced keymaps may call a mode directly:
 
@@ -79,13 +88,13 @@ PY
 kodi-addon-checker --branch matrix dist/addon-check/context.arr.manager
 ```
 
-Validation checks the exact ASCII `Managarr` label, the complete nested manifest structure, every manifest-to-`context.py` dispatch path, numeric child-label localisation, and the generated ZIP's menu/action structure. CI runs these gates on Python 3.8 and 3.12 alongside actionlint, Ruff, deterministic packaging, archive integrity and Kodi add-on checker.
+Validation checks the exact ASCII `Managarr` label, single runtime context root, registry dispatch, localisation, PIN policy, repository-generation safety and generated ZIP structure. CI runs these gates on Python 3.8 and 3.12 alongside actionlint, Ruff, deterministic packaging, archive integrity and Kodi add-on checker.
 
 ## Android Kodi validation and release
 
-Host-side tests do not replace a real Android Kodi run. Use the concise [`Android Kodi validation runbook`](docs/ANDROID_KODI_VALIDATION.md) with disposable media and attach its completed evidence summary to the release or PR.
+Host-side tests do not replace a real Android Kodi run. Use the [`Android Kodi validation runbook`](docs/ANDROID_KODI_VALIDATION.md) with disposable media and attach its completed evidence summary to the release or PR.
 
-A release candidate is optional. The manual release workflow may publish a stable, prerelease or draft build whenever the owner chooses; the practical release gate is a green CI run plus the applicable required checks in [`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md).
+A release candidate is optional. The manual release workflow may publish a stable, prerelease or draft build whenever the owner chooses; the practical release gate is a green CI run plus the applicable checks in [`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md).
 
 ## Licence
 
