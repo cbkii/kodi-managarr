@@ -26,11 +26,11 @@ jobs:
           base64 --decode "$RUNNER_TEMP/pr16.b64" > "$RUNNER_TEMP/pr16.tar.gz"
           echo '05a9e0ceda374a167f4db89ecab558f485291d10ca72827f5389f8b8dd641a3a  '"$RUNNER_TEMP/pr16.tar.gz" | sha256sum --check
           python - <<'PY'
+          import os
           import tarfile
           from pathlib import Path, PurePosixPath
 
-          archive_path = Path.home().parent / 'runner' / '_work'  # unused; keep extraction path explicit below
-          payload = Path(__import__('os').environ['RUNNER_TEMP']) / 'pr16.tar.gz'
+          payload = Path(os.environ['RUNNER_TEMP']) / 'pr16.tar.gz'
           with tarfile.open(payload, 'r:gz') as archive:
               members = archive.getmembers()
               if not members:
