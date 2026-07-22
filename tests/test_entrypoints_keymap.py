@@ -80,3 +80,112 @@ class EntrypointTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class WriteDiagnosticsTests(unittest.TestCase):
+    @mock.patch("arr_manager.entrypoints.os.makedirs")
+    @mock.patch("arr_manager.entrypoints.open")
+    @mock.patch.dict("sys.modules", {"xbmc": mock.MagicMock(), "xbmcvfs": mock.MagicMock()})
+    def test_write_diagnostics_file_not_found(self, mock_open, mock_makedirs):
+        mock_xbmc = mock.MagicMock()
+        mock_xbmc.getInfoLabel.return_value = "19.0"
+        mock_xbmc.getCondVisibility.return_value = False
+        mock_xbmcvfs = mock.MagicMock()
+        mock_xbmcvfs.translatePath.return_value = "/tmp"
+        addon = Addon()
+        settings = Settings()
+        settings.backend = "api"
+        settings.dry_run = False
+        settings.require_blocklist = True
+        class MockConfig:
+            url = ""
+            api_key = ""
+            api_version = ""
+            verify_tls = True
+        settings.radarr = MockConfig()
+        settings.sonarr = MockConfig()
+        settings.path_mapper = type('MockPathMapper', (), {'mappings': []})()
+        settings.protected_paths = []
+        logger = Logger()
+        m = mock.mock_open()
+        mock_open.side_effect = [FileNotFoundError("Not found"), m.return_value]
+        with mock.patch('arr_manager.entrypoints.json.dump') as mock_dump:
+            diag = entrypoints._write_diagnostics(addon, settings, logger)
+            payload = mock_dump.call_args[0][0]
+            self.assertIsNone(payload["lastTransactionStatus"])
+
+
+    @mock.patch("arr_manager.entrypoints.os.makedirs")
+    @mock.patch("arr_manager.entrypoints.open")
+    @mock.patch.dict("sys.modules", {"xbmc": mock.MagicMock(), "xbmcvfs": mock.MagicMock()})
+    def test_write_diagnostics_value_error(self, mock_open, mock_makedirs):
+        mock_xbmc = mock.MagicMock()
+        mock_xbmc.getInfoLabel.return_value = "19.0"
+        mock_xbmc.getCondVisibility.return_value = False
+        mock_xbmcvfs = mock.MagicMock()
+        mock_xbmcvfs.translatePath.return_value = "/tmp"
+        addon = Addon()
+        settings = Settings()
+        settings.backend = "api"
+        settings.dry_run = False
+        settings.require_blocklist = True
+        class MockConfig:
+            url = ""
+            api_key = ""
+            api_version = ""
+            verify_tls = True
+        settings.radarr = MockConfig()
+        settings.sonarr = MockConfig()
+        settings.path_mapper = type('MockPathMapper', (), {'mappings': []})()
+        settings.protected_paths = []
+        class MockLogger(Logger):
+            def __init__(self):
+                self.warnings = []
+            def warning(self, *args):
+                self.warnings.append(args)
+        logger = MockLogger()
+        m = mock.mock_open()
+        mock_open.side_effect = [ValueError("Malformed JSON"), m.return_value]
+        with mock.patch('arr_manager.entrypoints.json.dump') as mock_dump:
+            diag = entrypoints._write_diagnostics(addon, settings, logger)
+            payload = mock_dump.call_args[0][0]
+            self.assertIsNone(payload["lastTransactionStatus"])
+
+        self.assertTrue(any("ValueError" in arg[1] for arg in logger.warnings))
+
+    @mock.patch("arr_manager.entrypoints.os.makedirs")
+    @mock.patch("arr_manager.entrypoints.open")
+    @mock.patch.dict("sys.modules", {"xbmc": mock.MagicMock(), "xbmcvfs": mock.MagicMock()})
+    def test_write_diagnostics_os_error(self, mock_open, mock_makedirs):
+        mock_xbmc = mock.MagicMock()
+        mock_xbmc.getInfoLabel.return_value = "19.0"
+        mock_xbmc.getCondVisibility.return_value = False
+        mock_xbmcvfs = mock.MagicMock()
+        mock_xbmcvfs.translatePath.return_value = "/tmp"
+        addon = Addon()
+        settings = Settings()
+        settings.backend = "api"
+        settings.dry_run = False
+        settings.require_blocklist = True
+        class MockConfig:
+            url = ""
+            api_key = ""
+            api_version = ""
+            verify_tls = True
+        settings.radarr = MockConfig()
+        settings.sonarr = MockConfig()
+        settings.path_mapper = type('MockPathMapper', (), {'mappings': []})()
+        settings.protected_paths = []
+        class MockLogger(Logger):
+            def __init__(self):
+                self.warnings = []
+            def warning(self, *args):
+                self.warnings.append(args)
+        logger = MockLogger()
+        m = mock.mock_open()
+        mock_open.side_effect = [PermissionError("Access denied"), m.return_value]
+        with mock.patch('arr_manager.entrypoints.json.dump') as mock_dump:
+            diag = entrypoints._write_diagnostics(addon, settings, logger)
+            payload = mock_dump.call_args[0][0]
+            self.assertIsNone(payload["lastTransactionStatus"])
+
+        self.assertTrue(any("PermissionError" in arg[1] for arg in logger.warnings))
