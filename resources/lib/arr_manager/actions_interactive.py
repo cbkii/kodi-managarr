@@ -368,4 +368,4 @@ class InteractiveMixin:
             xbmc.executebuiltin("ActivateWindow(subtitlesearch)")
             return self._im("find_subtitles")
         except Exception as exc:
-            raise SafetyError("Kodi could not open the subtitle-search window") from exc
+            raise SafetyError(self._im("find_subtitles_window_failed")) from exc
