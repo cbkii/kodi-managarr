@@ -1,72 +1,76 @@
 # Android Kodi release-readiness audit
 
-This checklist records the two-pass audit of Kodi Managarr for Kodi 19+ on Android. It is intentionally limited to release health, compatibility, correctness and safety; it does not add unrelated product scope.
+This document records the two-pass release-readiness audit of Kodi Managarr for Kodi 19+ on Android. Each item is classified as **Implemented**, **Verified**, **Device-only outstanding** or **Not applicable** so readiness is unambiguous.
 
 ## Destructive safety and defaults
 
-- [ ] Make **Dry run** enabled by default for fresh installations while preserving existing saved user settings.
-- [ ] Add regression coverage proving the packaged settings schema retains the safe default.
-- [ ] Preserve delete/exclude/replace preflight, confirmation, PIN, API-authority and VFS fail-closed boundaries.
+- **Implemented:** Fresh installations enable **Dry run** by default in both the settings schema and runtime fallback. Existing explicit saved values remain authoritative.
+- **Verified:** Regression tests cover unset, explicit true and explicit false values and the packaged XML default.
+- **Verified:** Existing delete/exclude/replace preflight, confirmation, PIN, API-authority, transaction and VFS fail-closed boundaries were preserved.
 
 ## Kodi episode-to-series identity
 
-- [ ] Stop treating an episode's `uniqueid.tvdb` as the parent-series TVDb ID.
-- [ ] Add explicit parent-series unique IDs and year to selected-item state.
-- [ ] Enrich episode selections through `VideoLibrary.GetTVShowDetails` using the existing JSON-RPC adapter.
-- [ ] Use parent-series identity consistently in core actions, Request & Search and Bazarr subtitle resolution.
-- [ ] Preserve exact fallback behaviour and reject ambiguous matches.
-- [ ] Cover API-backend/no-path-mapping, season-zero and incomplete-metadata cases.
+- **Implemented:** Episode `uniqueid.tvdb` remains episode identity and is never reused as the parent-series TVDb ID.
+- **Implemented:** `SelectedItem` stores separate parent-series unique IDs and year.
+- **Implemented:** Episode selections and playing subtitle items obtain parent identity through `VideoLibrary.GetTVShowDetails` using the existing JSON-RPC adapter.
+- **Implemented:** Core Sonarr resolution, Request & Search and Bazarr subtitles use the parent-series fields.
+- **Verified:** Tests cover stable parent TVDb resolution without path mapping, distinct episode/series IDs and season-zero identity.
+- **Device-only outstanding:** Repeat on Android Kodi with a skin/view exposing incomplete list-item metadata.
 
 ## International-title compatibility
 
-- [ ] Replace ASCII-only title normalisation with Unicode-aware normalisation and case folding.
-- [ ] Preserve punctuation and whitespace collapsing without deleting non-Latin alphanumeric scripts.
-- [ ] Cover accented Latin, CJK and Cyrillic titles.
+- **Implemented:** Title normalisation uses Unicode NFKD decomposition, removes combining marks, case-folds text and retains all Unicode alphanumeric scripts.
+- **Verified:** Tests cover accented/decomposed Latin, `Straße` case-fold expansion, punctuation/whitespace, Turkish dotted I, CJK, Cyrillic, numeric and null inputs.
 
 ## Registry and entrypoint correctness
 
-- [ ] Remove duplicated direct-mode routing between `default.py`, `entrypoints.py` and the interactive adapter.
-- [ ] Make the central action registry the source of truth for dispatchable action modes.
-- [ ] Preserve explicit utility modes and supported aliases.
-- [ ] Correctly parse both `mode=value` and query-style `?mode=value` invocations with URL decoding.
-- [ ] Prove every registry leaf is reachable through context, launcher and direct/Keymap invocation.
-- [ ] Preserve the central destructive PIN boundary with no direct-mode bypass.
-- [ ] Remove obsolete runtime modules from source and package output.
+- **Implemented:** `default.py` is a thin adapter and the obsolete parallel interactive entrypoint was removed.
+- **Implemented:** Registry modes are derived from `ACTION_REGISTRY`; only explicit utility modes and documented aliases remain separate.
+- **Implemented:** Normal and query-style arguments are parsed with URL decoding.
+- **Verified:** Validation rejects registry/dispatcher drift, invalid aliases and obsolete runtime modules. Tests cover direct dispatch and encoded arguments.
+- **Verified:** Destructive menu and direct modes still pass through the same central `authorize_action()` PIN boundary.
 
 ## Bazarr subtitle correctness and Android safety
 
-- [ ] Apply one language/qualifier policy for base, forced and hearing-impaired variants.
-- [ ] Preserve configured language order and the three-language maximum.
-- [ ] Reject mismatched qualifier downloads safely.
-- [ ] Report subtitle directory failures to Kodi and disable inappropriate result caching.
-- [ ] Make download tokens single-use around the non-idempotent Bazarr provider request.
-- [ ] Validate cached payload type, timestamps, stable IDs and provider-result identity.
-- [ ] Keep media paths, service URLs and credentials out of cache state.
-- [ ] Revalidate the currently playing Kodi database item before download submission.
-- [ ] Return only an existing Kodi-accessible or safely mapped subtitle path.
-- [ ] Cover entrypoint success/failure, replay and malformed-cache cases.
+- **Implemented:** A base language accepts normal, forced and hearing-impaired variants; a qualified language accepts only its exact qualifier. Configured order and the three-language maximum are preserved.
+- **Implemented:** The subtitle plugin reports explicit directory success/failure and disables result caching.
+- **Implemented:** Cached result payloads contain stable IDs and sanitised exact provider identity only; media paths, service URLs and credentials are excluded.
+- **Implemented:** Tokens are atomically consumed before the non-idempotent provider request, preventing replay. Payload type, age, media type, IDs, language and safe provider identity are validated.
+- **Implemented:** Current playback type/database ID is revalidated before download submission; only an existing Kodi-accessible or safely mapped path is returned.
+- **Verified:** Tests cover qualifier ordering, exact qualified filtering, cache replay, malformed payloads, playing parent-series identity and plugin success/failure completion.
+- **Device-only outstanding:** Verify exact provider download and subtitle loading on Android Kodi against the configured Bazarr version and storage mapping.
 
 ## Release metadata and compatibility contract
 
-- [ ] Set an untagged feature-release target newer than published v1.1.1.
-- [ ] Add a concise consolidated changelog entry for all changes since v1.1.1.
-- [ ] Keep `addon.xml` summary, description and `<news>` accurate, user-facing and within Kodi limits.
-- [ ] Keep the owner-controlled release workflow straightforward, without mandatory RC or approval ceremony.
-- [ ] Preserve `managarr-addon_vX.Y.Z.zip` and the Kodi-required internal archive root.
+- **Implemented:** The untagged feature target is `1.2.0`, newer than published `v1.1.1`.
+- **Implemented:** `CHANGELOG.md` and `addon.xml` contain concise consolidated user-facing changes since v1.1.1.
+- **Verified metadata limits:** Kodi's `<news>` advisory limit is enforced at **1500** characters. Project-defined UI limits are **160** characters for summary and **1000** for description; each English field must be present and nonempty.
+- **Verified:** The owner-controlled release workflow remains direct and does not impose mandatory RC promotion or approval ceremony.
+- **Verified:** Public release naming remains `managarr-addon_vX.Y.Z.zip`; internal packaging remains `context.arr.manager/`.
+
+## Compatibility matrix
+
+| Layer | Status | Contract |
+|---|---|---|
+| Kodi runtime | Supported | Kodi 19+ with the `xbmc.python` 3.0.0/Python 3 add-on API |
+| Android Kodi | Supported target | Kodi 19+ Android installations; final device evidence follows the validation runbook |
+| Kodi 18 / Python 2 | Unsupported | The add-on uses Kodi Matrix+ settings and Python 3 APIs |
+| Host validation | Verified in CI | CPython 3.8 and 3.12 for pure Python, tests and packaging tools |
+| Optional services/backends | Conditional | Exact configured Radarr/Sonarr/Prowlarr/Bazarr/SMB/SFTP versions and paths must be device-tested before being claimed |
+
+The CPython 3.8/3.12 host matrix is not a claim that every Android Kodi build embeds those exact interpreter versions.
 
 ## Validation, packaging and documentation
 
-- [ ] Detect registry/dispatcher drift and unsafe fresh-install settings.
-- [ ] Exclude dead modules, tests, docs, bytecode, hidden files and generated output from the package.
-- [ ] Preserve deterministic ZIP output, safe permissions and archive-root validation.
-- [ ] Pass Python 3.8 and 3.12 validation, Ruff, full unit tests, deterministic packaging, archive inspection, Kodi add-on checker and actionlint.
-- [ ] Inspect complete CI logs and resolve all valid review threads.
-- [ ] Update README, architecture, Android validation and release guidance.
-- [ ] Document physical Android Kodi checks still outstanding without claiming they were performed.
+- **Implemented:** Validation detects unsafe fresh-install defaults, metadata overflow, registry/dispatcher drift, invalid aliases, malformed localisation and obsolete runtime modules.
+- **Implemented:** Packaging rejects obsolete modules, symlinks, hidden/unexpected files and unsafe archive contents; tests/docs/scripts/bytecode/generated output remain excluded.
+- **Verified:** Deterministic ZIP output, safe non-executable permissions, one internal root and Kodi subtitle registration are retained.
+- **Implemented:** README, architecture, Android validation and release checklist document final behaviour and compatibility boundaries.
+- **CI status:** The final Python 3.8/3.12, Ruff, unit, deterministic package, archive, Kodi add-on checker and actionlint result must be green on the final head before merge.
+- **Device-only outstanding:** Execute `docs/ANDROID_KODI_VALIDATION.md`; no physical Android result is claimed by this audit.
 
 ## Non-goals
 
-- No unrelated product features.
-- No P2 multi-instance/per-request routing, P3 reconciliation, Jellyseerr/Overseerr or general diagnostics expansion.
-- No release publication or tag creation.
-- No Android root, shell, desktop filesystem or external scheduler assumptions.
+- **Not applicable:** P2 multi-instance/per-request routing, P3 reconciliation, Jellyseerr/Overseerr and general diagnostics expansion.
+- **Not performed:** Release publication or tag creation.
+- **Not assumed:** Android root, shell, desktop filesystem or external scheduler access.
