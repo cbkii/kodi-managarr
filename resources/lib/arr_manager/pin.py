@@ -48,6 +48,16 @@ def verify_pin(pin, stored_hash, salt):
     return hmac.compare_digest(stored_hash, new_hash)
 
 
+def pin_policy_generation(settings):
+    """Return a non-secret revision fingerprint for invalidating background authorisation."""
+    if getattr(settings, "pin_invalid", False):
+        return "invalid"
+    if not getattr(settings, "pin_enabled", False):
+        return "unprotected"
+    material = b"managarr-pin-policy-v1\0" + settings.pin_salt + settings.pin_hash
+    return hashlib.sha256(material).hexdigest()
+
+
 def authorize_action(action_id, settings, ui):
     from .registry import get_action_by_id, get_action_by_mode
 
