@@ -43,7 +43,9 @@ jobs:
           python -m pip install --disable-pip-version-check -r requirements-dev.txt
           python -m pip check
       - name: Validate XML, metadata, images and Python
-        run: python scripts/validate.py
+        run: |
+          set -o pipefail
+          python scripts/validate.py 2>&1 | tee "$RUNNER_TEMP/validation.log"
       - name: Run static checks
         run: python -m ruff check .
       - name: Run unit tests
@@ -56,12 +58,14 @@ jobs:
             exit 1
           fi
           tail -n 20 "$log"
-      - name: Upload failed unit-test log
+      - name: Upload failed validation and unit-test logs
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: unit-tests-${{ matrix.python-version }}
-          path: ${{ runner.temp }}/unit-tests.log
+          name: failure-logs-${{ matrix.python-version }}
+          path: |
+            ${{ runner.temp }}/validation.log
+            ${{ runner.temp }}/unit-tests.log
           if-no-files-found: ignore
           retention-days: 7
       - name: Validate workflow-selected release version
@@ -125,6 +129,7 @@ jobs:
               'context.arr.manager/addon.xml',
               'context.arr.manager/context.py',
               'context.arr.manager/default.py',
+              'context.arr.manager/subtitles.py',
               'context.arr.manager/LICENSE.txt',
               'context.arr.manager/resources/settings.xml',
               'context.arr.manager/resources/icon.png',
