@@ -5,19 +5,21 @@
   </requires>
   <extension point="kodi.context.item">
     <menu id="kodi.core.main">
-      <item library="context.py" args="menu"><label>Managarr</label><visible>String.IsEqual(ListItem.DBType,movie) | String.IsEqual(ListItem.DBType,tvshow) | String.IsEqual(ListItem.DBType,episode)</visible></item></menu>
+      <item library="context.py" args="menu"><label>Managarr</label><visible>String.IsEqual(ListItem.DBType,movie) | String.IsEqual(ListItem.DBType,tvshow) | String.IsEqual(ListItem.DBType,episode)</visible></item>
+    </menu>
   </extension>
   <extension point="xbmc.python.script" library="default.py">
     <provides>executable</provides>
   </extension>
+  <extension point="xbmc.subtitle.module" library="subtitles.py" />
   <extension point="xbmc.addon.metadata">
-    <summary lang="en_GB">Manage Radarr and Sonarr media from Kodi.</summary>
-    <description lang="en_GB">Kodi-native status, search, monitoring, quality-profile, download-queue, delete, exclude and replacement controls for Radarr movies and Sonarr series or episodes.</description>
+    <summary lang="en_GB">Manage Arr media and Bazarr subtitles from Kodi.</summary>
+    <description lang="en_GB">Kodi-native Request & Search, interactive Radarr/Sonarr release selection, service dashboard, monitoring, queue, Bazarr subtitle download, deletion, exclusion and replacement controls.</description>
     <platform>all</platform>
     <license>GPL-3.0-or-later</license>
     <source>https://github.com/cbkii/kodi-managarr</source>
     <website>https://github.com/cbkii/kodi-managarr</website>
-    <news>Introduce repository.managarr for automatic updates, highly configurable context menus via settings, and optional PIN protection for destructive actions.</news>
+    <news>Add Request & Search for unmanaged media, Arr-authoritative interactive release selection, a bounded service dashboard, optional read-only Prowlarr context, and Bazarr integration with Kodi's built-in subtitle downloader. Preserve configurable menus, automatic repository updates and PIN-protected destructive actions.</news>
     <assets>
       <icon>resources/icon.png</icon>
       <fanart>resources/fanart.jpg</fanart>
