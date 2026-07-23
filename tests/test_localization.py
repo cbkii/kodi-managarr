@@ -11,6 +11,7 @@ from arr_manager.localization import render_strings_po, runtime_catalog
 HEADER = '''# Kodi Media Center language file
 msgid ""
 msgstr ""
+"Project-Id-Version: Kodi Managarr\\n"
 "Language: en_GB\\n"
 "Content-Type: text/plain; charset=UTF-8\\n"
 '''
