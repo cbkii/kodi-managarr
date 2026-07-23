@@ -32,10 +32,10 @@ def as_int(value, default=0, minimum=None, maximum=None):
 
 
 def normalise_title(value):
-    value = unicodedata.normalize("NFKD", value or "")
+    value = unicodedata.normalize("NFKD", str(value or ""))
     value = "".join(ch for ch in value if not unicodedata.combining(ch))
-    value = re.sub(r"[^a-zA-Z0-9]+", " ", value).lower().strip()
-    return re.sub(r"\s+", " ", value)
+    value = "".join(ch.casefold() if ch.isalnum() else " " for ch in value)
+    return " ".join(value.split())
 
 
 def normalise_release(value):

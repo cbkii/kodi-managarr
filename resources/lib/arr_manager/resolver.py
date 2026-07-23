@@ -54,7 +54,7 @@ def resolve_movie(selected, client, mapper):
 
 
 def resolve_series(selected, client, mapper):
-    tvdb_id = _numeric_unique_id(selected.unique_ids.get("tvdb"))
+    tvdb_id = _numeric_unique_id(selected.effective_unique_ids().get("tvdb"))
     selected_path = _safe_selected_path(selected.file_path)
     wanted_title = normalise_title(selected.tvshow_title or selected.title)
     if tvdb_id:
@@ -78,10 +78,11 @@ def resolve_series(selected, client, mapper):
         if wanted_title and wanted_title in titles:
             score += 80; reasons.append("title")
         series_year = _year(series.get("year"))
-        if selected.year and series_year and series_year != selected.year and not ({"path", "mapped path"} & set(reasons)):
+        selected_year = selected.effective_year()
+        if selected_year and series_year and series_year != selected_year and not ({"path", "mapped path"} & set(reasons)):
             scored.append((0, series, "year mismatch"))
             continue
-        if selected.year and series_year == selected.year:
+        if selected_year and series_year == selected_year:
             score += 25; reasons.append("year")
         if reasons == ["title"]:
             score = 0
@@ -133,7 +134,8 @@ def _reject_contradictory_movie(selected, movie, wanted_title):
 
 
 def _reject_contradictory_series(selected, series, wanted_title):
-    if selected.year and _year(series.get("year")) and _year(series.get("year")) != selected.year:
+    selected_year = selected.effective_year()
+    if selected_year and _year(series.get("year")) and _year(series.get("year")) != selected_year:
         raise ResolutionError("Kodi series year contradicts the matched Sonarr series")
     titles = {normalise_title(series.get(key, "")) for key in ("title", "sortTitle", "originalTitle")} - {""}
     if wanted_title and titles and wanted_title not in titles:

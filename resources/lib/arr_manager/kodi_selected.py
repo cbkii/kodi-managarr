@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import sys
 
+from .kodi_jsonrpc import KodiJsonRpcError
 from .models import SelectedItem
 from .util import as_int, normalise_title, paths_equal
 
@@ -74,7 +75,9 @@ def _movie_matches(details, selected, require_strong):
 
 
 def _tvshow_has_strong_identity(selected):
-    return bool(getattr(selected, "unique_ids", {})) or bool((getattr(selected, "tvshow_title", "") or getattr(selected, "title", "")) and int(getattr(selected, "year", 0) or 0))
+    return bool(selected.effective_unique_ids()) or bool(
+        (selected.tvshow_title or selected.title) and selected.effective_year()
+    )
 
 
 def _tvshow_matches(details, selected, require_strong):
@@ -83,10 +86,10 @@ def _tvshow_matches(details, selected, require_strong):
     if title and selected_title and title != selected_title:
         return False
     year = int(details.get("year") or 0)
-    selected_year = int(getattr(selected, "year", 0) or 0)
+    selected_year = selected.effective_year()
     if year and selected_year and year != selected_year:
         return False
-    unique_state = _unique_id_state(getattr(selected, "unique_ids", {}), details.get("uniqueid"))
+    unique_state = _unique_id_state(selected.effective_unique_ids(), details.get("uniqueid"))
     if unique_state == "contradiction":
         return False
     strong = unique_state == "match" or bool(title and selected_title and year and selected_year)
@@ -94,8 +97,8 @@ def _tvshow_matches(details, selected, require_strong):
 
 
 def _get_listitem():
-    import sys
     return getattr(sys, "listitem", None)
+
 
 def _get_video_tag(item):
     if item is not None:
@@ -105,12 +108,14 @@ def _get_video_tag(item):
             return None
     return None
 
+
 def _get_label(name):
     import xbmc
     try:
         return xbmc.getInfoLabel(name) or ""
     except Exception:
         return ""
+
 
 def _extract_unique_ids(tag):
     unique_ids = {}
@@ -126,6 +131,7 @@ def _extract_unique_ids(tag):
             unique_ids[key] = str(value)
     return unique_ids
 
+
 def _extract_file_path(item, tag):
     file_path = ""
     if tag is not None:
@@ -136,6 +142,7 @@ def _extract_file_path(item, tag):
         except Exception:
             file_path = ""
     return file_path or _get_label("ListItem.FileNameAndPath")
+
 
 def selected_item_from_context():
     import xbmcgui  # noqa: F401
@@ -159,3 +166,32 @@ def selected_item_from_context():
         file_path=str(file_path),
         unique_ids=unique_ids,
     )
+
+
+def enrich_selected_series_identity(selected, kodi_client):
+    """Populate an episode's parent-series identity from Kodi JSON-RPC when available."""
+    if not selected or selected.media_type != "episode":
+        return selected
+    tvshow_id = int(getattr(selected, "tvshow_db_id", 0) or 0)
+    if tvshow_id <= 0 and int(getattr(selected, "db_id", 0) or 0) > 0:
+        try:
+            episode = kodi_client.episode_details(selected.db_id)
+        except KodiJsonRpcError:
+            episode = {}
+        if isinstance(episode, dict):
+            tvshow_id = int(episode.get("tvshowid") or 0)
+            selected.tvshow_db_id = tvshow_id
+            selected.tvshow_title = selected.tvshow_title or str(episode.get("tvshowtitle") or "")
+    if tvshow_id <= 0:
+        return selected
+    try:
+        details = kodi_client.tvshow_details(tvshow_id)
+    except KodiJsonRpcError:
+        return selected
+    selected.tvshow_title = selected.tvshow_title or str(details.get("title") or "")
+    selected.series_year = int(details.get("year") or 0)
+    unique_ids = details.get("uniqueid")
+    selected.series_unique_ids = {
+        str(key): str(value) for key, value in (unique_ids.items() if isinstance(unique_ids, dict) else ()) if value
+    }
+    return selected

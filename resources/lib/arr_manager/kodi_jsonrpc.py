@@ -9,7 +9,7 @@ class KodiJsonRpcError(Exception):
 class KodiJsonRpcClient:
     MOVIE_PROPERTIES = ["title", "year", "file", "uniqueid"]
     TVSHOW_PROPERTIES = ["title", "year", "uniqueid"]
-    EPISODE_PROPERTIES = ["title", "season", "episode", "file", "tvshowid", "tvshowtitle"]
+    EPISODE_PROPERTIES = ["title", "season", "episode", "file", "tvshowid", "tvshowtitle", "uniqueid"]
 
     def __init__(self, xbmc_module, logger=None):
         self.xbmc = xbmc_module

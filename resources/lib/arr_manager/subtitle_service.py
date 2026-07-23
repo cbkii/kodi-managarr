@@ -9,6 +9,7 @@ from urllib.parse import urlencode
 from .actions import ArrManager
 from .errors import ConfigurationError, ResolutionError, SafetyError
 from .interactive_messages import imessage
+from .kodi_jsonrpc import KodiJsonRpcError
 from .models import SelectedItem
 from .resolver import resolve_episode, resolve_movie, resolve_series
 
@@ -55,6 +56,24 @@ def _language_key(row):
     if row.get("hearing_impaired") or row.get("hi"):
         return code + ":hi"
     return code
+
+
+def _language_parts(value):
+    text = str(value or "").strip().lower()
+    base, separator, qualifier = text.partition(":")
+    return base, qualifier if separator else ""
+
+
+def _language_matches(configured, variant):
+    configured_base, configured_qualifier = _language_parts(configured)
+    variant_base, variant_qualifier = _language_parts(variant)
+    if not configured_base or configured_base != variant_base:
+        return False
+    return not configured_qualifier or configured_qualifier == variant_qualifier
+
+
+def _language_allowed(variant, allowed_languages):
+    return any(_language_matches(configured, variant) for configured in allowed_languages)
 
 
 def _release_match(row):
@@ -109,20 +128,29 @@ def _safe_result(row):
 
 
 def _select_results(rows, allowed_languages):
-    allowed = [str(value).strip().lower() for value in allowed_languages if str(value).strip()]
-    priority = {value: index for index, value in enumerate(allowed)}
+    allowed = []
+    for value in allowed_languages:
+        normalised = str(value or "").strip().lower()
+        if normalised and normalised not in allowed:
+            allowed.append(normalised)
     best = {}
+    priority = {}
     for row in rows:
-        base = _language_code(row)
-        if base not in priority:
-            continue
         variant = _language_key(row)
+        matching = [index for index, configured in enumerate(allowed) if _language_matches(configured, variant)]
+        if not matching:
+            continue
+        priority[variant] = min(priority.get(variant, matching[0]), matching[0])
         score = _score(row.get("score"))
         if variant not in best or score > best[variant][0]:
             best[variant] = (score, row)
+    qualifier_order = {"": 0, "forced": 1, "hi": 2}
     return [
         (variant, best[variant][1])
-        for variant in sorted(best, key=lambda value: (priority[value.split(":", 1)[0]], value))
+        for variant in sorted(
+            best,
+            key=lambda value: (priority[value], qualifier_order.get(_language_parts(value)[1], 9), value),
+        )
     ]
 
 
@@ -131,30 +159,29 @@ def selected_from_player(addon, xbmc_module, kodi_client):
     db_id = _positive_int(xbmc_module.getInfoLabel("VideoPlayer.DBID"), 0)
     playing_file = str(xbmc_module.Player().getPlayingFile() or "")
     if db_type == "movie" and db_id > 0:
-        result = kodi_client.call("VideoLibrary.GetMovieDetails", {
-            "movieid": db_id, "properties": ["title", "year", "file", "uniqueid"],
-        })
-        detail = result.get("moviedetails") if isinstance(result, dict) else None
-        if not isinstance(detail, dict):
-            raise ResolutionError(imessage(addon, "subtitle_movie_metadata_missing"))
+        detail = kodi_client.movie_details(db_id)
         return SelectedItem(
             media_type="movie", db_id=db_id, title=str(detail.get("title") or ""),
             year=_positive_int(detail.get("year"), 0), file_path=str(detail.get("file") or playing_file),
             unique_ids=dict(detail.get("uniqueid") or {}),
         )
     if db_type == "episode" and db_id > 0:
-        result = kodi_client.call("VideoLibrary.GetEpisodeDetails", {
-            "episodeid": db_id,
-            "properties": ["title", "season", "episode", "file", "tvshowid", "tvshowtitle", "uniqueid"],
-        })
-        detail = result.get("episodedetails") if isinstance(result, dict) else None
-        if not isinstance(detail, dict):
-            raise ResolutionError(imessage(addon, "subtitle_episode_metadata_missing"))
+        detail = kodi_client.episode_details(db_id)
+        tvshow_id = _positive_int(detail.get("tvshowid"), 0)
+        series_detail = {}
+        if tvshow_id > 0:
+            try:
+                series_detail = kodi_client.tvshow_details(tvshow_id)
+            except KodiJsonRpcError:
+                series_detail = {}
         return SelectedItem(
             media_type="episode", db_id=db_id, title=str(detail.get("title") or ""),
-            tvshow_title=str(detail.get("tvshowtitle") or ""), tvshow_db_id=_positive_int(detail.get("tvshowid"), 0),
+            tvshow_title=str(detail.get("tvshowtitle") or series_detail.get("title") or ""),
+            tvshow_db_id=tvshow_id,
             season=_positive_int(detail.get("season"), -1), episode=_positive_int(detail.get("episode"), -1),
             file_path=str(detail.get("file") or playing_file), unique_ids=dict(detail.get("uniqueid") or {}),
+            series_year=_positive_int(series_detail.get("year"), 0),
+            series_unique_ids=dict(series_detail.get("uniqueid") or {}),
         )
     raise ResolutionError(imessage(addon, "subtitle_library_playback_required"))
 
@@ -210,9 +237,9 @@ class SubtitleService:
         return output
 
     def download(self, token):
-        payload = self._load_cache(token)
+        payload = self._consume_cache(token)
         language = str(payload.get("language") or "").lower()
-        if language.split(":", 1)[0] not in self.settings.bazarr_languages:
+        if not _language_allowed(language, self.settings.bazarr_languages):
             raise SafetyError(imessage(self.addon, "subtitle_invalid_request"))
         media_type, kodi_db_id, playing_file = self._current_playback()
         if media_type != payload.get("media_type") or kodi_db_id != _positive_int(payload.get("kodi_db_id"), 0):
@@ -232,7 +259,6 @@ class SubtitleService:
         if response_path:
             mapped = self._map_accessible_path(response_path)
             if mapped:
-                self._delete_cache(token)
                 return mapped
         deadline = time.monotonic() + 15
         last_candidates = before
@@ -241,12 +267,10 @@ class SubtitleService:
             last_candidates = candidates
             preferred = sorted(candidates - before) or sorted(candidates)
             if preferred:
-                self._delete_cache(token)
                 return preferred[-1]
             if self.ui.wait_for_abort(0.5):
                 break
         if last_candidates:
-            self._delete_cache(token)
             return sorted(last_candidates)[-1]
         raise SafetyError(imessage(self.addon, "subtitle_not_found"))
 
@@ -274,10 +298,33 @@ class SubtitleService:
         self._prune_cache()
         return token
 
-    def _load_cache(self, token):
+    def _cache_path(self, token):
         if not CACHE_TOKEN_RE.fullmatch(str(token or "")):
             raise SafetyError(imessage(self.addon, "subtitle_invalid_request"))
-        path = os.path.join(self.profile, f"subtitle-{token}.json")
+        return os.path.join(self.profile, f"subtitle-{token}.json")
+
+    def _validate_cache_payload(self, payload):
+        if not isinstance(payload, dict):
+            raise SafetyError(imessage(self.addon, "subtitle_invalid_request"))
+        created = _positive_int(payload.get("created"), 0)
+        age = int(time.time()) - created
+        media_type = payload.get("media_type")
+        language = str(payload.get("language") or "").strip().lower()
+        if created <= 0 or age < -60 or age > CACHE_MAX_AGE or media_type not in {"movie", "episode"}:
+            raise SafetyError(imessage(self.addon, "subtitle_invalid_request"))
+        if _positive_int(payload.get("kodi_db_id"), 0) <= 0 or not _language_parts(language)[0]:
+            raise SafetyError(imessage(self.addon, "subtitle_invalid_request"))
+        if media_type == "movie":
+            if _positive_int(payload.get("radarr_id"), 0) <= 0:
+                raise SafetyError(imessage(self.addon, "subtitle_invalid_request"))
+        elif _positive_int(payload.get("series_id"), 0) <= 0 or _positive_int(payload.get("episode_id"), 0) <= 0:
+            raise SafetyError(imessage(self.addon, "subtitle_invalid_request"))
+        result = payload.get("result")
+        if not isinstance(result, dict) or _safe_result(result) != result:
+            raise SafetyError(imessage(self.addon, "subtitle_invalid_request"))
+        return payload
+
+    def _read_cache_path(self, path):
         try:
             if time.time() - os.path.getmtime(path) > CACHE_MAX_AGE:
                 raise SafetyError(imessage(self.addon, "subtitle_invalid_request"))
@@ -285,9 +332,25 @@ class SubtitleService:
                 payload = json.load(handle)
         except (OSError, ValueError) as exc:
             raise SafetyError(imessage(self.addon, "subtitle_invalid_request")) from exc
-        if not isinstance(payload, dict):
-            raise SafetyError(imessage(self.addon, "subtitle_invalid_request"))
-        return payload
+        return self._validate_cache_payload(payload)
+
+    def _load_cache(self, token):
+        return self._read_cache_path(self._cache_path(token))
+
+    def _consume_cache(self, token):
+        path = self._cache_path(token)
+        claimed = path + ".claimed"
+        try:
+            os.replace(path, claimed)
+        except OSError as exc:
+            raise SafetyError(imessage(self.addon, "subtitle_invalid_request")) from exc
+        try:
+            return self._read_cache_path(claimed)
+        finally:
+            try:
+                os.remove(claimed)
+            except OSError:
+                pass
 
     def _delete_cache(self, token):
         try:

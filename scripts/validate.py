@@ -16,8 +16,14 @@ if str(LIB_DIR) not in sys.path:
     sys.path.insert(0, str(LIB_DIR))
 
 from arr_manager.context_manifest import EXPECTED_CONTEXT_ACTIONS, ROOT_CONTEXT_LABEL  # noqa: E402
+from arr_manager.entrypoints import ACTION_ALIASES, DIRECT_ACTIONS, REGISTERED_ACTION_MODES  # noqa: E402
 from arr_manager.localization import render_strings_po, runtime_catalog  # noqa: E402
 from arr_manager.registry import ACTION_REGISTRY  # noqa: E402
+
+SUMMARY_MAX = 160
+DESCRIPTION_MAX = 1000
+NEWS_MAX = 1500
+OBSOLETE_RUNTIME_FILES = ("resources/lib/arr_manager/interactive_entrypoint.py",)
 
 
 def main():
@@ -30,7 +36,11 @@ def main():
     if settings.attrib.get("version") != "1" or settings.find("section[@id='context.arr.manager']") is None:
         raise SystemExit("resources/settings.xml must use the Kodi Matrix+ version 1 schema")
     _validate_extensions(addon)
-    print("OK XML and metadata")
+    _validate_metadata(addon)
+    _validate_safe_defaults(settings)
+    _validate_dispatch_contract()
+    _validate_obsolete_runtime_files()
+    print("OK XML, metadata, safe defaults and dispatch contract")
 
     if not compileall.compile_dir(str(ROOT), quiet=1, rx=re.compile(r"[\\/]\.git[\\/]")):
         raise SystemExit("Python compilation failed")
@@ -51,6 +61,70 @@ def main():
     _validate_spdx()
     print("OK required files, images, context items, strings and SPDX headers")
     return 0
+
+
+def _metadata_value(addon, tag):
+    metadata = addon.findall("extension[@point='xbmc.addon.metadata']")
+    if len(metadata) != 1:
+        raise SystemExit("addon.xml must define exactly one xbmc.addon.metadata extension")
+    if tag == "news":
+        nodes = metadata[0].findall("news")
+        field_name = "news"
+    else:
+        nodes = metadata[0].findall(f"{tag}[@lang='en_GB']")
+        field_name = f"en_GB {tag}"
+    if len(nodes) != 1:
+        raise SystemExit(f"addon.xml must define exactly one {field_name}")
+    value = "".join(nodes[0].itertext()).strip()
+    if not value:
+        raise SystemExit(f"addon.xml {field_name} must not be empty")
+    return value
+
+
+def _validate_metadata(addon):
+    limits = {
+        "summary": SUMMARY_MAX,
+        "description": DESCRIPTION_MAX,
+        "news": NEWS_MAX,
+    }
+    for tag, limit in limits.items():
+        value = _metadata_value(addon, tag)
+        if len(value) > limit:
+            raise SystemExit(f"addon.xml {tag} exceeds the {limit}-character project limit")
+
+
+def _validate_safe_defaults(settings):
+    expected = {
+        "confirm_actions": "true",
+        "dry_run": "true",
+        "require_blocklist": "true",
+    }
+    for setting_id, wanted in expected.items():
+        node = settings.find(f".//setting[@id='{setting_id}']")
+        if node is None:
+            raise SystemExit(f"resources/settings.xml is missing {setting_id}")
+        actual = (node.findtext("default") or "").strip().lower()
+        if actual != wanted:
+            raise SystemExit(f"Fresh-install safety default {setting_id} must be {wanted}")
+
+
+def _validate_dispatch_contract():
+    registry_modes = {str(action.get("mode") or "") for action in ACTION_REGISTRY}
+    if "" in registry_modes or len(registry_modes) != len(ACTION_REGISTRY):
+        raise SystemExit("Registry action modes must be non-empty and unique")
+    if REGISTERED_ACTION_MODES != registry_modes:
+        raise SystemExit("REGISTERED_ACTION_MODES has drifted from ACTION_REGISTRY")
+    if not registry_modes <= DIRECT_ACTIONS:
+        raise SystemExit(f"Registry modes are not directly dispatchable: {sorted(registry_modes - DIRECT_ACTIONS)}")
+    invalid_aliases = {key: value for key, value in ACTION_ALIASES.items() if value not in registry_modes}
+    if invalid_aliases:
+        raise SystemExit(f"Action aliases target unknown registry modes: {invalid_aliases}")
+
+
+def _validate_obsolete_runtime_files():
+    present = [path for path in OBSOLETE_RUNTIME_FILES if (ROOT / path).exists()]
+    if present:
+        raise SystemExit("Obsolete runtime files must be removed: " + ", ".join(present))
 
 
 def _validate_extensions(addon):

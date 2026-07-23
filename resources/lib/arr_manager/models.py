@@ -15,6 +15,20 @@ class SelectedItem:
     episode: int = -1
     file_path: str = ""
     unique_ids: Dict[str, str] = field(default_factory=dict)
+    series_year: int = 0
+    series_unique_ids: Dict[str, str] = field(default_factory=dict)
+
+    def effective_unique_ids(self) -> Dict[str, str]:
+        if self.media_type == "episode":
+            return self.series_unique_ids or {}
+        return self.unique_ids or {}
+
+    def effective_year(self) -> int:
+        value = self.series_year if self.media_type == "episode" else self.year
+        try:
+            return int(value or 0)
+        except (TypeError, ValueError):
+            return 0
 
     @property
     def display_name(self) -> str:

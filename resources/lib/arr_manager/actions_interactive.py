@@ -18,13 +18,11 @@ def _unique_id(selected, key):
 
 
 def _series_tvdb_id(selected):
-    # Kodi episode unique IDs normally identify the episode, not its parent series.
-    return _unique_id(selected, "tvdb") if selected.media_type == "tvshow" else 0
+    return _positive_id(selected.effective_unique_ids().get("tvdb"))
 
 
 def _series_year(selected):
-    # An episode year is not reliable evidence for the parent series year.
-    return int(selected.year or 0) if selected.media_type == "tvshow" else 0
+    return selected.effective_year()
 
 
 def _title_year_match(row, title, year):
