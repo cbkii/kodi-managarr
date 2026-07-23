@@ -24,7 +24,10 @@ jobs:
         run: |
           set -euo pipefail
           test -d .audit-payload || exit 0
-          cat .audit-payload/runtime-*.b64 | tr -d '\n' | base64 --decode > "$RUNNER_TEMP/audit-runtime.patch"
+          : > "$RUNNER_TEMP/audit-runtime.patch"
+          for chunk in .audit-payload/runtime-*.b64; do
+            base64 --decode "$chunk" >> "$RUNNER_TEMP/audit-runtime.patch"
+          done
           git apply --check "$RUNNER_TEMP/audit-runtime.patch"
           git apply "$RUNNER_TEMP/audit-runtime.patch"
           rm -rf .audit-payload .github/workflows/apply-audit-runtime.yml
