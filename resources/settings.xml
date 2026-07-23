@@ -47,37 +47,37 @@
         <setting id="test_sonarr" type="action" label="32306" help="32326"><level>0</level><data>RunScript(context.arr.manager,mode=test_sonarr)</data><control type="button" format="action"><close>true</close></control></setting>
       </group>
     </category>
-    <category id="request" label="33300" help="33320">
+    <category id="request" label="32990" help="32990">
       <group id="1" label="">
-        <setting id="configure_request_defaults" type="action" label="33007" help="33321"><level>0</level><data>RunScript(context.arr.manager,mode=request_defaults)</data><control type="button" format="action"><close>true</close></control></setting>
-        <setting id="request_sonarr_monitor" type="string" label="33305" help="33325"><level>1</level><default>future</default><constraints><options><option label="33306">future</option><option label="33307">all</option><option label="33308">missing</option><option label="33309">none</option></options></constraints><control type="spinner" format="string" /></setting>
-        <setting id="request_radarr_root" type="string" label="33301" help="33321"><level>4</level><default /></setting>
-        <setting id="request_radarr_profile" type="integer" label="33302" help="33322"><level>4</level><default>0</default></setting>
-        <setting id="request_sonarr_root" type="string" label="33303" help="33323"><level>4</level><default /></setting>
-        <setting id="request_sonarr_profile" type="integer" label="33304" help="33324"><level>4</level><default>0</default></setting>
+        <setting id="configure_request_defaults" type="action" label="32990" help="32990"><level>0</level><data>RunScript(context.arr.manager,mode=request_defaults)</data><control type="button" format="action"><close>true</close></control></setting>
+        <setting id="request_radarr_root" type="string" label="32912" help="32912"><level>4</level><default /></setting>
+        <setting id="request_radarr_profile" type="integer" label="32912" help="32912"><level>4</level><default>0</default></setting>
+        <setting id="request_sonarr_root" type="string" label="32912" help="32912"><level>4</level><default /></setting>
+        <setting id="request_sonarr_profile" type="integer" label="32912" help="32912"><level>4</level><default>0</default></setting>
+        <setting id="request_sonarr_monitor" type="string" label="32912" help="32912"><level>4</level><default>future</default></setting>
       </group>
     </category>
-    <category id="prowlarr" label="33100" help="33120">
+    <category id="prowlarr" label="32930" help="32937">
       <group id="1" label="">
-        <setting id="prowlarr_enabled" type="boolean" label="33101" help="33121"><level>0</level><default>false</default><control type="toggle" /></setting>
-        <setting id="prowlarr_url" type="string" label="33102" help="33122"><level>0</level><default /><constraints><allowempty>true</allowempty></constraints><control type="edit" format="string"><heading>33102</heading></control></setting>
-        <setting id="prowlarr_api_key" type="string" label="33103" help="33123"><level>0</level><default /><constraints><allowempty>true</allowempty></constraints><control type="edit" format="string"><heading>33103</heading><hidden>true</hidden></control></setting>
-        <setting id="prowlarr_api_version" type="string" label="33104" help="33124"><level>2</level><default>v1</default><control type="edit" format="string"><heading>33104</heading></control></setting>
-        <setting id="prowlarr_verify_tls" type="boolean" label="33105" help="33125"><level>1</level><default>true</default><control type="toggle" /></setting>
-        <setting id="test_prowlarr" type="action" label="33106" help="33126"><level>0</level><data>RunScript(context.arr.manager,mode=test_prowlarr)</data><control type="button" format="action"><close>true</close></control></setting>
+        <setting id="prowlarr_enabled" type="boolean" label="32931" help="32938"><level>0</level><default>false</default><control type="toggle" /></setting>
+        <setting id="prowlarr_url" type="string" label="32932" help="32939"><level>0</level><default /><constraints><allowempty>true</allowempty></constraints><control type="edit" format="string"><heading>32932</heading></control></setting>
+        <setting id="prowlarr_api_key" type="string" label="32933" help="32940"><level>0</level><default /><constraints><allowempty>true</allowempty></constraints><control type="edit" format="string"><heading>32933</heading><hidden>true</hidden></control></setting>
+        <setting id="prowlarr_api_version" type="string" label="32934" help="32941"><level>2</level><default>v1</default><control type="edit" format="string"><heading>32934</heading></control></setting>
+        <setting id="prowlarr_verify_tls" type="boolean" label="32935" help="32942"><level>1</level><default>true</default><control type="toggle" /></setting>
+        <setting id="test_prowlarr" type="action" label="32936" help="32943"><level>0</level><data>RunScript(context.arr.manager,mode=test_prowlarr)</data><control type="button" format="action"><close>true</close></control></setting>
       </group>
     </category>
-    <category id="bazarr" label="33200" help="33220">
+    <category id="bazarr" label="32950" help="32970">
       <group id="1" label="">
-        <setting id="bazarr_enabled" type="boolean" label="33201" help="33221"><level>0</level><default>false</default><control type="toggle" /></setting>
-        <setting id="bazarr_url" type="string" label="33202" help="33222"><level>0</level><default /><constraints><allowempty>true</allowempty></constraints><control type="edit" format="string"><heading>33202</heading></control></setting>
-        <setting id="bazarr_api_key" type="string" label="33203" help="33223"><level>0</level><default /><constraints><allowempty>true</allowempty></constraints><control type="edit" format="string"><heading>33203</heading><hidden>true</hidden></control></setting>
-        <setting id="bazarr_verify_tls" type="boolean" label="33204" help="33224"><level>1</level><default>true</default><control type="toggle" /></setting>
-        <setting id="configure_subtitle_languages" type="action" label="33006" help="33225"><level>0</level><data>RunScript(context.arr.manager,mode=bazarr_languages)</data><control type="button" format="action"><close>true</close></control></setting>
-        <setting id="test_bazarr" type="action" label="33205" help="33226"><level>0</level><data>RunScript(context.arr.manager,mode=test_bazarr)</data><control type="button" format="action"><close>true</close></control></setting>
-        <setting id="bazarr_language_1" type="string" label="33206" help="33227"><level>4</level><default /></setting>
-        <setting id="bazarr_language_2" type="string" label="33207" help="33227"><level>4</level><default /></setting>
-        <setting id="bazarr_language_3" type="string" label="33208" help="33227"><level>4</level><default /></setting>
+        <setting id="bazarr_enabled" type="boolean" label="32951" help="32971"><level>0</level><default>false</default><control type="toggle" /></setting>
+        <setting id="bazarr_url" type="string" label="32952" help="32972"><level>0</level><default /><constraints><allowempty>true</allowempty></constraints><control type="edit" format="string"><heading>32952</heading></control></setting>
+        <setting id="bazarr_api_key" type="string" label="32953" help="32973"><level>0</level><default /><constraints><allowempty>true</allowempty></constraints><control type="edit" format="string"><heading>32953</heading><hidden>true</hidden></control></setting>
+        <setting id="bazarr_verify_tls" type="boolean" label="32955" help="32975"><level>1</level><default>true</default><control type="toggle" /></setting>
+        <setting id="configure_subtitle_languages" type="action" label="32959" help="32979"><level>0</level><data>RunScript(context.arr.manager,mode=bazarr_languages)</data><control type="button" format="action"><close>true</close></control></setting>
+        <setting id="test_bazarr" type="action" label="32960" help="32980"><level>0</level><data>RunScript(context.arr.manager,mode=test_bazarr)</data><control type="button" format="action"><close>true</close></control></setting>
+        <setting id="bazarr_language_1" type="string" label="32912" help="32912"><level>4</level><default /></setting>
+        <setting id="bazarr_language_2" type="string" label="32912" help="32912"><level>4</level><default /></setting>
+        <setting id="bazarr_language_3" type="string" label="32912" help="32912"><level>4</level><default /></setting>
       </group>
     </category>
     <category id="paths" label="32400" help="32420">
