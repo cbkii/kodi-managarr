@@ -123,6 +123,7 @@ INTERACTIVE_MESSAGES = {
     "find_subtitles_window_failed": (33460, "Kodi could not open the subtitle-search window."),
     "subtitle_score": (33461, "score {score}"),
     "subtitle_release_match": (33462, "match {match}"),
+    "subtitle_playback_changed": (33463, "Kodi playback changed before the subtitle download completed."),
 }
 
 
