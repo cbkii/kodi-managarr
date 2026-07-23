@@ -51,7 +51,7 @@ Dashboard calls cheap status, health, bounded queue and one-record wanted resour
 
 Bazarr is rooted at `/api`, not a Servarr version path. Current integration uses system languages, provider-search resources and movie/episode subtitle download resources. Up to three ordered unique language keys are stored, including forced/HI qualifiers where configured.
 
-Kodi's subtitle module resolves the playing library movie/spisode, resolves it to Radarr/Sonarr, filters Bazarr results and emits one selectable best-match entry per configured language/flag combination. A random short-lived profile token carries only sanitised result context. Selection asks Bazarr to download the language/flag combination, then returns a path only when it is already Kodi-accessible or safely mapped. Server filesystem paths are never handed directly to Android Kodi.
+Kodi's subtitle module resolves the playing library movie/episode, resolves it to Radarr/Sonarr, filters Bazarr results and emits one selectable best-match entry per configured language/flag combination. A random short-lived profile token carries only sanitised result context. Selection asks Bazarr to download the exact selected provider result, then returns a path only when it is already Kodi-accessible or safely mapped. Server filesystem paths are never handed directly to Android Kodi.
 
 ## Destructive safety
 
