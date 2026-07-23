@@ -30,6 +30,7 @@ MIN_ZIP_EPOCH = 315532800
 MAX_ZIP_EPOCH = 4354819198
 PACKAGE_FILE_MODE = 0o644
 STRINGS_PATH = "resources/language/resource.language.en_gb/strings.po"
+OBSOLETE_RUNTIME_PATHS = {"resources/lib/arr_manager/interactive_entrypoint.py"}
 
 
 def _zip_timestamp():
@@ -41,6 +42,9 @@ def _zip_timestamp():
 
 
 def _iter_runtime_files():
+    for obsolete in OBSOLETE_RUNTIME_PATHS:
+        if (ROOT / obsolete).exists():
+            raise RuntimeError(f"Obsolete runtime file must be removed before packaging: {obsolete}")
     for name in INCLUDED_ROOT_FILES:
         path = ROOT / name
         if not path.is_file() or path.is_symlink():
@@ -118,6 +122,10 @@ def _validate_archive(path):
         missing = sorted(required - names)
         if missing:
             raise RuntimeError(f"Generated package is missing required files: {missing}")
+        forbidden = {f"{ADDON_ID}/{relative}" for relative in OBSOLETE_RUNTIME_PATHS}
+        present_forbidden = sorted(forbidden & names)
+        if present_forbidden:
+            raise RuntimeError(f"Generated package contains obsolete runtime files: {present_forbidden}")
         addon = ET.fromstring(archive.read(f"{ADDON_ID}/addon.xml"))
         if addon.attrib.get("id") != ADDON_ID or addon.attrib.get("version") != VERSION:
             raise RuntimeError("Packaged addon.xml identity/version does not match the build")
