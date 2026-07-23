@@ -46,8 +46,12 @@ class Settings:
 class Harness(InteractiveMixin):
     def __init__(self):
         self.settings = Settings(); self.ui = UI(); self.logger = mock.MagicMock()
-        self._prowlarr = None; self._bazarr = None
+        self._prowlarr = mock.MagicMock(); self._bazarr = mock.MagicMock()
         self.radarr = mock.MagicMock(); self.sonarr = mock.MagicMock()
+    @property
+    def prowlarr(self): return self._prowlarr
+    @property
+    def bazarr(self): return self._bazarr
     def _m(self, key, **values): return "Cancelled" if key == "cancelled" else key
     def _poll_command(self, client, response, description):
         if isinstance(response, Exception): raise response
