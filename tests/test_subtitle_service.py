@@ -1,4 +1,6 @@
+import json
 import os
+import stat
 import sys
 import tempfile
 import time
@@ -39,10 +41,24 @@ class SubtitleServiceTests(unittest.TestCase):
         self.assertEqual(_language_code({"language": {"code2": "EN"}}), "en")
         self.assertEqual(_language_code({"code3": "ind"}), "ind")
 
-    def test_safe_result_drops_unknown_and_sensitive_fields(self):
-        result = _safe_result({"language": "en", "provider": "p", "secret": "x", "subtitle": "token"})
-        self.assertEqual(result["language"], "en")
+    def test_safe_result_keeps_only_exact_download_identity(self):
+        result = _safe_result({
+            "language": "en", "provider": "p", "subtitle": "opaque-token", "score": 99,
+            "release_info": ["title"], "secret": "x", "forced": True,
+        })
+        self.assertEqual(result["provider"], "p")
+        self.assertEqual(result["subtitle"], "opaque-token")
+        self.assertTrue(result["forced"])
+        self.assertNotIn("language", result)
+        self.assertNotIn("score", result)
+        self.assertNotIn("release_info", result)
         self.assertNotIn("secret", result)
+
+    def test_safe_result_rejects_url_or_missing_download_identity(self):
+        with self.assertRaises(SafetyError):
+            _safe_result({"provider": "p", "subtitle": "https://provider.example/token"})
+        with self.assertRaises(SafetyError):
+            _safe_result({"provider": "p"})
 
     def test_language_filter_keeps_forced_and_hi_variants_in_configured_order(self):
         rows = [
@@ -79,6 +95,22 @@ class SubtitleServiceTests(unittest.TestCase):
             path = os.path.join(profile, f"subtitle-{token}.json")
             os.utime(path, (time.time() - 2000, time.time() - 2000))
             with self.assertRaises(SafetyError): service._load_cache(token)
+
+    def test_cache_contains_no_media_path_and_uses_private_permissions(self):
+        with tempfile.TemporaryDirectory() as profile:
+            service = self.make_service(profile)
+            payload = {
+                "media_type": "movie", "kodi_db_id": 7, "radarr_id": 9, "language": "en",
+                "result": {"provider": "p", "subtitle": "opaque", "forced": False},
+                "created": int(time.time()),
+            }
+            token = service._save_cache(payload)
+            path = os.path.join(profile, f"subtitle-{token}.json")
+            stored = json.loads(open(path, encoding="utf-8").read())
+            self.assertNotIn("playing_file", stored)
+            self.assertNotIn("url", json.dumps(stored).lower())
+            if os.name != "nt":
+                self.assertEqual(stat.S_IMODE(os.stat(path).st_mode), 0o600)
 
     def test_candidate_scan_returns_only_matching_language_and_media_stem(self):
         with tempfile.TemporaryDirectory() as profile:
