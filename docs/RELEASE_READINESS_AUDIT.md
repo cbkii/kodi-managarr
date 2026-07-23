@@ -1,6 +1,6 @@
 # Android Kodi release-readiness audit
 
-This document records the two-pass release-readiness audit of Kodi Managarr for Kodi 19+ on Android. Each item is classified as **Implemented**, **Verified**, **Device-only outstanding** or **Not applicable** so readiness is unambiguous.
+This document records the completed two-pass release-readiness audit of Kodi Managarr for Kodi 19+ on Android. Each item is classified as **Implemented**, **Verified**, **Post-merge device validation** or **Not applicable** so repository readiness is unambiguous.
 
 ## Destructive safety and defaults
 
@@ -13,9 +13,10 @@ This document records the two-pass release-readiness audit of Kodi Managarr for 
 - **Implemented:** Episode `uniqueid.tvdb` remains episode identity and is never reused as the parent-series TVDb ID.
 - **Implemented:** `SelectedItem` stores separate parent-series unique IDs and year.
 - **Implemented:** Episode selections and playing subtitle items obtain parent identity through `VideoLibrary.GetTVShowDetails` using the existing JSON-RPC adapter.
+- **Implemented:** A transient parent-detail JSON-RPC failure falls back to available episode metadata; downstream Sonarr resolution still rejects insufficient or ambiguous identity.
 - **Implemented:** Core Sonarr resolution, Request & Search and Bazarr subtitles use the parent-series fields.
-- **Verified:** Tests cover stable parent TVDb resolution without path mapping, distinct episode/series IDs and season-zero identity.
-- **Device-only outstanding:** Repeat on Android Kodi with a skin/view exposing incomplete list-item metadata.
+- **Verified:** Tests cover stable parent TVDb resolution without path mapping, distinct episode/series IDs, season-zero identity and transient parent-detail failure.
+- **Post-merge device validation:** Repeat on Android Kodi with a skin/view exposing incomplete list-item metadata.
 
 ## International-title compatibility
 
@@ -37,14 +38,14 @@ This document records the two-pass release-readiness audit of Kodi Managarr for 
 - **Implemented:** Cached result payloads contain stable IDs and sanitised exact provider identity only; media paths, service URLs and credentials are excluded.
 - **Implemented:** Tokens are atomically consumed before the non-idempotent provider request, preventing replay. Payload type, age, media type, IDs, language and safe provider identity are validated.
 - **Implemented:** Current playback type/database ID is revalidated before download submission; only an existing Kodi-accessible or safely mapped path is returned.
-- **Verified:** Tests cover qualifier ordering, exact qualified filtering, cache replay, malformed payloads, playing parent-series identity and plugin success/failure completion.
-- **Device-only outstanding:** Verify exact provider download and subtitle loading on Android Kodi against the configured Bazarr version and storage mapping.
+- **Verified:** Tests cover qualifier ordering, exact qualified filtering, cache replay, malformed payloads, playing parent-series identity, transient parent-detail failure and plugin success/failure completion.
+- **Post-merge device validation:** Verify exact provider download and subtitle loading on Android Kodi against the configured Bazarr version and storage mapping.
 
 ## Release metadata and compatibility contract
 
 - **Implemented:** The untagged feature target is `1.2.0`, newer than published `v1.1.1`.
 - **Implemented:** `CHANGELOG.md` and `addon.xml` contain concise consolidated user-facing changes since v1.1.1.
-- **Verified metadata limits:** Kodi's `<news>` advisory limit is enforced at **1500** characters. Project-defined UI limits are **160** characters for summary and **1000** for description; each English field must be present and nonempty.
+- **Verified metadata limits:** Kodi's `<news>` advisory limit is enforced at **1500** characters. Project-defined UI limits are **160** characters for summary and **1000** for description; each required field must be present and nonempty.
 - **Verified:** The owner-controlled release workflow remains direct and does not impose mandatory RC promotion or approval ceremony.
 - **Verified:** Public release naming remains `managarr-addon_vX.Y.Z.zip`; internal packaging remains `context.arr.manager/`.
 
@@ -53,7 +54,7 @@ This document records the two-pass release-readiness audit of Kodi Managarr for 
 | Layer | Status | Contract |
 |---|---|---|
 | Kodi runtime | Supported | Kodi 19+ with the `xbmc.python` 3.0.0/Python 3 add-on API |
-| Android Kodi | Supported target | Kodi 19+ Android installations; final device evidence follows the validation runbook |
+| Android Kodi | Supported target | Kodi 19+ Android installations; device evidence follows the validation runbook after merge |
 | Kodi 18 / Python 2 | Unsupported | The add-on uses Kodi Matrix+ settings and Python 3 APIs |
 | Host validation | Verified in CI | CPython 3.8 and 3.12 for pure Python, tests and packaging tools |
 | Optional services/backends | Conditional | Exact configured Radarr/Sonarr/Prowlarr/Bazarr/SMB/SFTP versions and paths must be device-tested before being claimed |
@@ -65,9 +66,9 @@ The CPython 3.8/3.12 host matrix is not a claim that every Android Kodi build em
 - **Implemented:** Validation detects unsafe fresh-install defaults, metadata overflow, registry/dispatcher drift, invalid aliases, malformed localisation and obsolete runtime modules.
 - **Implemented:** Packaging rejects obsolete modules, symlinks, hidden/unexpected files and unsafe archive contents; tests/docs/scripts/bytecode/generated output remain excluded.
 - **Verified:** Deterministic ZIP output, safe non-executable permissions, one internal root and Kodi subtitle registration are retained.
+- **Verified in CI:** Python 3.8 and 3.12 validation, Ruff, complete unit tests, release-version regression, deterministic packaging, archive inspection, Kodi add-on checker and actionlint pass on the final PR head.
 - **Implemented:** README, architecture, Android validation and release checklist document final behaviour and compatibility boundaries.
-- **CI status:** The final Python 3.8/3.12, Ruff, unit, deterministic package, archive, Kodi add-on checker and actionlint result must be green on the final head before merge.
-- **Device-only outstanding:** Execute `docs/ANDROID_KODI_VALIDATION.md`; no physical Android result is claimed by this audit.
+- **Post-merge device validation:** Execute `docs/ANDROID_KODI_VALIDATION.md`; no physical Android result is claimed by this repository audit.
 
 ## Non-goals
 
