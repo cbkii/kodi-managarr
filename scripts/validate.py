@@ -123,7 +123,7 @@ def _po_quoted_value(block, keyword):
 
 
 def _po_entries(path):
-    source = path.read_text(encoding="utf-8")
+    source = path.read_bytes().decode("utf-8")
     if "\r" in source:
         raise SystemExit("strings.po must use Unix line endings")
     content = render_strings_po(source)
