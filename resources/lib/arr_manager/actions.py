@@ -3,7 +3,8 @@ from .actions_destructive import DestructiveMixin
 from .actions_interactive import InteractiveMixin
 from .actions_management import ManagementMixin
 from .actions_shared import SharedSafetyMixin
-from .clients import BazarrClient, ProwlarrClient, RadarrClient, SonarrClient
+from .bazarr_client import BazarrClient
+from .clients import ProwlarrClient, RadarrClient, SonarrClient
 from .errors import ResolutionError
 from .messages import message
 
