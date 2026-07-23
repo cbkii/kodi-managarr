@@ -16,6 +16,7 @@ if str(LIB_DIR) not in sys.path:
     sys.path.insert(0, str(LIB_DIR))
 
 from arr_manager.context_manifest import EXPECTED_CONTEXT_ACTIONS, ROOT_CONTEXT_LABEL  # noqa: E402
+from arr_manager.localization import render_strings_po, runtime_catalog  # noqa: E402
 
 ADDON = ET.parse(ROOT / "addon.xml").getroot()
 ADDON_ID = ADDON.attrib["id"]
@@ -28,6 +29,7 @@ ALLOWED_SUFFIXES = {".py", ".xml", ".po", ".png", ".jpg", ".jpeg"}
 MIN_ZIP_EPOCH = 315532800
 MAX_ZIP_EPOCH = 4354819198
 PACKAGE_FILE_MODE = 0o644
+STRINGS_PATH = "resources/language/resource.language.en_gb/strings.po"
 
 
 def _zip_timestamp():
@@ -63,6 +65,12 @@ def _iter_runtime_files():
             yield path
 
 
+def _source_bytes(source, relative):
+    if relative == STRINGS_PATH:
+        return render_strings_po(source.read_text(encoding="utf-8")).encode("utf-8")
+    return source.read_bytes()
+
+
 def _validate_packaged_context(archive, addon):
     extension = addon.find("extension[@point='kodi.context.item']")
     if extension is None:
@@ -83,9 +91,12 @@ def _validate_packaged_context(archive, addon):
         raise RuntimeError("Every packaged context item must dispatch through context.py")
     if not (branding_item.findtext("visible") or "").strip():
         raise RuntimeError("Every packaged context item must define a visibility expression")
-    po_path = f"{ADDON_ID}/resources/language/resource.language.en_gb/strings.po"
+    po_path = f"{ADDON_ID}/{STRINGS_PATH}"
     po_text = archive.read(po_path).decode("utf-8")
     po_ids = {int(value) for value in re.findall(r'^msgctxt "#([0-9]+)"$', po_text, flags=re.M)}
+    missing_runtime = sorted(set(runtime_catalog()) - po_ids)
+    if missing_runtime:
+        raise RuntimeError(f"Packaged runtime strings are missing: {missing_runtime}")
     numeric_labels = {
         int(value) for value in ((node.text or "").strip() for node in extension.findall(".//label")) if value.isdigit()
     }
@@ -101,7 +112,7 @@ def _validate_archive(path):
         required = {
             f"{ADDON_ID}/addon.xml", f"{ADDON_ID}/context.py", f"{ADDON_ID}/default.py",
             f"{ADDON_ID}/subtitles.py", f"{ADDON_ID}/resources/settings.xml",
-            f"{ADDON_ID}/resources/language/resource.language.en_gb/strings.po",
+            f"{ADDON_ID}/{STRINGS_PATH}",
         }
         names = set(archive.namelist())
         missing = sorted(required - names)
@@ -129,7 +140,7 @@ def main():
                 info.create_system = 3
                 info.flag_bits |= 0x800
                 info.external_attr = ((stat.S_IFREG | PACKAGE_FILE_MODE) & 0xFFFF) << 16
-                archive.writestr(info, source.read_bytes(), compress_type=zipfile.ZIP_DEFLATED, compresslevel=9)
+                archive.writestr(info, _source_bytes(source, relative), compress_type=zipfile.ZIP_DEFLATED, compresslevel=9)
         _validate_archive(temporary)
         os.replace(temporary, OUTPUT)
     finally:
