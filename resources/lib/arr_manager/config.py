@@ -39,7 +39,7 @@ class Settings:
         get = addon.getSetting
         self.backend = BACKENDS.get(get("deletion_backend"), get("deletion_backend") or "api")
         self.confirm = as_bool(get("confirm_actions"), True)
-        self.dry_run = as_bool(get("dry_run"), False)
+        self.dry_run = as_bool(get("dry_run"), True)
         self.require_blocklist = as_bool(get("require_blocklist"), True)
         self.debug = as_bool(get("debug"), False)
 
