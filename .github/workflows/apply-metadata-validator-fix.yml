@@ -1,0 +1,33 @@
+name: Apply Kodi metadata validator fix
+
+on:
+  push:
+    branches:
+      - audit/android-kodi-release-readiness
+    paths:
+      - '.audit-metadata.patch'
+      - '.github/workflows/apply-metadata-validator-fix.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          ref: audit/android-kodi-release-readiness
+      - name: Apply and remove one-time patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git apply --check .audit-metadata.patch
+          git apply .audit-metadata.patch
+          rm .audit-metadata.patch .github/workflows/apply-metadata-validator-fix.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "Accept Kodi-compatible news metadata"
+          git push origin HEAD:audit/android-kodi-release-readiness
