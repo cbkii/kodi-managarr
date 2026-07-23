@@ -24,6 +24,20 @@ def _positive_int(value, default=0):
         return default
 
 
+def _score(value):
+    try:
+        return float(value or 0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _display_text(value, limit=120):
+    text = " ".join(str(value or "").split())
+    if "://" in text:
+        return ""
+    return text[:limit]
+
+
 def _language_code(row):
     value = row.get("language")
     if isinstance(value, dict):
@@ -49,8 +63,7 @@ def _release_match(row):
         value = ", ".join(str(item) for item in value if item)
     elif isinstance(value, dict):
         value = ", ".join(str(key) for key, matched in value.items() if matched)
-    value = " ".join(str(value or "").split())
-    return value[:120]
+    return _display_text(value)
 
 
 def _result_label(addon, row, language):
@@ -61,7 +74,7 @@ def _result_label(addon, row, language):
         flags.append(imessage(addon, "subtitle_hi"))
     suffix = imessage(addon, "subtitle_flags", flags=", ".join(flags)) if flags else ""
 
-    provider = str(row.get("provider") or imessage(addon, "subtitle_best_match"))
+    provider = _display_text(row.get("provider"), 80) or imessage(addon, "subtitle_best_match")
     details = [provider]
     if row.get("score") is not None:
         details.append(imessage(addon, "subtitle_score", score=row.get("score")))
@@ -104,7 +117,7 @@ def _select_results(rows, allowed_languages):
         if base not in priority:
             continue
         variant = _language_key(row)
-        score = float(row.get("score") or 0)
+        score = _score(row.get("score"))
         if variant not in best or score > best[variant][0]:
             best[variant] = (score, row)
     return [
@@ -179,8 +192,14 @@ class SubtitleService:
 
         output = []
         for language, row in _select_results(rows, self.settings.bazarr_languages):
+            try:
+                safe_result = _safe_result(row)
+            except SafetyError:
+                if self.logger:
+                    self.logger.warning("Skipped malformed Bazarr subtitle result")
+                continue
             payload = dict(target)
-            payload.update({"language": language, "result": _safe_result(row), "created": int(time.time())})
+            payload.update({"language": language, "result": safe_result, "created": int(time.time())})
             token = self._save_cache(payload)
             label, label2 = _result_label(self.addon, row, language)
             output.append({
@@ -231,14 +250,13 @@ class SubtitleService:
             return sorted(last_candidates)[-1]
         raise SafetyError(imessage(self.addon, "subtitle_not_found"))
 
-    @staticmethod
-    def _current_playback():
+    def _current_playback(self):
         import xbmc
         media_type = str(xbmc.getInfoLabel("VideoPlayer.DBTYPE") or "").strip().lower()
         db_id = _positive_int(xbmc.getInfoLabel("VideoPlayer.DBID"), 0)
         playing_file = str(xbmc.Player().getPlayingFile() or "")
         if media_type not in {"movie", "episode"} or db_id <= 0 or not playing_file:
-            raise SafetyError("Kodi playback changed before the subtitle download completed")
+            raise SafetyError(imessage(self.addon, "subtitle_playback_changed"))
         return media_type, db_id, playing_file
 
     def _save_cache(self, payload):
