@@ -7,6 +7,7 @@ from .interactive_messages import INTERACTIVE_MESSAGES
 from .messages import MESSAGES
 
 _CONTEXT_RE = re.compile(r'^msgctxt "#([0-9]+)"$', re.M)
+_PROJECT_HEADER = 'Project-Id-Version: Kodi Managarr\\n'
 
 
 def _quoted(value):
@@ -74,6 +75,8 @@ def runtime_catalog():
 
 def render_strings_po(source_text):
     text = str(source_text or "").replace("\r\n", "\n").replace("\r", "\n").rstrip() + "\n"
+    if _PROJECT_HEADER not in text:
+        return text
     entries = _po_entries(text)
     additions = []
     for string_id, (key, fallback) in sorted(runtime_catalog().items()):
