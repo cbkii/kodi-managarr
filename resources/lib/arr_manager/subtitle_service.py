@@ -43,6 +43,16 @@ def _language_key(row):
     return code
 
 
+def _release_match(row):
+    value = row.get("release_info") or row.get("matches") or ""
+    if isinstance(value, (list, tuple, set)):
+        value = ", ".join(str(item) for item in value if item)
+    elif isinstance(value, dict):
+        value = ", ".join(str(key) for key, matched in value.items() if matched)
+    value = " ".join(str(value or "").split())
+    return value[:120]
+
+
 def _result_label(addon, row, language):
     flags = []
     if row.get("forced"):
@@ -50,8 +60,21 @@ def _result_label(addon, row, language):
     if row.get("hearing_impaired") or row.get("hi"):
         flags.append(imessage(addon, "subtitle_hi"))
     suffix = imessage(addon, "subtitle_flags", flags=", ".join(flags)) if flags else ""
-    provider = imessage(addon, "subtitle_best_match")
-    return language, imessage(addon, "subtitle_result_label", language=language, provider=provider, flags=suffix)
+
+    provider = str(row.get("provider") or imessage(addon, "subtitle_best_match"))
+    details = [provider]
+    if row.get("score") is not None:
+        details.append(imessage(addon, "subtitle_score", score=row.get("score")))
+    release_match = _release_match(row)
+    if release_match:
+        details.append(imessage(addon, "subtitle_release_match", match=release_match))
+    return language, imessage(
+        addon,
+        "subtitle_result_label",
+        language=language,
+        provider=" - ".join(details),
+        flags=suffix,
+    )
 
 
 def _safe_result(row):
@@ -66,6 +89,24 @@ def _safe_result(row):
             for key in ("code", "code2", "code3", "name") if key in result["language"]
         }
     return result
+
+
+def _select_results(rows, allowed_languages):
+    allowed = [str(value).strip().lower() for value in allowed_languages if str(value).strip()]
+    priority = {value: index for index, value in enumerate(allowed)}
+    best = {}
+    for row in rows:
+        base = _language_code(row)
+        if base not in priority:
+            continue
+        variant = _language_key(row)
+        score = float(row.get("score") or 0)
+        if variant not in best or score > best[variant][0]:
+            best[variant] = (score, row)
+    return [
+        (variant, best[variant][1])
+        for variant in sorted(best, key=lambda value: (priority[value.split(":", 1)[0]], value))
+    ]
 
 
 def selected_from_player(addon, xbmc_module, kodi_client):
@@ -132,19 +173,8 @@ class SubtitleService:
             }
             rows = self.manager.bazarr.search_episode_subtitles(episode["id"])
 
-        allowed = self.settings.bazarr_languages
-        indexed = {value: index for index, value in enumerate(allowed)}
-        best = {}
-        for row in rows:
-            key = _language_key(row)
-            if key not in indexed:
-                continue
-            score = float(row.get("score") or 0)
-            if key not in best or score > best[key][0]:
-                best[key] = (score, row)
         output = []
-        for language in sorted(best, key=indexed.get):
-            row = best[language][1]
+        for language, row in _select_results(rows, self.settings.bazarr_languages):
             payload = dict(target)
             payload.update({"language": language, "result": _safe_result(row), "created": int(time.time())})
             token = self._save_cache(payload)
@@ -159,7 +189,7 @@ class SubtitleService:
     def download(self, token):
         payload = self._load_cache(token)
         language = str(payload.get("language") or "").lower()
-        if language not in self.settings.bazarr_languages:
+        if language.split(":", 1)[0] not in self.settings.bazarr_languages:
             raise SafetyError(imessage(self.addon, "subtitle_invalid_request"))
         playing_file = str(payload.get("playing_file") or "")
         before = set(self._subtitle_candidates(playing_file, language))
