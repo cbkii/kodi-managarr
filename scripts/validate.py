@@ -16,12 +16,8 @@ LIB_DIR = ROOT / "resources" / "lib"
 if str(LIB_DIR) not in sys.path:
     sys.path.insert(0, str(LIB_DIR))
 
-from arr_manager.context_manifest import (  # noqa: E402
-    EXPECTED_CONTEXT_ACTIONS,
-    EXPECTED_CONTEXT_SUBMENUS,
-    EXPECTED_DIRECT_CONTEXT_ACTIONS,
-    ROOT_CONTEXT_LABEL,
-)
+from arr_manager.context_manifest import EXPECTED_CONTEXT_ACTIONS, ROOT_CONTEXT_LABEL  # noqa: E402
+from arr_manager.registry import ACTION_REGISTRY  # noqa: E402
 
 
 def main():
@@ -33,6 +29,7 @@ def main():
         raise SystemExit("addon.xml version must use x.y.z")
     if settings.attrib.get("version") != "1" or settings.find("section[@id='context.arr.manager']") is None:
         raise SystemExit("resources/settings.xml must use the Kodi Matrix+ version 1 schema")
+    _validate_extensions(addon)
     print("OK XML and metadata")
 
     if not compileall.compile_dir(str(ROOT), quiet=1, rx=re.compile(r"[\\/]\.git[\\/]")):
@@ -44,6 +41,7 @@ def main():
         "addon.xml",
         "context.py",
         "default.py",
+        "subtitles.py",
         "LICENSE.txt",
         "resources/icon.png",
         "resources/fanart.jpg",
@@ -59,6 +57,15 @@ def main():
     _validate_spdx()
     print("OK required files, images, context items, strings and SPDX headers")
     return 0
+
+
+def _validate_extensions(addon):
+    subtitle = addon.find("extension[@point='xbmc.subtitle.module']")
+    if subtitle is None or subtitle.attrib.get("library") != "subtitles.py":
+        raise SystemExit("addon.xml must register subtitles.py as xbmc.subtitle.module")
+    script = addon.find("extension[@point='xbmc.python.script']")
+    if script is None or script.attrib.get("library") != "default.py":
+        raise SystemExit("addon.xml must register default.py as xbmc.python.script")
 
 
 def _validate_images():
@@ -90,16 +97,13 @@ def _validate_context_items(addon):
     if root_label != ROOT_CONTEXT_LABEL:
         raise SystemExit(f"Context root label must be exactly {ROOT_CONTEXT_LABEL!r}")
 
-    seen = set()
     key = (branding_item.attrib.get("library"), branding_item.attrib.get("args", ""))
     if key[0] != "context.py" or not key[1]:
         raise SystemExit(f"Invalid context item: {key}")
-    seen.add(key)
     visible = branding_item.find("visible")
     if visible is None or not (visible.text or "").strip():
         raise SystemExit(f"Context item {key} is missing a visible expression")
-
-    actions = {action for _, action in seen}
+    actions = {key[1]}
     if actions != EXPECTED_CONTEXT_ACTIONS:
         raise SystemExit(
             "Context actions do not match the required scope: "
@@ -142,10 +146,9 @@ def _po_entries(path):
                 continue
             raise SystemExit("strings.po contains a block without a numeric msgctxt")
         if len(contexts) != 1:
-            joined = ", ".join(contexts)
             raise SystemExit(
                 "strings.po entries must be separated by a blank line; "
-                f"one block contains IDs: {joined}"
+                f"one block contains IDs: {', '.join(contexts)}"
             )
         msgid = _po_quoted_value(block, "msgid")
         if msgid is None:
@@ -184,7 +187,7 @@ def _setting_string_id(node, attribute):
 
 def _validate_strings(addon, settings):
     ids = _po_ids(ROOT / "resources/language/resource.language.en_gb/strings.po")
-    referenced = set()
+    referenced = {int(action["label_id"]) for action in ACTION_REGISTRY}
     for node in list(addon.iter("label")) + list(settings.iter("heading")):
         value = (node.text or "").strip()
         if value.isdigit() and int(value) >= 30000:
@@ -209,7 +212,7 @@ def _validate_strings(addon, settings):
 
 
 def _validate_spdx():
-    files = [ROOT / "context.py", ROOT / "default.py"]
+    files = [ROOT / "context.py", ROOT / "default.py", ROOT / "subtitles.py"]
     files.extend((ROOT / "resources/lib/arr_manager").glob("*.py"))
     for path in files:
         first_lines = "\n".join(path.read_text(encoding="utf-8").splitlines()[:3])
