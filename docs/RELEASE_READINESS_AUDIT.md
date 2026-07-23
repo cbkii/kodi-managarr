@@ -11,11 +11,11 @@ This document records the completed two-pass release-readiness audit of Kodi Man
 ## Kodi episode-to-series identity
 
 - **Implemented:** Episode `uniqueid.tvdb` remains episode identity and is never reused as the parent-series TVDb ID.
-- **Implemented:** `SelectedItem` stores separate parent-series unique IDs and year.
+- **Implemented:** `SelectedItem` stores separate parent-series unique IDs/year and is the single source of truth for effective series identity across resolvers and interactive actions.
 - **Implemented:** Episode selections and playing subtitle items obtain parent identity through `VideoLibrary.GetTVShowDetails` using the existing JSON-RPC adapter.
 - **Implemented:** A transient parent-detail JSON-RPC failure falls back to available episode metadata; downstream Sonarr resolution still rejects insufficient or ambiguous identity.
-- **Implemented:** Core Sonarr resolution, Request & Search and Bazarr subtitles use the parent-series fields.
-- **Verified:** Tests cover stable parent TVDb resolution without path mapping, distinct episode/series IDs, season-zero identity and transient parent-detail failure.
+- **Implemented:** Core Sonarr resolution, Request & Search and Bazarr subtitles use the centralized effective parent-series fields.
+- **Verified:** Tests cover stable parent TVDb resolution without path mapping, distinct episode/series IDs, movie/episode type isolation, season-zero identity and transient parent-detail failure.
 - **Post-merge device validation:** Repeat on Android Kodi with a skin/view exposing incomplete list-item metadata.
 
 ## International-title compatibility
@@ -28,7 +28,8 @@ This document records the completed two-pass release-readiness audit of Kodi Man
 - **Implemented:** `default.py` is a thin adapter and the obsolete parallel interactive entrypoint was removed.
 - **Implemented:** Registry modes are derived from `ACTION_REGISTRY`; only explicit utility modes and documented aliases remain separate.
 - **Implemented:** Normal and query-style arguments are parsed with URL decoding.
-- **Verified:** Validation rejects registry/dispatcher drift, invalid aliases and obsolete runtime modules. Tests cover direct dispatch and encoded arguments.
+- **Implemented:** Prowlarr and Bazarr connection-test headings use catalogue-backed localized strings rather than raw dialog text.
+- **Verified:** Validation rejects registry/dispatcher drift, invalid aliases and obsolete runtime modules. Tests cover direct dispatch, encoded arguments, effective identity isolation and optional-service heading catalogue entries.
 - **Verified:** Destructive menu and direct modes still pass through the same central `authorize_action()` PIN boundary.
 
 ## Bazarr subtitle correctness and Android safety
