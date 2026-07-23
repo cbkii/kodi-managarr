@@ -123,9 +123,10 @@ def _po_quoted_value(block, keyword):
 
 
 def _po_entries(path):
-    content = render_strings_po(path.read_text(encoding="utf-8"))
-    if "\r" in content:
+    source = path.read_text(encoding="utf-8")
+    if "\r" in source:
         raise SystemExit("strings.po must use Unix line endings")
+    content = render_strings_po(source)
     blocks = [block for block in re.split(r"\n[ \t]*\n", content) if block.strip()]
     entries = []
     for block in blocks:
