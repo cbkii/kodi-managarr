@@ -134,7 +134,7 @@ def _reject_contradictory_movie(selected, movie, wanted_title):
 
 
 def _reject_contradictory_series(selected, series, wanted_title):
-    selected_year = _series_year(selected)
+    selected_year = selected.effective_year()
     if selected_year and _year(series.get("year")) and _year(series.get("year")) != selected_year:
         raise ResolutionError("Kodi series year contradicts the matched Sonarr series")
     titles = {normalise_title(series.get(key, "")) for key in ("title", "sortTitle", "originalTitle")} - {""}
