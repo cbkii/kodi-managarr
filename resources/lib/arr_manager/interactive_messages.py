@@ -25,7 +25,7 @@ INTERACTIVE_MESSAGES = {
     "release_stale": (33413, "The selected release is no longer available. Search again."),
     "series_interactive_unsupported": (32993, "Interactive release selection supports movies and individual episodes."),
     "prowlarr_info": (33415, "Arr returned no releases. Prowlarr found {count} informational result(s); no download was bypassed around Arr."),
-    "dashboard_title": (32983, "Managarr dashboard"),
+    "dashboard_title": (32983, "Dashboard"),
     "dashboard_line": (33417, "{service}: {detail}"),
     "service_unavailable": (33418, "Unavailable ({error_type})"),
     "configure_service": (33419, "Configure {service}"),
