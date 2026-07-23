@@ -112,14 +112,15 @@ INTERACTIVE_MESSAGES = {
     "bazarr_no_languages": (33449, "Bazarr returned no usable subtitle languages."),
     "subtitle_action_unknown": (33450, "Unknown subtitle action."),
     "subtitle_best_match": (33451, "Bazarr best match"),
-    "subtitle_result_label": (33452, "{language} · {provider}{flags}"),
-    "subtitle_flags": (33453, " · {flags}"),
+    "subtitle_result_label": (33452, "{language} - {provider}{flags}"),
+    "subtitle_flags": (33453, " - {flags}"),
     "subtitle_forced": (33454, "forced"),
     "subtitle_hi": (33455, "hearing impaired"),
     "release_detail_template": (33456, "{title}\nIndexer: {indexer}\nProtocol: {protocol}\nAge: {age} days\nCustom-format score: {score}\nRejections: {rejections}"),
     "subtitle_movie_metadata_missing": (33457, "Kodi did not return movie metadata for subtitle search."),
     "subtitle_episode_metadata_missing": (33458, "Kodi did not return episode metadata for subtitle search."),
     "subtitle_library_playback_required": (33459, "Subtitle search requires a playing Kodi library movie or episode."),
+    "find_subtitles_window_failed": (33460, "Kodi could not open the subtitle-search window."),
 }
 
 
