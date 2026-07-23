@@ -6,7 +6,8 @@ from unittest import mock
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "resources", "lib"))
 
-from arr_manager.clients import BazarrClient, ProwlarrClient, RadarrClient, SonarrClient
+from arr_manager.bazarr_client import BazarrClient
+from arr_manager.clients import ProwlarrClient, RadarrClient, SonarrClient
 
 
 class InteractiveClientContractTests(unittest.TestCase):
@@ -48,8 +49,8 @@ class InteractiveClientContractTests(unittest.TestCase):
         self.assertFalse(hasattr(client, "download_release"))
         self.assertEqual(http.request.call_args_list[-1], mock.call("GET", "/search", params={"query": "Film"}))
 
-    def test_bazarr_uses_unversioned_api_and_verified_resources(self):
-        with mock.patch("arr_manager.clients.JsonHttpClient") as http_type:
+    def test_bazarr_uses_unversioned_api_and_exact_provider_downloads(self):
+        with mock.patch("arr_manager.bazarr_client.JsonHttpClient") as http_type:
             http = http_type.return_value
             http.base_url = "http://bazarr"
             client = BazarrClient("http://bazarr", "key")
@@ -59,14 +60,24 @@ class InteractiveClientContractTests(unittest.TestCase):
         client.languages()
         client.search_movie_subtitles(7)
         client.search_episode_subtitles(8)
-        client.download_movie_subtitle(7, "en:forced", {"forced": True})
-        client.download_episode_subtitle(9, 8, "en:hi", {"hi": True})
+        selected = {"provider": "opensubtitles", "subtitle": "opaque", "original_format": True, "forced": True}
+        client.download_movie_subtitle(7, "en:forced", selected)
+        selected_episode = {"provider": "provider", "subtitle": "opaque2", "hi": True}
+        client.download_episode_subtitle(9, 8, "en:hi", selected_episode)
         self.assertEqual(http.request.call_args_list[0], mock.call("GET", "/system/languages"))
         self.assertEqual(http.request.call_args_list[1], mock.call("GET", "/providers/movies", params={"radarrid": 7}))
         movie_params = http.request.call_args_list[3].kwargs["params"]
-        self.assertEqual(movie_params, {"language": "en", "forced": True, "hi": False, "radarrid": 7})
+        self.assertEqual(movie_params, {
+            "hi": False, "forced": True, "original_format": True,
+            "provider": "opensubtitles", "subtitle": "opaque", "radarrid": 7,
+        })
+        self.assertEqual(http.request.call_args_list[3].args[:2], ("POST", "/providers/movies"))
         episode_params = http.request.call_args_list[4].kwargs["params"]
-        self.assertEqual(episode_params, {"language": "en", "forced": False, "hi": True, "seriesid": 9, "episodeid": 8})
+        self.assertEqual(episode_params, {
+            "hi": True, "forced": False, "original_format": False,
+            "provider": "provider", "subtitle": "opaque2", "seriesid": 9, "episodeid": 8,
+        })
+        self.assertEqual(http.request.call_args_list[4].args[:2], ("POST", "/providers/episodes"))
 
 
 if __name__ == "__main__":
