@@ -1,6 +1,6 @@
 # Android Kodi validation runbook
 
-Use disposable Radarr/Sonarr entries and sacrificial media. Keep **Dry run** enabled until the relevant dry-run checks pass. Record **NOT TESTED** for optional integrations that are not part of the release claim.
+Use disposable Radarr/Sonarr entries and sacrificial media. Keep **Dry run** enabled until the relevant dry-run checks pass. Disable it only for the specific disposable mutation being verified, then re-enable it immediately. Record **NOT TESTED** for optional integrations that are not part of the release claim.
 
 ## 1. Record the environment
 
@@ -23,7 +23,7 @@ Never publish API keys, private URLs, credentials or unrelated Kodi logs.
 ## 2. Install or upgrade
 
 1. Verify the exact `repository.managarr-X.Y.Z.zip` checksum.
-2. Install it through **Add-ons → Install from zip file**.
+2. Install it through **Add-ons -> Install from zip file**.
 3. Install/upgrade **Kodi Managarr** through its repository.
 4. Confirm the expected version and normal auto-update setting.
 5. On upgrade, confirm menu mode/order, PIN, Arr/optional-service settings and dry-run state remain intact.
@@ -41,12 +41,13 @@ Using a Kodi-library movie, show and episode:
 
 ## 4. PIN and existing safety
 
-1. Create, change and remove a 4–8 digit PIN; reject malformed PINs.
+1. Create, change and remove a 4-8 digit PIN; reject malformed PINs.
 2. Confirm Delete & Exclude and Delete & Replace require it from menu and direct modes.
 3. Confirm cancellation/three wrong attempts make no change.
 4. Confirm queue removal retains its normal confirmation but is not PIN-gated.
-5. Complete existing movie/episode destructive dry runs and one disposable API-backend mutation.
-6. Verify targeted Kodi cleanup and accurate transaction state.
+5. Complete the existing movie/episode destructive checks with **Dry run** enabled.
+6. Disable **Dry run**, perform only one explicitly disposable API-backend mutation, verify the result, then immediately re-enable **Dry run**.
+7. Verify targeted Kodi cleanup and accurate transaction state.
 
 ## 5. Request & Search
 
