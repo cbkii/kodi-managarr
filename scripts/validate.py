@@ -67,12 +67,17 @@ def _metadata_value(addon, tag):
     metadata = addon.findall("extension[@point='xbmc.addon.metadata']")
     if len(metadata) != 1:
         raise SystemExit("addon.xml must define exactly one xbmc.addon.metadata extension")
-    nodes = metadata[0].findall(f"{tag}[@lang='en_GB']")
+    if tag == "news":
+        nodes = metadata[0].findall("news")
+        field_name = "news"
+    else:
+        nodes = metadata[0].findall(f"{tag}[@lang='en_GB']")
+        field_name = f"en_GB {tag}"
     if len(nodes) != 1:
-        raise SystemExit(f"addon.xml must define exactly one en_GB {tag}")
+        raise SystemExit(f"addon.xml must define exactly one {field_name}")
     value = "".join(nodes[0].itertext()).strip()
     if not value:
-        raise SystemExit(f"addon.xml en_GB {tag} must not be empty")
+        raise SystemExit(f"addon.xml {field_name} must not be empty")
     return value
 
 
