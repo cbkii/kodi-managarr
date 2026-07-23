@@ -2,84 +2,61 @@
 
 ## Runtime boundaries
 
-- `entrypoints.py` owns Kodi routing, registry-driven dispatch and native menus.
+- `entrypoints.py` owns established Kodi routing, registry-driven dispatch, menu configuration and PIN management.
+- `interactive_entrypoint.py` adds non-destructive interactive/settings modes without replacing the hardened entrypoint path.
 - `registry.py` is the central action-policy registry for menu presentation and direct invocation.
+- `actions_interactive.py` owns Request & Search, release selection, Dashboard MVP and optional service setup.
+- `subtitle_service.py` owns playing-item resolution, Bazarr result filtering, short-lived result tokens and Kodi-accessible subtitle retrieval; root `subtitles.py` is the thin `xbmc.subtitle.module` adapter.
 - `pin.py` owns local PIN validation, derivation and authorisation.
 - `kodi.py` owns Kodi UI, selected-item extraction and targeted JSON-RPC synchronisation.
-- `clients.py` and `http.py` own versioned Servarr transport and response validation.
+- `clients.py` and `http.py` own versioned service transport and response validation.
 - `resolver.py` resolves stable external IDs first, then mapped paths, then exact title/year evidence.
-- `history.py` proves imported-release identity.
-- `fileops.py` owns Kodi VFS inspection and deletion boundaries.
-- `actions.py` owns preflight, transaction ordering, reconciliation and management operations.
-- `context_manifest.py` defines the single Kodi context-root contract used by validation and packaging.
+- `history.py`, `fileops.py` and the destructive action mixins retain imported-release, VFS and transaction safety boundaries.
 
-Kodi UI waits reuse one `xbmc.Monitor` for the lifetime of an action. This keeps cancellation and shutdown checks responsive without repeatedly creating monitor instances.
+Kodi UI waits reuse one `xbmc.Monitor` for the lifetime of an action. Interactive features perform bounded foreground calls; the Dashboard is manually refreshed and does not install a polling service.
 
 ## Configuration isolation
 
-The Servarr API backend is the default. Valid path mappings may still help entity resolution, but stale malformed VFS mapping text is treated as an inactive-backend warning rather than blocking API actions. VFS mapping and protected-path validation remains strict when the VFS backend is selected.
+Radarr and Sonarr remain the media-management authorities. Prowlarr and Bazarr are disabled by default and validated only when used. Invalid inactive optional-service settings do not block core Arr actions. Prowlarr exposes only status, health, indexer and informational-search operations; it has no media, download-grab, blocklist or deletion methods.
 
-Configured Kodi-side mapping roots are always added to the protected set for VFS operations. Product defaults protect only the filesystem root; installation-specific media roots must be configured by the user.
+Request & Search stores one root folder and quality profile per Arr service. These are minimal persistent defaults needed by native add endpoints, not P2 per-request/multi-instance routing.
 
 ## Menus and entrypoints
 
-Kodi registers one plain ASCII **Managarr** context item for library movies, TV shows and episodes. It opens a Kodi-native runtime menu rather than a static manifest submenu.
+Kodi registers one plain ASCII **Managarr** context item. The runtime registry records stable action IDs, localised labels, group, order, media types, mutation/destructive classification and selected-item requirements. Advanced is the upgrade-safe default. Direct keymap modes use the same action and authorisation path even when hidden from menus.
 
-The central action registry records each stable action ID, localised label, group, default mode and order, supported media types, mutation/destructive classification, selected-item requirement and dispatcher mode. **Advanced** is the upgrade-safe default so existing features are not silently hidden. **Simple** reduces the visible set. Stored visibility and ordering values are filtered against current registry IDs, and restore-defaults removes stale custom state.
+The interactive actions are registered at the root to avoid unsupported deep manifest nesting. Search, Dashboard and subtitle actions remain non-destructive and do not request the media-deletion PIN. Release grab still requires an explicit confirmation.
 
-Menu visibility is presentation only. Direct `RunScript(...,mode=...)` entrypoints use the same registry, media checks and authorisation path and remain callable for keymaps even when an action is hidden from the menu.
+## Request & Search
 
-## PIN protection
+For a managed item, Managarr reuses stable Arr identity, enables monitoring where required and starts the matching search. For an unmanaged item it:
 
-PIN protection applies only to actions classified as destructive media deletion, exclusion or replacement. Queue removal remains protected by its existing explicit confirmation but is not PIN-gated.
+1. requires the persistent service defaults;
+2. prefers TMDb/TVDb lookup syntax;
+3. rejects no-result and ambiguous cases unless the user selects an exact candidate;
+4. submits the native Radarr/Sonarr add payload with automatic search disabled;
+5. re-resolves by stable identity to prevent duplicates/races;
+6. searches the movie, series or selected episode;
+7. reports add-success/search-failure as partial success rather than deleting the new Arr record.
 
-A PIN is 4–8 numeric digits. It is stored only as a random-salt PBKDF2-HMAC-SHA-256 derivative and compared in constant time. Enablement is derived from one complete credential pair: absent credentials disable protection, while incomplete or malformed state fails closed and exposes a repair path. PIN protection is intended to prevent accidental local use, not to defend against a user who can alter Kodi's local add-on data.
+## Interactive releases and Prowlarr
 
-## Management workflows
+Release search and grab use Radarr/Sonarr `/release`, preserving their acceptance/rejection, quality, custom-format, indexer and download-client authority. The chosen release is re-fetched and identity-matched immediately before submission. Prowlarr search is informational only when Arr has no result and never downloads directly.
 
-Status, search, monitoring, quality-profile and queue operations are executed entirely through localised Kodi-native dialogs and Servarr APIs. Movie profiles belong to Radarr movies; Sonarr profiles belong to series, so an episode-triggered profile change updates the parent series and says so explicitly.
+## Dashboard MVP
 
-Queue retrieval uses the product-specific `/queue` paging resource and stable movie/series filters. Removal calls `DELETE /queue/{id}` with `removeFromClient=true` and `blocklist=false` only after revalidating that the queue item still belongs to the selected media.
+Dashboard calls cheap status, health, bounded queue and one-record wanted resources. Optional service failures are isolated so healthy services still display. No browser, full-library aggregation or persistent polling is used.
 
-## Destructive planning
+## Bazarr subtitle service
 
-Direct VFS operations use a complete preflight plan before the first blocklist or deletion:
+Bazarr is rooted at `/api`, not a Servarr version path. Current integration uses system languages, provider-search resources and movie/episode subtitle download resources. Up to three ordered unique language keys are stored, including forced/HI qualifiers where configured.
 
-1. resolve one Servarr entity;
-2. validate every file record and path;
-3. map every remote path exactly once;
-4. reject mapping roots, duplicates, protected paths and unsafe VFS entries;
-5. prove imported-history evidence when strict mode is enabled;
-6. confirm the exact action;
-7. re-enumerate the complete VFS tree and require both file and directory sets to match the confirmed plan;
-8. commit blocklist and deletion stages;
-9. verify every removed file and directory against its parent listing;
-10. rescan and verify reconciliation;
-11. run and verify replacement search;
-12. apply a Kodi synchronisation plan resolved before mutation and containing only affected rows.
+Kodi's subtitle module resolves the playing library movie/episode, resolves it to Radarr/Sonarr, filters Bazarr results and emits one selectable best-match entry per configured language/flag combination. A random short-lived profile token carries only sanitised result context. Selection asks Bazarr to download the exact selected provider result, then returns a path only when it is already Kodi-accessible or safely mapped. Server filesystem paths are never handed directly to Android Kodi.
 
-Transaction stages are persisted in the add-on profile without media paths, URLs or credentials. Failures state whether a destructive commit occurred and list completed stages.
+## Destructive safety
 
-## Servarr command completion
-
-A command is accepted only when the initial response contains a valid command ID. Polling succeeds only when `status` is completed and `result` is successful. Failed, aborted, cancelled, orphaned, unsuccessful, indeterminate, malformed and timed-out commands are errors.
-
-Normal Servarr requests identify the installed add-on version in a validated `Kodi-Managarr/<version>` User-Agent. Header control characters and unreasonable values fall back to a safe generic identity.
-
-Sonarr episode-monitoring updates may use its verified bulk endpoint with validated, deduplicated IDs. Imported-history failure remains sequential because no supported bulk history-failure endpoint is assumed.
-
-## Path identity
-
-Missing paths are never converted to `/`. Scheme and host identity are normalised, but POSIX, SFTP and SMB path components retain case. Every configured Kodi-side mapping root is automatically protected against deletion.
+Existing Delete & Exclude/Delete & Replace planning, PIN scope, VFS protections, transaction state and targeted Kodi synchronisation remain unchanged. Optional interactive services do not gain deletion authority.
 
 ## Publication
 
-The release package contains one `context.arr.manager/` root, `LICENSE.txt`, an opaque 512×512 icon, 1920×1080 fanart and runtime-only files. Packaging rejects symlinks, hidden files, bytecode and unexpected file types and is reproducible under `SOURCE_DATE_EPOCH`.
-
-Stable releases are owner-controlled. The manual workflow validates and packages the selected branch, while the Android Kodi runbook provides practical device evidence. A release-candidate promotion process is optional rather than mandatory.
-
-## Repository and updates
-
-A separate GitHub Pages workflow accepts only an exact stable release, validates its published add-on ZIP and deterministically generates `repository.managarr`, canonical Kodi repository paths, `addons.xml`, Kodi's MD5 change token and SHA-256 checksum files. Repository ZIPs are built outside their source directory to prevent self-inclusion and contain licence metadata and `LICENSE.txt`.
-
-The pipeline packages and checksums repository content; it does not perform or claim cryptographic signing. Authenticity depends on the trusted GitHub release and HTTPS Pages origin.
+The release package contains one `context.arr.manager/` root and now includes `subtitles.py` plus its declared `xbmc.subtitle.module` extension. Packaging remains deterministic and rejects symlinks, hidden files, bytecode and unexpected file types. Stable release and GitHub Pages repository publication remain owner-controlled; RC promotion is optional.

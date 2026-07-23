@@ -15,23 +15,21 @@ LIB_DIR = ROOT / "resources" / "lib"
 if str(LIB_DIR) not in sys.path:
     sys.path.insert(0, str(LIB_DIR))
 
-from arr_manager.context_manifest import (  # noqa: E402
-    EXPECTED_CONTEXT_ACTIONS,
-    EXPECTED_CONTEXT_SUBMENUS,
-    ROOT_CONTEXT_LABEL,
-)
+from arr_manager.context_manifest import EXPECTED_CONTEXT_ACTIONS, ROOT_CONTEXT_LABEL  # noqa: E402
+from arr_manager.localization import render_strings_po, runtime_catalog  # noqa: E402
 
 ADDON = ET.parse(ROOT / "addon.xml").getroot()
 ADDON_ID = ADDON.attrib["id"]
 VERSION = ADDON.attrib["version"]
 OUTPUT_DIR = ROOT / "dist"
 OUTPUT = OUTPUT_DIR / f"{ADDON_ID}-{VERSION}.zip"
-INCLUDED_ROOT_FILES = ("addon.xml", "context.py", "default.py", "LICENSE.txt")
+INCLUDED_ROOT_FILES = ("addon.xml", "context.py", "default.py", "subtitles.py", "LICENSE.txt")
 INCLUDED_ROOT_DIRS = ("resources",)
 ALLOWED_SUFFIXES = {".py", ".xml", ".po", ".png", ".jpg", ".jpeg"}
 MIN_ZIP_EPOCH = 315532800
 MAX_ZIP_EPOCH = 4354819198
 PACKAGE_FILE_MODE = 0o644
+STRINGS_PATH = "resources/language/resource.language.en_gb/strings.po"
 
 
 def _zip_timestamp():
@@ -39,14 +37,7 @@ def _zip_timestamp():
     epoch = int(os.environ.get("SOURCE_DATE_EPOCH", default_epoch))
     epoch = min(max(epoch, MIN_ZIP_EPOCH), MAX_ZIP_EPOCH)
     timestamp = datetime.fromtimestamp(epoch, timezone.utc)
-    return (
-        timestamp.year,
-        timestamp.month,
-        timestamp.day,
-        timestamp.hour,
-        timestamp.minute,
-        timestamp.second // 2 * 2,
-    )
+    return (timestamp.year, timestamp.month, timestamp.day, timestamp.hour, timestamp.minute, timestamp.second // 2 * 2)
 
 
 def _iter_runtime_files():
@@ -74,6 +65,12 @@ def _iter_runtime_files():
             yield path
 
 
+def _source_bytes(source, relative):
+    if relative == STRINGS_PATH:
+        return render_strings_po(source.read_text(encoding="utf-8")).encode("utf-8")
+    return source.read_bytes()
+
+
 def _validate_packaged_context(archive, addon):
     extension = addon.find("extension[@point='kodi.context.item']")
     if extension is None:
@@ -81,33 +78,27 @@ def _validate_packaged_context(archive, addon):
     root_menu = extension.find("menu[@id='kodi.core.main']")
     if root_menu is None:
         raise RuntimeError("Packaged addon.xml is missing kodi.core.main")
-
     branding_items = root_menu.findall("item")
     if len(branding_items) != 1:
         raise RuntimeError("Packaged kodi.core.main must contain one Managarr root item")
     branding_item = branding_items[0]
-    root_label = (branding_item.findtext("label") or "").strip()
-    if root_label != ROOT_CONTEXT_LABEL:
+    if (branding_item.findtext("label") or "").strip() != ROOT_CONTEXT_LABEL:
         raise RuntimeError(f"Packaged context root label must be exactly {ROOT_CONTEXT_LABEL!r}")
-
     actions = {branding_item.attrib.get("args", "")}
     if actions != EXPECTED_CONTEXT_ACTIONS:
-        raise RuntimeError(
-            "Packaged context actions are incorrect: "
-            f"expected {sorted(EXPECTED_CONTEXT_ACTIONS)}, got {sorted(actions)}"
-        )
+        raise RuntimeError(f"Packaged context actions are incorrect: expected {sorted(EXPECTED_CONTEXT_ACTIONS)}, got {sorted(actions)}")
     if branding_item.attrib.get("library") != "context.py":
         raise RuntimeError("Every packaged context item must dispatch through context.py")
     if not (branding_item.findtext("visible") or "").strip():
         raise RuntimeError("Every packaged context item must define a visibility expression")
-
-    po_path = f"{ADDON_ID}/resources/language/resource.language.en_gb/strings.po"
+    po_path = f"{ADDON_ID}/{STRINGS_PATH}"
     po_text = archive.read(po_path).decode("utf-8")
     po_ids = {int(value) for value in re.findall(r'^msgctxt "#([0-9]+)"$', po_text, flags=re.M)}
+    missing_runtime = sorted(set(runtime_catalog()) - po_ids)
+    if missing_runtime:
+        raise RuntimeError(f"Packaged runtime strings are missing: {missing_runtime}")
     numeric_labels = {
-        int(value)
-        for value in ((node.text or "").strip() for node in extension.findall(".//label"))
-        if value.isdigit()
+        int(value) for value in ((node.text or "").strip() for node in extension.findall(".//label")) if value.isdigit()
     }
     missing = sorted(numeric_labels - po_ids)
     if missing:
@@ -119,11 +110,9 @@ def _validate_archive(path):
         if archive.testzip() is not None:
             raise RuntimeError("Generated package failed ZIP integrity validation")
         required = {
-            f"{ADDON_ID}/addon.xml",
-            f"{ADDON_ID}/context.py",
-            f"{ADDON_ID}/default.py",
-            f"{ADDON_ID}/resources/settings.xml",
-            f"{ADDON_ID}/resources/language/resource.language.en_gb/strings.po",
+            f"{ADDON_ID}/addon.xml", f"{ADDON_ID}/context.py", f"{ADDON_ID}/default.py",
+            f"{ADDON_ID}/subtitles.py", f"{ADDON_ID}/resources/settings.xml",
+            f"{ADDON_ID}/{STRINGS_PATH}",
         }
         names = set(archive.namelist())
         missing = sorted(required - names)
@@ -132,6 +121,9 @@ def _validate_archive(path):
         addon = ET.fromstring(archive.read(f"{ADDON_ID}/addon.xml"))
         if addon.attrib.get("id") != ADDON_ID or addon.attrib.get("version") != VERSION:
             raise RuntimeError("Packaged addon.xml identity/version does not match the build")
+        subtitle = addon.find("extension[@point='xbmc.subtitle.module']")
+        if subtitle is None or subtitle.attrib.get("library") != "subtitles.py":
+            raise RuntimeError("Packaged addon.xml is missing the subtitles.py module registration")
         _validate_packaged_context(archive, addon)
 
 
@@ -148,12 +140,7 @@ def main():
                 info.create_system = 3
                 info.flag_bits |= 0x800
                 info.external_attr = ((stat.S_IFREG | PACKAGE_FILE_MODE) & 0xFFFF) << 16
-                archive.writestr(
-                    info,
-                    source.read_bytes(),
-                    compress_type=zipfile.ZIP_DEFLATED,
-                    compresslevel=9,
-                )
+                archive.writestr(info, _source_bytes(source, relative), compress_type=zipfile.ZIP_DEFLATED, compresslevel=9)
         _validate_archive(temporary)
         os.replace(temporary, OUTPUT)
     finally:

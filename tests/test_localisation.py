@@ -18,11 +18,12 @@ class LocalisationTests(unittest.TestCase):
     def setUp(self):
         self.validator = load_validator()
 
-    def _write_po(self, content):
+    def _write_po(self, content, newline=None):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         path = Path(temporary.name) / "strings.po"
-        path.write_text(content, encoding="utf-8")
+        with path.open("w", encoding="utf-8", newline=newline) as handle:
+            handle.write(content)
         return path
 
     def test_po_messages_are_discrete_and_parseable(self):
@@ -73,6 +74,14 @@ class LocalisationTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(SystemExit, "Duplicate language string IDs"):
             self.validator._po_ids(path)
+
+    def test_po_parser_rejects_crlf_source(self):
+        path = self._write_po(
+            'msgctxt "#32100"\nmsgid "General"\nmsgstr "General"\n',
+            newline="\r\n",
+        )
+        with self.assertRaisesRegex(SystemExit, "Unix line endings"):
+            self.validator._po_entries(path)
 
     def test_every_visible_setting_has_label_and_help_copy(self):
         ids = self.validator._po_ids(

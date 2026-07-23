@@ -12,7 +12,7 @@ class RegistryTests(unittest.TestCase):
     }
 
     def test_registry_ids_modes_and_orders_are_unique(self):
-        self.assertGreater(len(ACTION_REGISTRY), 5)
+        self.assertGreater(len(ACTION_REGISTRY), 10)
         self.assertEqual(len({action["id"] for action in ACTION_REGISTRY}), len(ACTION_REGISTRY))
         self.assertEqual(len({action["mode"] for action in ACTION_REGISTRY}), len(ACTION_REGISTRY))
         self.assertEqual(len({action["default_order"] for action in ACTION_REGISTRY}), len(ACTION_REGISTRY))
@@ -30,24 +30,33 @@ class RegistryTests(unittest.TestCase):
     def test_destructive_pin_scope_is_media_deletion_only(self):
         destructive = {action["id"] for action in ACTION_REGISTRY if action["destructive"]}
         self.assertEqual(destructive, {"delete_exclude", "delete_replace"})
-        queue_remove = get_action_by_id("queue_remove")
-        self.assertTrue(queue_remove["mutating"])
-        self.assertFalse(queue_remove["destructive"])
+        self.assertFalse(get_action_by_id("queue_remove")["destructive"])
+        self.assertFalse(get_action_by_id("request_search")["destructive"])
+        self.assertFalse(get_action_by_id("interactive_search")["destructive"])
 
-    def test_simple_mode_preserves_common_and_destructive_actions(self):
+    def test_simple_mode_is_remote_friendly_and_complete(self):
         simple = {action["id"] for action in ACTION_REGISTRY if action["simple_mode"]}
-        self.assertEqual(
-            simple,
-            {"status", "search_now", "delete_exclude", "delete_replace", "tools"},
-        )
+        self.assertEqual(simple, {
+            "request_search", "status", "search_now", "dashboard", "find_subtitles",
+            "delete_exclude", "delete_replace", "tools",
+        })
+
+    def test_new_actions_are_reachable_and_have_expected_selection_policy(self):
+        for action_id in (
+            "request_search", "interactive_search", "dashboard", "find_subtitles",
+            "configure_request_defaults", "configure_subtitle_languages",
+        ):
+            action = get_action_by_id(action_id)
+            self.assertIsNotNone(action)
+            self.assertIs(get_action_by_mode(action["mode"]), action)
+        self.assertTrue(get_action_by_id("request_search")["requires_selection"])
+        self.assertFalse(get_action_by_id("dashboard")["requires_selection"])
+        self.assertFalse(get_action_by_id("find_subtitles")["requires_selection"])
 
     def test_lookup_by_id_and_mode(self):
         status = get_action_by_id("status")
-        self.assertIsNotNone(status)
         self.assertEqual(status["mode"], "status")
-        delete = get_action_by_mode("delete_exclude")
-        self.assertIsNotNone(delete)
-        self.assertEqual(delete["id"], "delete_exclude")
+        self.assertEqual(get_action_by_mode("delete_exclude")["id"], "delete_exclude")
         self.assertIsNone(get_action_by_id("retired_action"))
         self.assertIsNone(get_action_by_mode("retired_mode"))
 

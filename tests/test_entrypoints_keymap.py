@@ -13,7 +13,7 @@ from arr_manager.models import SelectedItem
 
 class Addon:
     def __init__(self): self.values = {}
-    def getAddonInfo(self, key): return {"name": "Kodi Managarr", "profile": "special://profile/addon_data/context.arr.manager", "version": "0.2.0"}.get(key, "")
+    def getAddonInfo(self, key): return {"name": "Kodi Managarr", "profile": "special://profile/addon_data/context.arr.manager", "version": "1.1.1"}.get(key, "")
     def getLocalizedString(self, string_id): return ""
     def getSetting(self, key): return self.values.get(key, "")
     def setSetting(self, key, value): self.values[key] = value
@@ -72,17 +72,19 @@ class EntrypointTests(unittest.TestCase):
     def test_launcher_exposes_complete_native_scope_by_default(self):
         ui = self.run_script([0])
         self.assertEqual(ui.selections[0][1], [
-            "Status", "Search & download now", "Monitoring", "Download queue",
-            "Delete & Exclude", "Delete & Replace", "Tools & settings",
+            "Request & Search", "Status", "Search & download now", "Interactive search",
+            "Monitoring", "Download queue", "Dashboard", "Find subtitles",
+            "Delete & Exclude", "Delete & Replace", "Configure Request & Search defaults",
+            "Configure subtitle languages", "Tools & settings",
         ])
-        self.assertEqual(Manager.calls, ["status"])
+        self.assertEqual(Manager.calls, ["request_search"])
 
     def test_simple_mode_is_remote_friendly(self):
         settings = Settings(); settings.menu_mode = "0"
         ui = self.run_script([0], settings=settings)
         self.assertEqual(ui.selections[0][1], [
-            "Status", "Search & download now", "Delete & Exclude",
-            "Delete & Replace", "Tools & settings",
+            "Request & Search", "Status", "Search & download now", "Dashboard",
+            "Find subtitles", "Delete & Exclude", "Delete & Replace", "Tools & settings",
         ])
 
     def test_direct_context_action_skips_launcher_even_when_hidden(self):
@@ -131,17 +133,13 @@ class WriteDiagnosticsTests(unittest.TestCase):
         logger = mock.MagicMock()
         payload = self.run_case(ValueError("secret body"), logger)
         self.assertIsNone(payload["lastTransactionStatus"])
-        logger.warning.assert_called_once_with(
-            "Could not read non-secret transaction state: %s", "ValueError"
-        )
+        logger.warning.assert_called_once_with("Could not read non-secret transaction state: %s", "ValueError")
 
     def test_unreadable_state_is_logged_safely(self):
         logger = mock.MagicMock()
         payload = self.run_case(PermissionError("private path"), logger)
         self.assertIsNone(payload["lastTransactionStatus"])
-        logger.warning.assert_called_once_with(
-            "Could not read non-secret transaction state: %s", "PermissionError"
-        )
+        logger.warning.assert_called_once_with("Could not read non-secret transaction state: %s", "PermissionError")
 
 
 if __name__ == "__main__":

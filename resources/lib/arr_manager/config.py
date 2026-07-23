@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+import re
 from dataclasses import dataclass
 
 from .errors import ConfigurationError
@@ -9,6 +10,8 @@ BACKENDS = {"0": "api", "1": "vfs", "api": "api", "vfs": "vfs", "ssh": "vfs", "2
 MENU_MODES = {"0": "0", "simple": "0", "1": "1", "advanced": "1"}
 PIN_HASH_BYTES = 32
 PIN_SALT_BYTES = 16
+LANGUAGE_CODE_RE = re.compile(r"^[a-z0-9_-]{2,12}(?::(?:forced|hi))?$", re.I)
+SONARR_MONITOR_MODES = {"all", "future", "missing", "existing", "firstSeason", "latestSeason", "pilot", "recent", "none"}
 
 
 @dataclass
@@ -40,8 +43,6 @@ class Settings:
         self.require_blocklist = as_bool(get("require_blocklist"), True)
         self.debug = as_bool(get("debug"), False)
 
-        # Blank settings occur on upgrade. Default to Advanced so no existing action
-        # is silently hidden; users can explicitly select Simple later.
         self.menu_mode = MENU_MODES.get((get("menu_mode") or "").strip().lower(), "1")
         known_ids = {action["id"] for action in ACTION_REGISTRY}
         self.hidden_actions = self._known_action_ids(get("hidden_actions"), known_ids)
@@ -101,22 +102,34 @@ class Settings:
         except Exception:
             version = "unknown"
         user_agent = f"Kodi-Managarr/{version}"
-        self.radarr = ServiceConfig(
-            enabled=as_bool(get("radarr_enabled"), True),
-            url=get("radarr_url").strip(),
-            api_key=get("radarr_api_key").strip(),
-            api_version=get("radarr_api_version").strip() or "v3",
+        self.radarr = self._service(get, "radarr", "v3", timeout, user_agent, True)
+        self.sonarr = self._service(get, "sonarr", "v3", timeout, user_agent, True)
+        self.prowlarr = self._service(get, "prowlarr", "v1", timeout, user_agent, False)
+        self.bazarr = self._service(get, "bazarr", "v1", timeout, user_agent, False)
+
+        self.request_radarr_root = (get("request_radarr_root") or "").strip()
+        self.request_radarr_profile = as_int(get("request_radarr_profile"), 0, 0)
+        self.request_sonarr_root = (get("request_sonarr_root") or "").strip()
+        self.request_sonarr_profile = as_int(get("request_sonarr_profile"), 0, 0)
+        monitor_mode = (get("request_sonarr_monitor") or "future").strip()
+        self.request_sonarr_monitor = monitor_mode if monitor_mode in SONARR_MONITOR_MODES else "future"
+
+        languages = []
+        for key in ("bazarr_language_1", "bazarr_language_2", "bazarr_language_3"):
+            value = (get(key) or "").strip().lower()
+            if value and LANGUAGE_CODE_RE.fullmatch(value) and value not in languages:
+                languages.append(value)
+        self.bazarr_languages = languages
+
+    @staticmethod
+    def _service(get, prefix, default_version, timeout, user_agent, enabled_default):
+        return ServiceConfig(
+            enabled=as_bool(get(f"{prefix}_enabled"), enabled_default),
+            url=(get(f"{prefix}_url") or "").strip(),
+            api_key=(get(f"{prefix}_api_key") or "").strip(),
+            api_version=(get(f"{prefix}_api_version") or default_version).strip(),
             timeout=timeout,
-            verify_tls=as_bool(get("radarr_verify_tls"), True),
-            user_agent=user_agent,
-        )
-        self.sonarr = ServiceConfig(
-            enabled=as_bool(get("sonarr_enabled"), True),
-            url=get("sonarr_url").strip(),
-            api_key=get("sonarr_api_key").strip(),
-            api_version=get("sonarr_api_version").strip() or "v3",
-            timeout=timeout,
-            verify_tls=as_bool(get("sonarr_verify_tls"), True),
+            verify_tls=as_bool(get(f"{prefix}_verify_tls"), True),
             user_agent=user_agent,
         )
 
@@ -128,6 +141,13 @@ class Settings:
             if value in known_ids and value not in result:
                 result.append(value)
         return result
+
+    def request_defaults_ready(self, service):
+        if service == "radarr":
+            return bool(self.request_radarr_root and self.request_radarr_profile > 0)
+        if service == "sonarr":
+            return bool(self.request_sonarr_root and self.request_sonarr_profile > 0)
+        return False
 
     def validate_backend(self):
         if self.backend not in {"api", "vfs"}:
