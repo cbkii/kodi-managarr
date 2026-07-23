@@ -103,18 +103,20 @@ class InteractiveMixin:
             tmdb_id = _unique_id(selected, "tmdb")
             term = f"tmdb:{tmdb_id}" if tmdb_id else f"{selected.title} {selected.year or ''}".strip()
             candidate = dict(self._pick_lookup(self.radarr.lookup_movie(term), selected, "tmdbId", tmdb_id))
-            candidate.update({
-                "qualityProfileId": self.settings.request_radarr_profile,
-                "rootFolderPath": self.settings.request_radarr_root,
-                "monitored": True,
-                "addOptions": {"searchForMovie": False},
-            })
-            self.radarr.add_movie(candidate)
-            added = True
             movie = self._managed_movie(selected)
             if movie is None:
-                raise SafetyError(self._im("movie_reresolve_failed"))
-        elif not movie.get("monitored"):
+                candidate.update({
+                    "qualityProfileId": self.settings.request_radarr_profile,
+                    "rootFolderPath": self.settings.request_radarr_root,
+                    "monitored": True,
+                    "addOptions": {"searchForMovie": False},
+                })
+                self.radarr.add_movie(candidate)
+                added = True
+                movie = self._managed_movie(selected)
+                if movie is None:
+                    raise SafetyError(self._im("movie_reresolve_failed"))
+        if not movie.get("monitored"):
             updated = dict(movie)
             updated["monitored"] = True
             movie = self.radarr.update_movie(updated)
@@ -142,23 +144,25 @@ class InteractiveMixin:
                 self.sonarr.lookup_series(term), selected, "tvdbId", tvdb_id,
                 match_title=title, match_year=year,
             ))
-            monitor = "none" if selected.media_type == "episode" else self.settings.request_sonarr_monitor
-            candidate.update({
-                "qualityProfileId": self.settings.request_sonarr_profile,
-                "rootFolderPath": self.settings.request_sonarr_root,
-                "monitored": selected.media_type != "episode",
-                "seasonFolder": True,
-                "addOptions": {
-                    "monitor": monitor,
-                    "searchForMissingEpisodes": False,
-                    "searchForCutoffUnmetEpisodes": False,
-                },
-            })
-            self.sonarr.add_series(candidate)
-            added = True
             series = self._managed_series(selected)
             if series is None:
-                raise SafetyError(self._im("series_reresolve_failed"))
+                monitor = "none" if selected.media_type == "episode" else self.settings.request_sonarr_monitor
+                candidate.update({
+                    "qualityProfileId": self.settings.request_sonarr_profile,
+                    "rootFolderPath": self.settings.request_sonarr_root,
+                    "monitored": selected.media_type != "episode",
+                    "seasonFolder": True,
+                    "addOptions": {
+                        "monitor": monitor,
+                        "searchForMissingEpisodes": False,
+                        "searchForCutoffUnmetEpisodes": False,
+                    },
+                })
+                self.sonarr.add_series(candidate)
+                added = True
+                series = self._managed_series(selected)
+                if series is None:
+                    raise SafetyError(self._im("series_reresolve_failed"))
 
         try:
             if selected.media_type == "episode":
