@@ -63,8 +63,13 @@ class InteractiveFeatureTests(unittest.TestCase):
         return SelectedItem(media_type="movie", title="Film", year=2024, unique_ids={"tmdb": "42"})
 
     def episode(self):
-        return SelectedItem(media_type="episode", title="Episode", tvshow_title="Show", season=0, episode=1,
-                            unique_ids={"tvdb": "99"})
+        return SelectedItem(
+            media_type="episode", title="Episode", tvshow_title="Show", year=2024,
+            season=0, episode=1, unique_ids={"tvdb": "900001"},
+        )
+
+    def tvshow(self):
+        return SelectedItem(media_type="tvshow", title="Show", year=2020, unique_ids={"tvdb": "99"})
 
     def test_existing_movie_is_monitored_and_searched_without_duplicate_add(self):
         h = Harness()
@@ -100,15 +105,25 @@ class InteractiveFeatureTests(unittest.TestCase):
         h.radarr.search_movie.return_value = SafetyError("failed")
         with self.assertRaises(SafetyError): h._request_movie(self.movie())
 
-    def test_episode_request_monitors_only_selected_episode(self):
+    def test_episode_request_ignores_episode_tvdb_id_and_monitors_only_selected_episode(self):
         h = Harness()
-        h.sonarr.series_by_tvdb.return_value = {"id": 5, "title": "Show", "monitored": True}
+        h.sonarr.all_series.return_value = [{"id": 5, "title": "Show", "year": 2020, "monitored": True}]
         h.sonarr.episodes.return_value = [{"id": 44, "seasonNumber": 0, "episodeNumber": 1, "monitored": False}]
         h.sonarr.search_episodes.return_value = {"id": 12}
         h._request_series_or_episode(self.episode())
+        h.sonarr.series_by_tvdb.assert_not_called()
         h.sonarr.set_episodes_monitored.assert_called_once_with([44], True)
         h.sonarr.search_episodes.assert_called_once_with([44])
         h.sonarr.search_series.assert_not_called()
+
+    def test_tvshow_uses_stable_series_tvdb_id(self):
+        h = Harness()
+        h.sonarr.series_by_tvdb.return_value = {"id": 5, "title": "Show", "year": 2020, "monitored": True}
+        h.sonarr.search_series.return_value = {"id": 13}
+        h._request_series_or_episode(self.tvshow())
+        h.sonarr.series_by_tvdb.assert_called_with(99)
+        h.sonarr.all_series.assert_not_called()
+        h.sonarr.search_series.assert_called_once_with(5)
 
     def test_interactive_grab_revalidates_release(self):
         h = Harness(); h.ui = UI([0])
