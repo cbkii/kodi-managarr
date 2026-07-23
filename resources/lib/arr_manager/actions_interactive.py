@@ -17,6 +17,16 @@ def _unique_id(selected, key):
     return _positive_id((selected.unique_ids or {}).get(key))
 
 
+def _series_tvdb_id(selected):
+    # Kodi episode unique IDs normally identify the episode, not its parent series.
+    return _unique_id(selected, "tvdb") if selected.media_type == "tvshow" else 0
+
+
+def _series_year(selected):
+    # An episode year is not reliable evidence for the parent series year.
+    return int(selected.year or 0) if selected.media_type == "tvshow" else 0
+
+
 def _title_year_match(row, title, year):
     wanted = normalise_title(title)
     titles = {normalise_title(row.get(key, "")) for key in ("title", "originalTitle", "sortTitle")}
@@ -51,21 +61,25 @@ class InteractiveMixin:
         return matches[0] if matches else None
 
     def _managed_series(self, selected):
-        tvdb_id = _unique_id(selected, "tvdb")
+        tvdb_id = _series_tvdb_id(selected)
         if tvdb_id:
-            return self.sonarr.series_by_tvdb(tvdb_id)
+            direct = self.sonarr.series_by_tvdb(tvdb_id)
+            if direct:
+                return direct
         title = selected.tvshow_title or selected.title
-        matches = [row for row in self.sonarr.all_series() if _title_year_match(row, title, selected.year)]
+        year = _series_year(selected)
+        matches = [row for row in self.sonarr.all_series() if _title_year_match(row, title, year)]
         if len(matches) > 1:
             raise ResolutionError(self._im("multiple_exact_series", title=selected.display_name))
         return matches[0] if matches else None
 
-    def _pick_lookup(self, rows, selected, id_key, expected_id):
+    def _pick_lookup(self, rows, selected, id_key, expected_id, match_title=None, match_year=None):
         if expected_id:
             rows = [row for row in rows if _positive_id(row.get(id_key)) == expected_id]
         else:
-            title = selected.tvshow_title or selected.title
-            rows = [row for row in rows if _title_year_match(row, title, selected.year)]
+            title = match_title if match_title is not None else (selected.tvshow_title or selected.title)
+            year = selected.year if match_year is None else match_year
+            rows = [row for row in rows if _title_year_match(row, title, year)]
         if not rows:
             raise ResolutionError(self._im("lookup_no_results", title=selected.display_name))
         if len(rows) == 1:
@@ -120,10 +134,14 @@ class InteractiveMixin:
         if series is None:
             if not self.settings.request_defaults_ready("sonarr"):
                 raise ConfigurationError(self._im("request_defaults_missing"))
-            tvdb_id = _unique_id(selected, "tvdb")
+            tvdb_id = _series_tvdb_id(selected)
             title = selected.tvshow_title or selected.title
-            term = f"tvdb:{tvdb_id}" if tvdb_id else f"{title} {selected.year or ''}".strip()
-            candidate = dict(self._pick_lookup(self.sonarr.lookup_series(term), selected, "tvdbId", tvdb_id))
+            year = _series_year(selected)
+            term = f"tvdb:{tvdb_id}" if tvdb_id else f"{title} {year or ''}".strip()
+            candidate = dict(self._pick_lookup(
+                self.sonarr.lookup_series(term), selected, "tvdbId", tvdb_id,
+                match_title=title, match_year=year,
+            ))
             monitor = "none" if selected.media_type == "episode" else self.settings.request_sonarr_monitor
             candidate.update({
                 "qualityProfileId": self.settings.request_sonarr_profile,
