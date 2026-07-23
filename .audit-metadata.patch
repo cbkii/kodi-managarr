@@ -21,3 +21,4 @@ index 4c38c96..0000000 100755
 -        raise SystemExit(f"addon.xml en_GB {tag} must not be empty")
 +        raise SystemExit(f"addon.xml {field_name} must not be empty")
      return value
+
