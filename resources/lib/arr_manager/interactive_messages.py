@@ -121,6 +121,8 @@ INTERACTIVE_MESSAGES = {
     "subtitle_episode_metadata_missing": (33458, "Kodi did not return episode metadata for subtitle search."),
     "subtitle_library_playback_required": (33459, "Subtitle search requires a playing Kodi library movie or episode."),
     "find_subtitles_window_failed": (33460, "Kodi could not open the subtitle-search window."),
+    "subtitle_score": (33461, "score {score}"),
+    "subtitle_release_match": (33462, "match {match}"),
 }
 
 
