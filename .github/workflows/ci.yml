@@ -24,8 +24,42 @@ jobs:
         run: |
           set -euo pipefail
           test -f .review-fixes.patch || exit 0
-          git apply --check .review-fixes.patch
-          git apply .review-fixes.patch
+          python - <<'PY'
+          from pathlib import Path
+
+          subtitle = Path("resources/lib/arr_manager/subtitle_service.py")
+          source = subtitle.read_text(encoding="utf-8")
+          source = source.replace(
+              "from .interactive_messages import imessage\nfrom .models import SelectedItem\n",
+              "from .interactive_messages import imessage\nfrom .kodi_jsonrpc import KodiJsonRpcError\nfrom .models import SelectedItem\n",
+              1,
+          )
+          source = source.replace(
+              '        series_detail = kodi_client.tvshow_details(tvshow_id) if tvshow_id > 0 else {}\n',
+              '        series_detail = {}\n'
+              '        if tvshow_id > 0:\n'
+              '            try:\n'
+              '                series_detail = kodi_client.tvshow_details(tvshow_id)\n'
+              '            except KodiJsonRpcError:\n'
+              '                series_detail = {}\n',
+              1,
+          )
+          subtitle.write_text(source, encoding="utf-8")
+
+          tests = Path("tests/test_release_readiness.py")
+          source = tests.read_text(encoding="utf-8")
+          source = source.replace(
+              "from arr_manager.errors import SafetyError\nfrom arr_manager.kodi_selected import enrich_selected_series_identity\n",
+              "from arr_manager.errors import SafetyError\nfrom arr_manager.kodi_jsonrpc import KodiJsonRpcError\nfrom arr_manager.kodi_selected import enrich_selected_series_identity\n",
+              1,
+          )
+          marker = '''        self.assertEqual(selected.series_year, 2020)\n        self.assertEqual((selected.season, selected.episode), (0, 1))\n\n\nclass SubtitleEntrypointTests(unittest.TestCase):\n'''
+          replacement = '''        self.assertEqual(selected.series_year, 2020)\n        self.assertEqual((selected.season, selected.episode), (0, 1))\n\n    def test_playing_episode_survives_parent_detail_lookup_failure(self):\n        xbmc_module = types.SimpleNamespace(\n            getInfoLabel=lambda key: {"VideoPlayer.DBTYPE": "episode", "VideoPlayer.DBID": "44"}.get(key, ""),\n            Player=lambda: types.SimpleNamespace(getPlayingFile=lambda: "smb://server/Shows/Episode.mkv"),\n        )\n        kodi = mock.MagicMock()\n        kodi.episode_details.return_value = {\n            "title": "Episode", "season": 1, "episode": 2, "tvshowid": 7,\n            "tvshowtitle": "Show", "uniqueid": {"tvdb": "555"},\n        }\n        kodi.tvshow_details.side_effect = KodiJsonRpcError("temporary failure")\n\n        selected = selected_from_player(mock.MagicMock(), xbmc_module, kodi)\n\n        self.assertEqual(selected.tvshow_title, "Show")\n        self.assertEqual(selected.tvshow_db_id, 7)\n        self.assertEqual(selected.series_unique_ids, {})\n        self.assertEqual(selected.series_year, 0)\n\n\nclass SubtitleEntrypointTests(unittest.TestCase):\n'''
+          if marker not in source:
+              raise SystemExit("test insertion marker not found")
+          source = source.replace(marker, replacement, 1)
+          tests.write_text(source, encoding="utf-8")
+          PY
           rm -f .review-fixes.patch .github/workflows/apply-final-review-fixes.yml
           git checkout origin/main -- .github/workflows/ci.yml
           git config user.name github-actions[bot]
