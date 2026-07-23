@@ -11,8 +11,10 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "resources", "lib"))
 
 from arr_manager import entrypoints
+from arr_manager.actions_interactive import _series_tvdb_id, _series_year
 from arr_manager.errors import SafetyError
 from arr_manager.kodi_jsonrpc import KodiJsonRpcError
+from arr_manager.interactive_messages import INTERACTIVE_MESSAGES
 from arr_manager.kodi_selected import enrich_selected_series_identity
 from arr_manager.models import SelectedItem
 from arr_manager.registry import ACTION_REGISTRY
@@ -30,6 +32,26 @@ class ReleaseReadinessTests(unittest.TestCase):
             {"mode": "request_search", "value": "hello world"},
         )
         self.assertEqual(entrypoints.ACTION_ALIASES["request_defaults"], "configure_request_defaults")
+
+    def test_effective_identity_uses_series_values_only_for_episodes(self):
+        episode = SelectedItem(
+            media_type="episode", unique_ids={"tvdb": "555"}, year=2024,
+            series_unique_ids={"tvdb": "99"}, series_year=2020,
+        )
+        movie = SelectedItem(
+            media_type="movie", unique_ids={"tvdb": "7"}, year=2023,
+            series_unique_ids={"tvdb": "999"}, series_year=1999,
+        )
+        self.assertEqual(episode.effective_unique_ids(), {"tvdb": "99"})
+        self.assertEqual(episode.effective_year(), 2020)
+        self.assertEqual(movie.effective_unique_ids(), {"tvdb": "7"})
+        self.assertEqual(movie.effective_year(), 2023)
+        self.assertEqual(_series_tvdb_id(movie), 7)
+        self.assertEqual(_series_year(movie), 2023)
+
+    def test_optional_service_connection_headings_are_catalog_backed(self):
+        self.assertEqual(INTERACTIVE_MESSAGES["prowlarr_connection"], (33464, "Prowlarr connection"))
+        self.assertEqual(INTERACTIVE_MESSAGES["bazarr_connection"], (33465, "Bazarr connection"))
 
     def test_episode_parent_series_identity_is_enriched_and_episode_tvdb_is_not_reused(self):
         selected = SelectedItem(

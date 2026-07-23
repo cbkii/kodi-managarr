@@ -13,7 +13,7 @@ from .errors import (
     ApiError, ArrManagerError, BlocklistError, ConfigurationError, ResolutionError, SafetyError,
 )
 from .fileops import make_direct_backend
-from .interactive_messages import imessage
+from .interactive_messages import INTERACTIVE_MESSAGES, imessage
 from .kodi import KodiLogger, KodiUI, selected_item_from_context
 from .kodi_selected import enrich_selected_series_identity
 from .messages import message
@@ -125,9 +125,9 @@ def run_script(args):
         if mode == "test_backend":
             ui.ok(_s(addon, 32712, "File backend"), _test_backend(settings, logger, ui)); return
         if mode == "test_prowlarr":
-            ui.ok("Prowlarr", _test_prowlarr(settings, logger)); return
+            ui.ok(_s(addon, *INTERACTIVE_MESSAGES["prowlarr_connection"]), _test_prowlarr(settings, logger)); return
         if mode == "test_bazarr":
-            ui.ok("Bazarr", _test_bazarr(settings, logger)); return
+            ui.ok(_s(addon, *INTERACTIVE_MESSAGES["bazarr_connection"]), _test_bazarr(settings, logger)); return
         if mode == "diagnostics":
             ui.ok(_s(addon, 32600, "Diagnostics"), _write_diagnostics(addon, settings, logger)); return
         _run_action("menu", addon, settings, logger, ui)

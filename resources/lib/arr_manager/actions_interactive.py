@@ -18,12 +18,11 @@ def _unique_id(selected, key):
 
 
 def _series_tvdb_id(selected):
-    ids = selected.unique_ids if selected.media_type == "tvshow" else getattr(selected, "series_unique_ids", {})
-    return _positive_id((ids or {}).get("tvdb"))
+    return _positive_id(selected.effective_unique_ids().get("tvdb"))
 
 
 def _series_year(selected):
-    return int(selected.year or 0) if selected.media_type == "tvshow" else int(getattr(selected, "series_year", 0) or 0)
+    return selected.effective_year()
 
 
 def _title_year_match(row, title, year):

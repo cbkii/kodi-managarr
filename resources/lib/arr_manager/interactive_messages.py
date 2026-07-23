@@ -124,6 +124,8 @@ INTERACTIVE_MESSAGES = {
     "subtitle_score": (33461, "score {score}"),
     "subtitle_release_match": (33462, "match {match}"),
     "subtitle_playback_changed": (33463, "Kodi playback changed before the subtitle download completed."),
+    "prowlarr_connection": (33464, "Prowlarr connection"),
+    "bazarr_connection": (33465, "Bazarr connection"),
 }
 
 

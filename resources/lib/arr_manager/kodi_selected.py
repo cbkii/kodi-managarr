@@ -74,21 +74,9 @@ def _movie_matches(details, selected, require_strong):
     return strong if require_strong else True
 
 
-def _series_unique_ids(selected):
-    if getattr(selected, "media_type", "") == "episode":
-        return getattr(selected, "series_unique_ids", {}) or {}
-    return getattr(selected, "unique_ids", {}) or {}
-
-
-def _series_year(selected):
-    if getattr(selected, "media_type", "") == "episode":
-        return int(getattr(selected, "series_year", 0) or 0)
-    return int(getattr(selected, "year", 0) or 0)
-
-
 def _tvshow_has_strong_identity(selected):
-    return bool(_series_unique_ids(selected)) or bool(
-        (getattr(selected, "tvshow_title", "") or getattr(selected, "title", "")) and _series_year(selected)
+    return bool(selected.effective_unique_ids()) or bool(
+        (selected.tvshow_title or selected.title) and selected.effective_year()
     )
 
 
@@ -98,10 +86,10 @@ def _tvshow_matches(details, selected, require_strong):
     if title and selected_title and title != selected_title:
         return False
     year = int(details.get("year") or 0)
-    selected_year = _series_year(selected)
+    selected_year = selected.effective_year()
     if year and selected_year and year != selected_year:
         return False
-    unique_state = _unique_id_state(_series_unique_ids(selected), details.get("uniqueid"))
+    unique_state = _unique_id_state(selected.effective_unique_ids(), details.get("uniqueid"))
     if unique_state == "contradiction":
         return False
     strong = unique_state == "match" or bool(title and selected_title and year and selected_year)

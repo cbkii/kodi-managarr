@@ -17,18 +17,6 @@ def _year(value):
         return 0
 
 
-def _series_unique_ids(selected):
-    if selected.media_type == "episode":
-        return getattr(selected, "series_unique_ids", {}) or {}
-    return selected.unique_ids or {}
-
-
-def _series_year(selected):
-    if selected.media_type == "episode":
-        return _year(getattr(selected, "series_year", 0))
-    return _year(selected.year)
-
-
 def resolve_movie(selected, client, mapper):
     tmdb_id = _numeric_unique_id(selected.unique_ids.get("tmdb"))
     selected_path = _safe_selected_path(selected.file_path)
@@ -66,7 +54,7 @@ def resolve_movie(selected, client, mapper):
 
 
 def resolve_series(selected, client, mapper):
-    tvdb_id = _numeric_unique_id(_series_unique_ids(selected).get("tvdb"))
+    tvdb_id = _numeric_unique_id(selected.effective_unique_ids().get("tvdb"))
     selected_path = _safe_selected_path(selected.file_path)
     wanted_title = normalise_title(selected.tvshow_title or selected.title)
     if tvdb_id:
@@ -90,7 +78,7 @@ def resolve_series(selected, client, mapper):
         if wanted_title and wanted_title in titles:
             score += 80; reasons.append("title")
         series_year = _year(series.get("year"))
-        selected_year = _series_year(selected)
+        selected_year = selected.effective_year()
         if selected_year and series_year and series_year != selected_year and not ({"path", "mapped path"} & set(reasons)):
             scored.append((0, series, "year mismatch"))
             continue
