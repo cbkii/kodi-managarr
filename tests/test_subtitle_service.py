@@ -9,7 +9,9 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "resources", "lib"))
 
 from arr_manager.errors import SafetyError
-from arr_manager.subtitle_service import SubtitleService, _language_code, _safe_result
+from arr_manager.subtitle_service import (
+    SubtitleService, _language_code, _result_label, _safe_result, _select_results,
+)
 
 
 class FakeVfs:
@@ -17,6 +19,10 @@ class FakeVfs:
     def translatePath(self, value): return self.profile
     def listdir(self, directory): return [], [os.path.basename(value) for value in self.files if os.path.dirname(value) == directory]
     def exists(self, path): return path in self.files
+
+
+class Addon:
+    def getLocalizedString(self, value): return ""
 
 
 class SubtitleServiceTests(unittest.TestCase):
@@ -37,6 +43,33 @@ class SubtitleServiceTests(unittest.TestCase):
         result = _safe_result({"language": "en", "provider": "p", "secret": "x", "subtitle": "token"})
         self.assertEqual(result["language"], "en")
         self.assertNotIn("secret", result)
+
+    def test_language_filter_keeps_forced_and_hi_variants_in_configured_order(self):
+        rows = [
+            {"language": "fr", "provider": "p", "score": 60},
+            {"language": "en", "provider": "p", "score": 40, "forced": True},
+            {"language": "en", "provider": "p", "score": 80, "forced": True},
+            {"language": "en", "provider": "p", "score": 70, "hi": True},
+            {"language": "de", "provider": "p", "score": 100},
+        ]
+        selected = _select_results(rows, ["en", "fr"])
+        self.assertEqual([language for language, _ in selected], ["en:forced", "en:hi", "fr"])
+        self.assertEqual(selected[0][1]["score"], 80)
+
+    def test_result_label_uses_provider_score_release_match_and_flags(self):
+        label, detail = _result_label(
+            Addon(),
+            {
+                "provider": "OpenSubtitles", "score": 91.5, "release_info": ["title", "season"],
+                "forced": True,
+            },
+            "en:forced",
+        )
+        self.assertEqual(label, "en:forced")
+        self.assertIn("OpenSubtitles", detail)
+        self.assertIn("score 91.5", detail)
+        self.assertIn("match title, season", detail)
+        self.assertIn("forced", detail)
 
     def test_cache_rejects_invalid_and_expired_tokens(self):
         with tempfile.TemporaryDirectory() as profile:
