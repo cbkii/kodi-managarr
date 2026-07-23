@@ -18,6 +18,7 @@ Prowlarr is optional and read-only from Managarr: it contributes indexer health 
 
 ## Safety model
 
+- **Dry run is enabled by default on fresh installations.** An existing saved setting is preserved during upgrade.
 - Servarr API deletion is the default and recommended backend.
 - Direct SMB/SFTP deletion uses Kodi VFS and Kodi-managed credentials.
 - Direct deletion always requires confirmation, even if confirmation is disabled for API-only operations.
@@ -26,7 +27,7 @@ Prowlarr is optional and read-only from Managarr: it contributes indexer health 
 - Confirmed VFS folder plans are re-enumerated before deletion and removals are verified against parent listings.
 - Servarr commands succeed only with terminal `Completed` status and `Successful` result.
 - Partial commits are persisted without secrets and reported with completed transaction stages.
-- API keys and credential-bearing URLs are never written to diagnostics or logs.
+- API keys and credential-bearing URLs are never written to diagnostics, subtitle cache state or logs.
 
 ## Install and automatic updates
 
@@ -44,13 +45,17 @@ The repository publishes canonical Kodi filenames, `addons.xml`, Kodi's `addons.
 
 Open **Configure Request & Search defaults** once. Managarr stores one Radarr and one Sonarr root folder and quality profile, plus one Sonarr monitoring mode. These are persistent defaults, not per-request routing: multi-instance, HD/4K and tag-routing policies remain outside this feature.
 
-Existing items are never added twice. Stable TMDb/TVDb identity is preferred; exact title/year fallback is used only when necessary, and ambiguous lookup results require an explicit Kodi-native selection. An episode request adds the parent series when needed but searches only the selected episode.
+Existing items are never added twice. Stable TMDb/TVDb identity is preferred; exact title/year fallback is used only when necessary, and ambiguous lookup results require an explicit Kodi-native selection. Episode actions resolve the parent TV show's stable IDs through Kodi JSON-RPC instead of treating the episode's TVDb ID as the series ID. This also supports API-backend use without path mappings and season-zero specials.
+
+Title fallback matching is Unicode-aware. Accented Latin, CJK, Cyrillic and other alphanumeric scripts are retained while punctuation and whitespace are normalised.
 
 ## Optional Prowlarr and Bazarr
 
 Prowlarr requires its URL/API key only when enabled. The Dashboard uses its status, health and indexer endpoints, and Interactive search may show an informational count when Arr returns no releases.
 
-Bazarr requires its URL/API key and **Configure subtitle languages**. Choose one to three unique language codes in preference order. During movie or episode playback, open Kodi's normal subtitle-search dialog and choose Kodi Managarr/Bazarr. Selecting a result downloads that exact provider result through Bazarr, then Managarr returns only a Kodi-accessible mapped or sibling subtitle path.
+Bazarr requires its URL/API key and **Configure subtitle languages**. Choose one to three unique language codes in preference order. A base language such as `en` accepts normal, forced and hearing-impaired variants; a qualified choice such as `en:forced` accepts only that exact variant. During movie or episode playback, open Kodi's normal subtitle-search dialog and choose Kodi Managarr/Bazarr.
+
+Subtitle results store only short-lived, sanitised provider identity and stable database IDs. The token is consumed before the non-idempotent Bazarr download request, current playback is revalidated, and only an existing Kodi-accessible or safely mapped subtitle path is returned.
 
 ## Menu configuration and PIN protection
 
@@ -79,7 +84,11 @@ Keymap Editor exposes **Launch Kodi Managarr** under Add-ons actions. Advanced k
 <key>RunScript(special://home/addons/context.arr.manager/default.py,mode=delete_replace)</key>
 ```
 
-## Development validation
+The action registry is the source of truth for menu and direct modes. Query-style arguments are URL-decoded and every destructive direct mode passes through the same central PIN authorisation boundary.
+
+## Compatibility and development validation
+
+Runtime support is **Kodi 19 or newer with Kodi's Python 3 runtime**, including Android Kodi. Kodi 18/Python 2 is unsupported. Host CI separately tests the pure Python code and packaging tools on CPython 3.8 and 3.12; that CI matrix is not a claim that Android Kodi embeds those exact interpreter versions.
 
 ```bash
 python -m pip install -r requirements-dev.txt
@@ -98,7 +107,7 @@ PY
 kodi-addon-checker --branch matrix dist/addon-check/context.arr.manager
 ```
 
-Validation covers the ASCII context root, registry dispatch, localisation, PIN policy, optional-service isolation, subtitle entrypoint, release packaging and repository generation. CI runs the gates on Python 3.8 and 3.12 alongside actionlint, Ruff, archive integrity and Kodi add-on checker.
+Validation covers the ASCII context root, registry dispatch, safe fresh-install defaults, localisation, PIN policy, optional-service isolation, subtitle entrypoint, metadata limits, release packaging and repository generation. CI runs Python 3.8 and 3.12 alongside actionlint, Ruff, archive integrity and Kodi add-on checker.
 
 ## Android Kodi validation and release
 
