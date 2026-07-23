@@ -28,8 +28,14 @@ jobs:
           for chunk in .audit-payload/runtime-*.b64; do
             base64 --decode "$chunk" >> "$RUNNER_TEMP/audit-runtime.patch"
           done
-          git apply --check "$RUNNER_TEMP/audit-runtime.patch"
-          git apply "$RUNNER_TEMP/audit-runtime.patch"
+          includes=(
+            --include='resources/lib/arr_manager/entrypoints.py'
+            --include='resources/lib/arr_manager/subtitle_service.py'
+            --include='resources/lib/arr_manager/interactive_entrypoint.py'
+            --include='subtitles.py'
+          )
+          git apply --check "${includes[@]}" "$RUNNER_TEMP/audit-runtime.patch"
+          git apply "${includes[@]}" "$RUNNER_TEMP/audit-runtime.patch"
           rm -rf .audit-payload .github/workflows/apply-audit-runtime.yml
           git checkout origin/main -- .github/workflows/ci.yml
           git config user.name github-actions[bot]
