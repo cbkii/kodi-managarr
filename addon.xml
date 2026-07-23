@@ -19,7 +19,7 @@
     <license>GPL-3.0-or-later</license>
     <source>https://github.com/cbkii/kodi-managarr</source>
     <website>https://github.com/cbkii/kodi-managarr</website>
-    <news lang="en_GB">Add Request &amp; Search, interactive Arr release selection, a bounded dashboard and Kodi-native Bazarr subtitles. Harden Android Kodi episode identity, international-title matching, subtitle language variants and single-use downloads; enable dry run by default for new installs.</news>
+    <news>Add Request &amp; Search, interactive Arr release selection, a bounded dashboard and Kodi-native Bazarr subtitles. Harden Android Kodi episode identity, international-title matching, subtitle language variants and single-use downloads; enable dry run by default for new installs.</news>
     <assets>
       <icon>resources/icon.png</icon>
       <fanart>resources/fanart.jpg</fanart>
