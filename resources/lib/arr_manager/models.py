@@ -15,6 +15,8 @@ class SelectedItem:
     episode: int = -1
     file_path: str = ""
     unique_ids: Dict[str, str] = field(default_factory=dict)
+    series_year: int = 0
+    series_unique_ids: Dict[str, str] = field(default_factory=dict)
 
     @property
     def display_name(self) -> str:
