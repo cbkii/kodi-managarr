@@ -1,91 +1,58 @@
 # Stable release checklist
 
-Use this as the concise release gate. Detailed device steps and the evidence template are in [`ANDROID_KODI_VALIDATION.md`](ANDROID_KODI_VALIDATION.md).
+Use this concise gate with [`ANDROID_KODI_VALIDATION.md`](ANDROID_KODI_VALIDATION.md). A release candidate is optional. The owner may publish stable, prerelease or draft builds directly; only stable releases enter the Kodi repository feed.
 
-A release candidate is optional. The repository owner may publish stable, prerelease or draft builds directly through the manual release workflow. Only stable releases are published to the Kodi repository update feed.
+## Add-on package and CI
 
-## Required before a stable release
+- [ ] Intended release commit is on the selected branch.
+- [ ] Python 3.8 and 3.12 CI, Ruff, actionlint and complete unit tests pass with no placeholder/disabled tests.
+- [ ] `scripts/validate.py` and Kodi add-on checker pass.
+- [ ] Deterministic packaging produces one valid `context.arr.manager/` root.
+- [ ] ZIP contains `addon.xml`, `LICENSE.txt`, `default.py`, `context.py`, `subtitles.py`, resources/runtime files and artwork.
+- [ ] `xbmc.subtitle.module` points to the packaged subtitle entrypoint.
+- [ ] Public assets use `managarr-addon_vX.Y.Z.zip` and a portable matching SHA-256 file.
 
-### Add-on package
+## Kodi repository publication
 
-- [ ] The intended release commit is on the selected release branch.
-- [ ] CI passes on that commit on Python 3.8 and 3.12.
-- [ ] `python scripts/validate.py` passes.
-- [ ] `python -m unittest discover -s tests -v` passes with no placeholder-only tests.
-- [ ] `python scripts/package.py` produces the expected internal `context.arr.manager-<version>.zip` reproducibly.
-- [ ] The release workflow publishes `managarr-addon_v<version>.zip` with a matching `.sha256` file.
-- [ ] Kodi add-on checker passes against the extracted ZIP.
-- [ ] The release ZIP contains one `context.arr.manager/` root, `addon.xml`, `LICENSE.txt`, runtime files and publication assets.
-- [ ] The generated SHA-256 matches the uploaded ZIP.
+- [ ] Pages resolves the exact intended stable release and rejects draft/prerelease assets.
+- [ ] `addons.xml`, MD5 change token, SHA-256 files and per-package hashes match.
+- [ ] `repository.managarr-X.Y.Z.zip` is deterministic, installable, licensed and does not contain itself.
+- [ ] The next stable release is detected as an update and preserves settings.
 
-### Kodi repository publication
+## Core Android Kodi checks
 
-- [ ] The Pages workflow resolves the exact intended stable release tag and rejects drafts and prereleases.
-- [ ] Exactly one `managarr-addon_v*.zip` release asset is selected and validated.
-- [ ] `addons.xml` contains `repository.managarr` and the released `context.arr.manager` version.
-- [ ] `addons.xml.md5`, `addons.xml.sha256` and per-ZIP `.sha256` files match their content.
-- [ ] `repository.managarr-X.Y.Z.zip` is valid, deterministic, does not include itself, and contains `addon.xml`, `LICENSE.txt`, icon and fanart.
-- [ ] Main add-on metadata assets are published at the paths referenced by its `addon.xml`.
-- [ ] Repository URLs use HTTPS and the repository ZIP installs in Kodi.
-- [ ] The next stable add-on release is detected as an update and preserves settings.
+- [ ] Plain ASCII Managarr root renders for movie/show/episode.
+- [ ] Advanced/Simple menus, hide/order/restore and hidden direct modes work.
+- [ ] PIN create/change/remove and fail-closed direct/menu enforcement work.
+- [ ] Radarr/Sonarr tests, dry runs, cancellation and one disposable API mutation pass.
+- [ ] Diagnostics/logs contain no credentials or private URLs.
 
-### Android Kodi quick validation
+## Interactive feature checks
 
-- [ ] The exact repository ZIP installs successfully on the target Android Kodi device.
-- [ ] Kodi Managarr installs or upgrades through **Install from repository**.
-- [ ] Settings labels/help render and saved values persist.
-- [ ] The plain-text **Managarr** root item renders on movie, TV-show and episode library rows.
-- [ ] Advanced mode preserves Status, Search, Monitoring, Download queue, both Delete actions and Tools & settings.
-- [ ] Simple mode presents the documented reduced set.
-- [ ] Hide, reorder and restore-default operations work with a TV remote and persist after reopening Kodi.
-- [ ] Hidden actions remain callable through direct `RunScript(...,mode=...)` key mappings.
-- [ ] A 4–8 digit PIN can be created, changed and removed; entry is masked.
-- [ ] Incorrect PINs and malformed stored PIN state fail closed without deleting media.
-- [ ] PIN protection applies to Delete & Exclude and Delete & Replace, including direct modes; queue removal remains confirmation-only.
-- [ ] Radarr and Sonarr connection tests pass.
-- [ ] Movie and episode Delete & Exclude/Delete & Replace dry runs identify the correct targets and make no changes.
-- [ ] Cancellation makes no changes.
-- [ ] At least one disposable API-backend end-to-end mutation succeeds and is verified in Servarr and Kodi.
-- [ ] Diagnostics and shared logs contain no credentials or API keys.
-- [ ] The completed evidence summary from the Android Kodi runbook is saved with the release or linked issue/PR.
+- [ ] Request defaults can be selected and persist.
+- [ ] Managed/unmanaged movie Request & Search avoids duplicates and completes search.
+- [ ] Series and selected-episode Request & Search use the intended monitoring/search scope.
+- [ ] Ambiguous lookup requires explicit selection; partial add/search failure is honest.
+- [ ] Interactive movie/episode release details, cancellation, revalidation and Arr grab pass.
+- [ ] Prowlarr remains informational/read-only and cannot bypass Arr authority.
+- [ ] Dashboard isolates one failing service and uses bounded/manual refresh.
+- [ ] Bazarr connection and one-to-three unique language configuration work.
+- [ ] Kodi built-in subtitle search returns and loads a real Kodi-accessible movie and episode subtitle.
+- [ ] Subtitle cache/results contain no secrets and server-only paths are never handed directly to Kodi.
 
-## Required only when that backend is claimed as device-tested
+## Optional backend claims
 
-### SMB VFS
-
-- [ ] Read-only backend test succeeds for the selected disposable item.
-- [ ] One child-file operation succeeds using Kodi-managed SMB access.
-- [ ] The mapped root and its ancestors remain intact.
-- [ ] Servarr reconciliation and Kodi synchronisation complete.
-
-### SFTP VFS
-
-- [ ] Kodi's official `vfs.sftp` add-on is installed and the network location works in Kodi.
-- [ ] Read-only backend test succeeds for the selected disposable item.
-- [ ] One child-file operation succeeds using Kodi-managed SFTP access.
-- [ ] The mapped root and its ancestors remain intact.
-- [ ] Servarr reconciliation and Kodi synchronisation complete.
-
-Mark an optional backend **NOT TESTED** rather than blocking a release that does not claim device validation for it.
-
-## Recommended for broad feature releases
-
-- [ ] Test both a clean installation and an upgrade from the previous stable release.
-- [ ] Test a season-zero special.
-- [ ] Test a multi-episode file.
-- [ ] Test one series-wide replacement with multiple files.
-- [ ] Test network loss after a committed direct deletion and confirm the transaction report is accurate.
-- [ ] Publish a prerelease first when wider community testing is useful.
+Mark SMB, SFTP, Prowlarr or Bazarr **NOT TESTED** rather than claiming device validation that was not performed. Test the exact optional paths before describing them as device-tested.
 
 ## Release workflow
 
 Run **Actions → Build and publish Kodi release**:
 
 1. choose the branch;
-2. enter the intended version or leave it blank to use the untagged manifest version or automatic patch increment;
+2. enter a version or leave blank for the maintained manifest/automatic patch behavior;
 3. choose stable, prerelease or draft;
-4. optionally enter a one-off release-highlights override, or leave it blank to use the maintained `addon.xml` news;
+4. optionally override release highlights, or leave blank to use maintained `addon.xml` news;
 5. run the workflow;
-6. for a stable release, confirm the Pages repository workflow publishes the same exact tag and version.
+6. for stable, confirm Pages publishes the same tag/version.
 
-No RC promotion sequence is required.
+No mandatory RC promotion sequence is required.
