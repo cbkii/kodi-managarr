@@ -63,6 +63,8 @@ jobs:
 
       - name: Output Summary
         run: |
-          echo "## Repository Published :rocket:" >> $GITHUB_STEP_SUMMARY
-          echo "Repository URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}" >> $GITHUB_STEP_SUMMARY
-          echo "Repository zip is located at the URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/repository.managarr/repository.managarr-1.0.0.zip" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## Repository Published :rocket:"
+            echo "Repository URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
+            echo "Repository zip is located at the URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/repository.managarr/repository.managarr-1.0.0.zip"
+          } >> "$GITHUB_STEP_SUMMARY"
