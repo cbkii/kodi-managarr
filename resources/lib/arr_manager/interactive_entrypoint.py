@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-from .clients import BazarrClient, ProwlarrClient
+from .bazarr_client import BazarrClient
+from .clients import ProwlarrClient
 from .config import Settings
 from .entrypoints import _bootstrap, _run_action, _show_error
 from .interactive_messages import imessage
