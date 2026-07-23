@@ -7,7 +7,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "resources", "lib"))
 
 from arr_manager.actions_interactive import InteractiveMixin
-from arr_manager.errors import ConfigurationError, SafetyError
+from arr_manager.errors import ConfigurationError, ResolutionError, SafetyError
 from arr_manager.models import SelectedItem
 
 
@@ -83,7 +83,7 @@ class InteractiveFeatureTests(unittest.TestCase):
 
     def test_absent_movie_is_added_rechecked_and_searched(self):
         h = Harness()
-        h.radarr.movie_by_tmdb.side_effect = [None, {"id": 8, "title": "Film", "monitored": True}]
+        h.radarr.movie_by_tmdb.side_effect = [None, None, {"id": 8, "title": "Film", "monitored": True}]
         h.radarr.lookup_movie.return_value = [{"tmdbId": 42, "title": "Film", "year": 2024}]
         h.radarr.search_movie.return_value = {"id": 11}
         h._request_movie(self.movie())
@@ -91,6 +91,15 @@ class InteractiveFeatureTests(unittest.TestCase):
         self.assertEqual(payload["rootFolderPath"], "/movies")
         self.assertEqual(payload["qualityProfileId"], 1)
         self.assertFalse(payload["addOptions"]["searchForMovie"])
+
+    def test_movie_race_recheck_uses_new_existing_item_without_duplicate_add(self):
+        h = Harness()
+        h.radarr.movie_by_tmdb.side_effect = [None, {"id": 8, "title": "Film", "monitored": True}]
+        h.radarr.lookup_movie.return_value = [{"tmdbId": 42, "title": "Film", "year": 2024}]
+        h.radarr.search_movie.return_value = {"id": 11}
+        h._request_movie(self.movie())
+        h.radarr.add_movie.assert_not_called()
+        h.radarr.search_movie.assert_called_once_with(8)
 
     def test_missing_defaults_fail_before_add(self):
         h = Harness(); h.settings.request_defaults_ready = lambda service: False
@@ -100,7 +109,7 @@ class InteractiveFeatureTests(unittest.TestCase):
 
     def test_add_success_search_failure_reports_partial_success(self):
         h = Harness()
-        h.radarr.movie_by_tmdb.side_effect = [None, {"id": 8, "title": "Film", "monitored": True}]
+        h.radarr.movie_by_tmdb.side_effect = [None, None, {"id": 8, "title": "Film", "monitored": True}]
         h.radarr.lookup_movie.return_value = [{"tmdbId": 42, "title": "Film", "year": 2024}]
         h.radarr.search_movie.return_value = SafetyError("failed")
         with self.assertRaises(SafetyError): h._request_movie(self.movie())
@@ -116,6 +125,20 @@ class InteractiveFeatureTests(unittest.TestCase):
         h.sonarr.search_episodes.assert_called_once_with([44])
         h.sonarr.search_series.assert_not_called()
 
+    def test_absent_episode_parent_is_added_without_full_series_search(self):
+        h = Harness()
+        series = {"id": 5, "title": "Show", "year": 2020, "monitored": False}
+        h.sonarr.all_series.side_effect = [[], [], [series]]
+        h.sonarr.lookup_series.return_value = [{"tvdbId": 99, "title": "Show", "year": 2020}]
+        h.sonarr.episodes.return_value = [{"id": 44, "seasonNumber": 0, "episodeNumber": 1, "monitored": False}]
+        h.sonarr.search_episodes.return_value = {"id": 12}
+        h._request_series_or_episode(self.episode())
+        payload = h.sonarr.add_series.call_args[0][0]
+        self.assertEqual(payload["addOptions"]["monitor"], "none")
+        self.assertFalse(payload["addOptions"]["searchForMissingEpisodes"])
+        h.sonarr.search_episodes.assert_called_once_with([44])
+        h.sonarr.search_series.assert_not_called()
+
     def test_tvshow_uses_stable_series_tvdb_id(self):
         h = Harness()
         h.sonarr.series_by_tvdb.return_value = {"id": 5, "title": "Show", "year": 2020, "monitored": True}
@@ -124,6 +147,31 @@ class InteractiveFeatureTests(unittest.TestCase):
         h.sonarr.series_by_tvdb.assert_called_with(99)
         h.sonarr.all_series.assert_not_called()
         h.sonarr.search_series.assert_called_once_with(5)
+
+    def test_absent_tvshow_is_added_rechecked_and_searched(self):
+        h = Harness()
+        series = {"id": 5, "title": "Show", "year": 2020, "monitored": True}
+        h.sonarr.series_by_tvdb.side_effect = [None, None, series]
+        h.sonarr.all_series.return_value = []
+        h.sonarr.lookup_series.return_value = [{"tvdbId": 99, "title": "Show", "year": 2020}]
+        h.sonarr.search_series.return_value = {"id": 13}
+        h._request_series_or_episode(self.tvshow())
+        payload = h.sonarr.add_series.call_args[0][0]
+        self.assertEqual(payload["rootFolderPath"], "/tv")
+        self.assertEqual(payload["qualityProfileId"], 2)
+        self.assertEqual(payload["addOptions"]["monitor"], "future")
+        h.sonarr.search_series.assert_called_once_with(5)
+
+    def test_ambiguous_lookup_requires_explicit_choice(self):
+        h = Harness(); h.ui = UI([-1])
+        h.radarr.movie_by_tmdb.return_value = None
+        h.radarr.lookup_movie.return_value = [
+            {"tmdbId": 42, "title": "Film", "year": 2024},
+            {"tmdbId": 42, "title": "Film", "year": 2024},
+        ]
+        with self.assertRaises(ResolutionError):
+            h._request_movie(self.movie())
+        h.radarr.add_movie.assert_not_called()
 
     def test_interactive_grab_revalidates_release(self):
         h = Harness(); h.ui = UI([0])
