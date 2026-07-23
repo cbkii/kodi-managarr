@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.2.0 — 2026-07-23
+
+- Added smart **Request & Search** for managed or unmanaged movies, series and selected episodes.
+- Added Arr-authoritative interactive release selection, a bounded service dashboard, optional read-only Prowlarr context and Kodi-native Bazarr subtitle search/download.
+- Hardened episode-to-series identity through Kodi TV-show JSON-RPC metadata, including season-zero and no-path-mapping cases.
+- Improved exact title matching for accented Latin, CJK, Cyrillic and other Unicode scripts.
+- Centralised direct/Keymap dispatch in the action registry and removed the obsolete interactive entrypoint.
+- Hardened subtitle language variants, provider-result identity, single-use download tokens, playback revalidation and Android-accessible path checks.
+- Enabled **Dry run** by default for fresh installations while preserving existing saved settings.
+- Expanded release validation, deterministic packaging and Android Kodi validation guidance.
+
 ## 1.1.0 — 2026-07-21
 
 - Replaced the decorative context-menu glyph with the plain ASCII `Managarr` label for maximum Android Kodi skin/font compatibility.
