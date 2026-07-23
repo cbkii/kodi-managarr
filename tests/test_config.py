@@ -1,6 +1,7 @@
 import os
 import sys
 import unittest
+import xml.etree.ElementTree as ET
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "resources", "lib"))
@@ -29,10 +30,20 @@ class Addon:
         return self.values.get(key, "")
 
     def getAddonInfo(self, key):
-        return "1.1.0" if key == "version" else ""
+        return "1.2.0" if key == "version" else ""
 
 
 class ConfigTests(unittest.TestCase):
+    def test_fresh_install_defaults_to_dry_run_but_saved_false_is_preserved(self):
+        self.assertTrue(Settings(Addon(dry_run="")).dry_run)
+        self.assertTrue(Settings(Addon(dry_run="true")).dry_run)
+        self.assertFalse(Settings(Addon(dry_run="false")).dry_run)
+
+        settings = ET.parse(os.path.join(ROOT, "resources", "settings.xml")).getroot()
+        dry_run = settings.find(".//setting[@id='dry_run']")
+        self.assertIsNotNone(dry_run)
+        self.assertEqual((dry_run.findtext("default") or "").strip().lower(), "true")
+
     def test_blank_menu_mode_preserves_existing_advanced_actions(self):
         self.assertEqual(Settings(Addon(menu_mode="")).menu_mode, "1")
         self.assertEqual(Settings(Addon(menu_mode="advanced")).menu_mode, "1")
@@ -105,8 +116,8 @@ class ConfigTests(unittest.TestCase):
 
     def test_service_config_uses_installed_addon_version(self):
         settings = Settings(Addon())
-        self.assertEqual(settings.radarr.user_agent, "Kodi-Managarr/1.1.0")
-        self.assertEqual(settings.sonarr.user_agent, "Kodi-Managarr/1.1.0")
+        self.assertEqual(settings.radarr.user_agent, "Kodi-Managarr/1.2.0")
+        self.assertEqual(settings.sonarr.user_agent, "Kodi-Managarr/1.2.0")
 
 
 if __name__ == "__main__":
