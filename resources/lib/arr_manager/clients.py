@@ -117,7 +117,7 @@ class RadarrClient(ServarrClient):
         return _object(self.http.request("PUT", f"/movie/{_id(movie.get('id'), 'Movie')}", payload=movie), "Movie update")
 
     def movie_files(self, movie_id):
-        return _list(self.http.request("GET", "/movieFile", params={"movieId": _id(movie_id, "Movie")}), "Movie files")
+        return _list(self.http.request("GET", "/movieFile", params={"movieId": _id(movie_id, 'Movie')}), "Movie files")
 
     def delete_movie(self, movie_id, delete_files=True, add_exclusion=True):
         return self.http.request("DELETE", f"/movie/{_id(movie_id, 'Movie')}",
@@ -197,7 +197,7 @@ class SonarrClient(ServarrClient):
         return self.http.request("PUT", "/episode/monitor", payload={"episodeIds": valid_ids, "monitored": bool(monitored)})
 
     def episode_files(self, series_id):
-        return _list(self.http.request("GET", "/episodeFile", params={"seriesId": _id(series_id, "Series")}), "Episode files")
+        return _list(self.http.request("GET", "/episodeFile", params={"seriesId": _id(series_id, 'Series')}), "Episode files")
 
     def delete_episode_file(self, file_id):
         return self.http.request("DELETE", f"/episodeFile/{_id(file_id, 'Episode file')}")
@@ -249,51 +249,3 @@ class ProwlarrClient:
 
     def search(self, query):
         return _records(self.http.request("GET", "/search", params={"query": str(query or "")}), "Prowlarr search")
-
-
-class BazarrClient:
-    """Bazarr's authenticated API is rooted at /api rather than /api/vN."""
-
-    def __init__(self, base_url, api_key, timeout=15, verify_tls=True,
-                 logger=None, user_agent="Kodi-Managarr/unknown"):
-        self.http = JsonHttpClient(base_url, api_key, "v1", timeout, verify_tls, logger, user_agent)
-        self.http.api_root = f"{self.http.base_url}/api"
-
-    def status(self):
-        return _object(self.http.request("GET", "/system/status"), "Bazarr status")
-
-    def languages(self):
-        return _records(self.http.request("GET", "/system/languages"), "Bazarr languages")
-
-    def search_movie_subtitles(self, radarr_id):
-        return _records(self.http.request("GET", "/providers/movies",
-                                          params={"radarrid": _id(radarr_id, "Movie")}), "Movie subtitles")
-
-    def search_episode_subtitles(self, episode_id):
-        return _records(self.http.request("GET", "/providers/episodes",
-                                          params={"episodeid": _id(episode_id, "Episode")}), "Episode subtitles")
-
-    @staticmethod
-    def _download_params(result, language):
-        result = _object(result, "Subtitle")
-        raw_language = str(language or "").strip().lower()
-        base_language, _, qualifier = raw_language.partition(":")
-        params = {
-            "language": base_language,
-            "forced": qualifier == "forced" or bool(result.get("forced")),
-            "hi": qualifier == "hi" or bool(result.get("hearing_impaired") or result.get("hi")),
-        }
-        if not params["language"]:
-            raise ApiError("Subtitle result did not contain a language")
-        return params
-
-    def download_movie_subtitle(self, radarr_id, language, result):
-        params = self._download_params(result, language)
-        params["radarrid"] = _id(radarr_id, "Movie")
-        return self.http.request("PATCH", "/movies/subtitles", params=params)
-
-    def download_episode_subtitle(self, series_id, episode_id, language, result):
-        params = self._download_params(result, language)
-        params["seriesid"] = _id(series_id, "Series")
-        params["episodeid"] = _id(episode_id, "Episode")
-        return self.http.request("PATCH", "/episodes/subtitles", params=params)
