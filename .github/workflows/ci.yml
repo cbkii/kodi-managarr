@@ -1,59 +1,171 @@
-name: Apply release-audit runtime patch
+name: CI
 
 on:
   push:
   pull_request:
 
 permissions:
-  contents: write
+  contents: read
 
 env:
   PYTHONDONTWRITEBYTECODE: "1"
 
 jobs:
-  apply-audit-runtime:
-    runs-on: ubuntu-24.04
+  actionlint:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-          fetch-depth: 0
-          ref: audit/android-kodi-release-readiness
-      - name: Apply staged runtime patch and remove one-time scaffolding
-        id: apply
-        continue-on-error: true
-        shell: bash
+          persist-credentials: false
+      - name: Install actionlint
+        run: go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
+      - name: Validate workflows
+        run: '"$(go env GOPATH)/bin/actionlint"'
+
+  validate:
+    name: Validate (${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.8', '3.12']
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install validation tools
         run: |
           set -euxo pipefail
-          exec > >(tee "$RUNNER_TEMP/apply-audit.log") 2>&1
-          test -d .audit-payload
-          : > "$RUNNER_TEMP/audit-runtime.patch"
-          for chunk in .audit-payload/runtime-*.b64; do
-            base64 --decode "$chunk" >> "$RUNNER_TEMP/audit-runtime.patch"
-          done
-          includes=(
-            --include='resources/lib/arr_manager/entrypoints.py'
-            --include='resources/lib/arr_manager/subtitle_service.py'
-            --include='resources/lib/arr_manager/interactive_entrypoint.py'
-            --include='subtitles.py'
-          )
-          git apply --check "${includes[@]}" "$RUNNER_TEMP/audit-runtime.patch"
-          git apply "${includes[@]}" "$RUNNER_TEMP/audit-runtime.patch"
-          rm -rf .audit-payload .github/workflows/apply-audit-runtime.yml
-          git checkout origin/main -- .github/workflows/ci.yml
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add -A
-          git diff --cached --check
-          git commit -m "Complete Android Kodi runtime hardening"
-          git push origin HEAD:audit/android-kodi-release-readiness
-      - name: Upload apply diagnostics
-        if: steps.apply.outcome == 'failure'
+          python --version
+          python -m pip install --disable-pip-version-check -r requirements-dev.txt
+          python -m pip check
+      - name: Validate XML, metadata, images and Python
+        run: |
+          set -o pipefail
+          python scripts/validate.py 2>&1 | tee "$RUNNER_TEMP/validation.log"
+      - name: Run static checks
+        run: python -m ruff check .
+      - name: Run unit tests
+        run: |
+          set -euo pipefail
+          log="$RUNNER_TEMP/unit-tests.log"
+          if ! python -m unittest discover -s tests -v >"$log" 2>&1; then
+            echo 'Unit tests failed; showing the final 250 lines:'
+            tail -n 250 "$log"
+            exit 1
+          fi
+          tail -n 20 "$log"
+      - name: Upload failed validation and unit-test logs
+        if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: audit-apply-diagnostics
-          path: ${{ runner.temp }}/apply-audit.log
-          if-no-files-found: error
+          name: failure-logs-${{ matrix.python-version }}
+          path: |
+            ${{ runner.temp }}/validation.log
+            ${{ runner.temp }}/unit-tests.log
+          if-no-files-found: ignore
           retention-days: 7
-      - name: Propagate apply failure
-        if: steps.apply.outcome == 'failure'
-        run: exit 1
+      - name: Validate workflow-selected release version
+        run: |
+          set -euo pipefail
+          cp addon.xml "$RUNNER_TEMP/addon.xml.original"
+          trap 'cp "$RUNNER_TEMP/addon.xml.original" addon.xml' EXIT
+          python - <<'PY'
+          import re
+          from pathlib import Path
+
+          path = Path("addon.xml")
+          content = path.read_text(encoding="utf-8")
+          updated, count = re.subn(
+              r'(<addon\b[^>]*\bversion=")[^"]+("[^>]*>)',
+              r'\g<1>99.99.10\2',
+              content,
+              count=1,
+          )
+          if count != 1:
+              raise SystemExit("Could not update addon.xml version for release regression test")
+          path.write_text(updated, encoding="utf-8")
+          PY
+          python scripts/validate.py
+          python -m unittest discover -s tests -p 'test_branding.py' -v
+      - name: Build reproducible package
+        run: |
+          set -euo pipefail
+          export SOURCE_DATE_EPOCH=1700000000
+          python scripts/package.py
+          first="$(sha256sum dist/context.arr.manager-*.zip | cut -d' ' -f1)"
+          rm -rf dist
+          python scripts/package.py
+          second="$(sha256sum dist/context.arr.manager-*.zip | cut -d' ' -f1)"
+          test "$first" = "$second"
+      - name: Extract package for Kodi validation
+        if: matrix.python-version == '3.12'
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import shutil, zipfile
+          from pathlib import Path
+          archive = next(Path('dist').glob('context.arr.manager-*.zip'))
+          target = Path('dist/addon-check')
+          shutil.rmtree(target, ignore_errors=True)
+          target.mkdir(parents=True)
+          with zipfile.ZipFile(archive) as handle:
+              handle.extractall(target)
+          PY
+      - name: Run Kodi addon checker
+        if: matrix.python-version == '3.12'
+        timeout-minutes: 5
+        run: kodi-addon-checker --branch matrix dist/addon-check/context.arr.manager
+      - name: Inspect package
+        run: |
+          python - <<'PY'
+          import stat, zipfile
+          from pathlib import Path
+          archive_path = next(Path('dist').glob('context.arr.manager-*.zip'))
+          required = {
+              'context.arr.manager/addon.xml',
+              'context.arr.manager/context.py',
+              'context.arr.manager/default.py',
+              'context.arr.manager/subtitles.py',
+              'context.arr.manager/LICENSE.txt',
+              'context.arr.manager/resources/settings.xml',
+              'context.arr.manager/resources/icon.png',
+              'context.arr.manager/resources/fanart.jpg',
+          }
+          forbidden_parts = {'.git', '.github', '__pycache__', 'tests', 'docs', 'scripts', 'dist'}
+          with zipfile.ZipFile(archive_path) as archive:
+              names = set(archive.namelist())
+              assert required <= names, sorted(required - names)
+              assert all(name.startswith('context.arr.manager/') for name in names)
+              for info in archive.infolist():
+                  assert not (set(Path(info.filename).parts) & forbidden_parts), info.filename
+                  mode = (info.external_attr >> 16) & 0o777
+                  assert not (mode & stat.S_IXUSR), info.filename
+              assert archive.testzip() is None
+          print(archive_path)
+          PY
+      - name: Prepare Android validation bundle
+        if: matrix.python-version == '3.12'
+        run: |
+          set -euo pipefail
+          archive="$(find dist -maxdepth 1 -name 'context.arr.manager-*.zip' -print -quit)"
+          test -n "$archive"
+          name="$(basename "$archive")"
+          (
+            cd dist
+            sha256sum "$name" > "$name.sha256"
+            sha256sum --check "$name.sha256"
+          )
+      - name: Upload Android validation bundle
+        if: matrix.python-version == '3.12'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: managarr-android-validation
+          path: |
+            dist/context.arr.manager-*.zip
+            dist/context.arr.manager-*.zip.sha256
+          if-no-files-found: error
+          retention-days: 14

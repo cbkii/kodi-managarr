@@ -3,26 +3,31 @@ import json
 import os
 import sys
 import time
+from urllib.parse import parse_qsl
 
 from .actions import ArrManager
-from .clients import RadarrClient, SonarrClient
+from .bazarr_client import BazarrClient
+from .clients import ProwlarrClient, RadarrClient, SonarrClient
 from .config import Settings
 from .errors import (
     ApiError, ArrManagerError, BlocklistError, ConfigurationError, ResolutionError, SafetyError,
 )
 from .fileops import make_direct_backend
+from .interactive_messages import imessage
 from .kodi import KodiLogger, KodiUI, selected_item_from_context
+from .kodi_selected import enrich_selected_series_identity
 from .messages import message
 from .pin import authorize_action, hash_pin, validate_pin, verify_pin
 from .registry import ACTION_REGISTRY, get_action_by_id, get_action_by_mode
 from .resolver import resolve_episode_context, resolve_movie, resolve_series
 
 SUPPORTED_MEDIA_TYPES = ("movie", "tvshow", "episode")
-DIRECT_ACTIONS = {
-    "menu", "status", "search_now", "monitor", "unmonitor", "change_quality_profile",
-    "queue_view", "queue_remove", "delete_exclude", "delete_replace",
-    "monitoring_menu", "queue_menu", "tools_menu", "configure_menu", "manage_pin",
+ACTION_ALIASES = {
+    "bazarr_languages": "configure_subtitle_languages",
+    "request_defaults": "configure_request_defaults",
 }
+REGISTERED_ACTION_MODES = {action["mode"] for action in ACTION_REGISTRY}
+DIRECT_ACTIONS = REGISTERED_ACTION_MODES | {"menu", "configure_menu", "manage_pin"}
 
 
 def _bootstrap():
@@ -52,10 +57,12 @@ def _m(source, key, **values):
     return message(source, key, **values)
 
 
-def _selected(addon=None):
+def _selected(addon=None, ui=None):
     selected = selected_item_from_context()
     if not selected or selected.media_type not in SUPPORTED_MEDIA_TYPES:
         raise ArrManagerError(_m(addon, "no_selection"))
+    if ui is not None and selected.media_type == "episode":
+        enrich_selected_series_identity(selected, ui.jsonrpc)
     return selected
 
 
@@ -93,7 +100,7 @@ def run_context(action):
 def run_script(args):
     addon, logger, ui = _bootstrap()
     params = _parse_args(args)
-    mode = params.get("mode")
+    mode = ACTION_ALIASES.get(params.get("mode"), params.get("mode"))
     try:
         settings = Settings(addon)
         logger.debug_enabled = settings.debug
@@ -116,7 +123,11 @@ def run_script(args):
         if mode == "test_sonarr":
             ui.ok(_s(addon, 32711, "Sonarr connection"), _test_sonarr(settings, logger)); return
         if mode == "test_backend":
-            ui.ok(_s(addon, 32712, "File backend"), _test_backend(settings, logger)); return
+            ui.ok(_s(addon, 32712, "File backend"), _test_backend(settings, logger, ui)); return
+        if mode == "test_prowlarr":
+            ui.ok("Prowlarr", _test_prowlarr(settings, logger)); return
+        if mode == "test_bazarr":
+            ui.ok("Bazarr", _test_bazarr(settings, logger)); return
         if mode == "diagnostics":
             ui.ok(_s(addon, 32600, "Diagnostics"), _write_diagnostics(addon, settings, logger)); return
         _run_action("menu", addon, settings, logger, ui)
@@ -173,7 +184,7 @@ def _run_action(action_mode, addon, settings, logger, ui):
     action = get_action_by_mode(action_mode)
     if action is None:
         raise ResolutionError(f"Unknown action: {action_mode}")
-    selected = _selected(addon) if action.get("requires_selection") else None
+    selected = _selected(addon, ui) if action.get("requires_selection") else None
     if selected and action.get("media_types") and selected.media_type not in action["media_types"]:
         raise ResolutionError(f"Action {action_mode} does not support {selected.media_type}")
     if not authorize_action(action["id"], settings, ui):
@@ -215,7 +226,7 @@ def _run_tools_menu(addon, settings, logger, ui):
     if choice == 2:
         return ui.ok(_s(addon, 32711, "Sonarr connection"), _test_sonarr(settings, logger))
     if choice == 3:
-        return ui.ok(_s(addon, 32712, "File backend"), _test_backend(settings, logger))
+        return ui.ok(_s(addon, 32712, "File backend"), _test_backend(settings, logger, ui))
     if choice == 4:
         return ui.ok(_s(addon, 32600, "Diagnostics"), _write_diagnostics(addon, settings, logger))
     if choice == 5:
@@ -387,10 +398,30 @@ def _test_sonarr(settings, logger):
     return _m(settings.addon, "connection_sonarr", version=status.get("version", "unknown"), name=status.get("instanceName", "Sonarr"))
 
 
-def _test_backend(settings, logger):
+def _test_prowlarr(settings, logger):
+    cfg = settings.prowlarr
+    cfg.validate("Prowlarr")
+    status = ProwlarrClient(
+        cfg.url, cfg.api_key, cfg.api_version, cfg.timeout, cfg.verify_tls, logger, cfg.user_agent,
+    ).status()
+    return imessage(settings.addon, "optional_connection", service="Prowlarr", version=status.get("version", "?"))
+
+
+def _test_bazarr(settings, logger):
+    cfg = settings.bazarr
+    cfg.validate("Bazarr")
+    status = BazarrClient(
+        cfg.url, cfg.api_key, cfg.timeout, cfg.verify_tls, logger, cfg.user_agent,
+    ).status()
+    data = status.get("data") if isinstance(status.get("data"), dict) else status
+    version = data.get("version") or data.get("bazarr_version") or "?"
+    return imessage(settings.addon, "optional_connection", service="Bazarr", version=version)
+
+
+def _test_backend(settings, logger, ui=None):
     if settings.backend == "api":
         return _m(settings.addon, "backend_api")
-    selected = _selected(settings.addon)
+    selected = _selected(settings.addon, ui)
     manager = ArrManager(settings, object(), logger)
     backend = make_direct_backend(settings, logger)
     try:
@@ -476,8 +507,7 @@ def _write_diagnostics(addon, settings, logger):
 def _parse_args(args):
     output = {}
     for arg in args:
-        for part in str(arg).split("&"):
-            if "=" in part:
-                key, value = part.split("=", 1)
-                output[key.lstrip("?")] = value
+        query = str(arg or "").lstrip("?")
+        for key, value in parse_qsl(query, keep_blank_values=True):
+            output[key] = value
     return output
