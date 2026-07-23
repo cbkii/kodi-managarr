@@ -10,14 +10,19 @@ from arr_manager.util import PathMapper, is_path_under, normalise_path, normalis
 
 class UtilTests(unittest.TestCase):
     def test_title_and_release_normalisation(self):
-        self.assertEqual(normalise_title("Spider-Man: No Way Home"), "spider man no way home")
+        self.assertEqual(normalise_title("Spider-Man:   No Way Home"), "spider man no way home")
         self.assertEqual(normalise_release("Movie.2026.1080p-GROUP.mkv"), "movie 2026 1080p group")
 
     def test_title_normalisation_preserves_international_alphanumeric_scripts(self):
         self.assertEqual(normalise_title("Amélie"), "amelie")
+        self.assertEqual(normalise_title("Beyoncé"), normalise_title("Beyonce"))
+        self.assertEqual(normalise_title("Beyonce\u0301"), "beyonce")
+        self.assertEqual(normalise_title("Straße"), "strasse")
         self.assertEqual(normalise_title("進撃の巨人"), "進撃の巨人")
         self.assertEqual(normalise_title("Брат 2"), "брат 2")
         self.assertEqual(normalise_title("İstanbul: 2026"), "istanbul 2026")
+        self.assertEqual(normalise_title(12345), "12345")
+        self.assertEqual(normalise_title(None), "")
 
     def test_empty_path_rejected(self):
         with self.assertRaises(ValueError):
