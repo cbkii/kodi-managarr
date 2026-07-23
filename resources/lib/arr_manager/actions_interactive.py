@@ -71,7 +71,7 @@ class InteractiveMixin:
         if len(rows) == 1:
             return rows[0]
         labels = [
-            f"{row.get('title') or row.get('originalTitle') or '?'} ({row.get('year') or '?'}) · "
+            f"{row.get('title') or row.get('originalTitle') or '?'} ({row.get('year') or '?'}) - "
             f"{id_key} {row.get(id_key) or '?'}"
             for row in rows
         ]
@@ -228,8 +228,8 @@ class InteractiveMixin:
         size_gib = float(row.get("size") or 0) / (1024 ** 3)
         peers = row.get("seeders") if row.get("seeders") is not None else row.get("peers")
         return (
-            f"[{state}] {quality} · {size_gib:.2f} GiB · "
-            f"{row.get('indexer') or '?'} · {peers if peers is not None else '?'} peers\n"
+            f"[{state}] {quality} - {size_gib:.2f} GiB - "
+            f"{row.get('indexer') or '?'} - {peers if peers is not None else '?'} peers\n"
             f"{row.get('title') or '?'}"
         )
 
@@ -280,14 +280,14 @@ class InteractiveMixin:
         wanted = client.wanted_missing()
         queue_total, queue_problems = self._queue_counts(client.queue_overview())
         missing = _positive_id(wanted.get("totalRecords")) or len(wanted.get("records") or [])
-        return f"{status.get('version') or '?'} · health {len(health)} · queue {queue_total} ({queue_problems} problem) · missing {missing} {wanted_label}"
+        return f"{status.get('version') or '?'} - health {len(health)} - queue {queue_total} ({queue_problems} problem) - missing {missing} {wanted_label}"
 
     def _prowlarr_dashboard(self):
         status = self.prowlarr.status()
         health = self.prowlarr.health()
         indexers = self.prowlarr.indexers()
         enabled = sum(1 for row in indexers if row.get("enable") or row.get("enableRss") or row.get("enableAutomaticSearch"))
-        return f"{status.get('version') or '?'} · health {len(health)} · enabled indexers {enabled}/{len(indexers)}"
+        return f"{status.get('version') or '?'} - health {len(health)} - enabled indexers {enabled}/{len(indexers)}"
 
     def _bazarr_dashboard(self):
         status = self.bazarr.status()
@@ -296,9 +296,14 @@ class InteractiveMixin:
 
     def configure_request_defaults(self, _selected=None):
         configured = 0
-        for service, config, client in (("Radarr", self.settings.radarr, self.radarr), ("Sonarr", self.settings.sonarr, self.sonarr)):
+        services = (
+            ("Radarr", self.settings.radarr, lambda: self.radarr),
+            ("Sonarr", self.settings.sonarr, lambda: self.sonarr),
+        )
+        for service, config, loader in services:
             if not config.enabled:
                 continue
+            client = loader()
             roots = client.root_folders()
             profiles = client.quality_profiles()
             if not roots or not profiles:
