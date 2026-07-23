@@ -9,6 +9,7 @@ from urllib.parse import urlencode
 from .actions import ArrManager
 from .errors import ConfigurationError, ResolutionError, SafetyError
 from .interactive_messages import imessage
+from .kodi_jsonrpc import KodiJsonRpcError
 from .models import SelectedItem
 from .resolver import resolve_episode, resolve_movie, resolve_series
 
@@ -167,7 +168,12 @@ def selected_from_player(addon, xbmc_module, kodi_client):
     if db_type == "episode" and db_id > 0:
         detail = kodi_client.episode_details(db_id)
         tvshow_id = _positive_int(detail.get("tvshowid"), 0)
-        series_detail = kodi_client.tvshow_details(tvshow_id) if tvshow_id > 0 else {}
+        series_detail = {}
+        if tvshow_id > 0:
+            try:
+                series_detail = kodi_client.tvshow_details(tvshow_id)
+            except KodiJsonRpcError:
+                series_detail = {}
         return SelectedItem(
             media_type="episode", db_id=db_id, title=str(detail.get("title") or ""),
             tvshow_title=str(detail.get("tvshowtitle") or series_detail.get("title") or ""),

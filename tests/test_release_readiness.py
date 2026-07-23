@@ -12,6 +12,7 @@ sys.path.insert(0, os.path.join(ROOT, "resources", "lib"))
 
 from arr_manager import entrypoints
 from arr_manager.errors import SafetyError
+from arr_manager.kodi_jsonrpc import KodiJsonRpcError
 from arr_manager.kodi_selected import enrich_selected_series_identity
 from arr_manager.models import SelectedItem
 from arr_manager.registry import ACTION_REGISTRY
@@ -110,6 +111,25 @@ class ReleaseReadinessTests(unittest.TestCase):
         self.assertEqual(selected.series_unique_ids, {"tvdb": "99"})
         self.assertEqual(selected.series_year, 2020)
         self.assertEqual((selected.season, selected.episode), (0, 1))
+
+    def test_playing_episode_survives_parent_detail_lookup_failure(self):
+        xbmc_module = types.SimpleNamespace(
+            getInfoLabel=lambda key: {"VideoPlayer.DBTYPE": "episode", "VideoPlayer.DBID": "44"}.get(key, ""),
+            Player=lambda: types.SimpleNamespace(getPlayingFile=lambda: "smb://server/Shows/Episode.mkv"),
+        )
+        kodi = mock.MagicMock()
+        kodi.episode_details.return_value = {
+            "title": "Episode", "season": 1, "episode": 2, "tvshowid": 7,
+            "tvshowtitle": "Show", "uniqueid": {"tvdb": "555"},
+        }
+        kodi.tvshow_details.side_effect = KodiJsonRpcError("temporary failure")
+
+        selected = selected_from_player(mock.MagicMock(), xbmc_module, kodi)
+
+        self.assertEqual(selected.tvshow_title, "Show")
+        self.assertEqual(selected.tvshow_db_id, 7)
+        self.assertEqual(selected.series_unique_ids, {})
+        self.assertEqual(selected.series_year, 0)
 
 
 class SubtitleEntrypointTests(unittest.TestCase):
