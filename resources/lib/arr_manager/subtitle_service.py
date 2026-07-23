@@ -77,18 +77,22 @@ def _result_label(addon, row, language):
     )
 
 
+def _opaque_identity(value, description):
+    text = str(value or "").strip()
+    if not text or len(text) > 4096 or "\r" in text or "\n" in text or "://" in text:
+        raise SafetyError(f"Bazarr {description} is missing or unsafe")
+    return text
+
+
 def _safe_result(row):
-    allowed = {
-        "language", "language_code", "code", "code2", "code3", "provider", "score", "forced",
-        "hearing_impaired", "hi", "subtitle", "original_format", "release_info", "matches",
+    return {
+        "provider": _opaque_identity(row.get("provider"), "provider identity"),
+        "subtitle": _opaque_identity(row.get("subtitle"), "subtitle identity"),
+        "original_format": bool(row.get("original_format")),
+        "forced": bool(row.get("forced")),
+        "hearing_impaired": bool(row.get("hearing_impaired")),
+        "hi": bool(row.get("hi")),
     }
-    result = {key: row.get(key) for key in allowed if key in row}
-    if isinstance(result.get("language"), dict):
-        result["language"] = {
-            key: result["language"].get(key)
-            for key in ("code", "code2", "code3", "name") if key in result["language"]
-        }
-    return result
 
 
 def _select_results(rows, allowed_languages):
@@ -162,14 +166,14 @@ class SubtitleService:
         selected = selected_from_player(self.addon, xbmc, self.kodi)
         if selected.media_type == "movie":
             movie = resolve_movie(selected, self.manager.radarr, self.settings.path_mapper)
-            target = {"media_type": "movie", "radarr_id": int(movie["id"]), "playing_file": selected.file_path}
+            target = {"media_type": "movie", "kodi_db_id": int(selected.db_id), "radarr_id": int(movie["id"])}
             rows = self.manager.bazarr.search_movie_subtitles(movie["id"])
         else:
             series = resolve_series(selected, self.manager.sonarr, self.settings.path_mapper)
             episode = resolve_episode(selected, self.manager.sonarr, series)
             target = {
-                "media_type": "episode", "series_id": int(series["id"]), "episode_id": int(episode["id"]),
-                "playing_file": selected.file_path,
+                "media_type": "episode", "kodi_db_id": int(selected.db_id),
+                "series_id": int(series["id"]), "episode_id": int(episode["id"]),
             }
             rows = self.manager.bazarr.search_episode_subtitles(episode["id"])
 
@@ -191,7 +195,9 @@ class SubtitleService:
         language = str(payload.get("language") or "").lower()
         if language.split(":", 1)[0] not in self.settings.bazarr_languages:
             raise SafetyError(imessage(self.addon, "subtitle_invalid_request"))
-        playing_file = str(payload.get("playing_file") or "")
+        media_type, kodi_db_id, playing_file = self._current_playback()
+        if media_type != payload.get("media_type") or kodi_db_id != _positive_int(payload.get("kodi_db_id"), 0):
+            raise SafetyError(imessage(self.addon, "subtitle_invalid_request"))
         before = set(self._subtitle_candidates(playing_file, language))
         result = payload.get("result")
         if payload.get("media_type") == "movie":
@@ -225,6 +231,16 @@ class SubtitleService:
             return sorted(last_candidates)[-1]
         raise SafetyError(imessage(self.addon, "subtitle_not_found"))
 
+    @staticmethod
+    def _current_playback():
+        import xbmc
+        media_type = str(xbmc.getInfoLabel("VideoPlayer.DBTYPE") or "").strip().lower()
+        db_id = _positive_int(xbmc.getInfoLabel("VideoPlayer.DBID"), 0)
+        playing_file = str(xbmc.Player().getPlayingFile() or "")
+        if media_type not in {"movie", "episode"} or db_id <= 0 or not playing_file:
+            raise SafetyError("Kodi playback changed before the subtitle download completed")
+        return media_type, db_id, playing_file
+
     def _save_cache(self, payload):
         raw = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
         token = hashlib.sha256(raw + os.urandom(16)).hexdigest()[:32]
@@ -232,6 +248,10 @@ class SubtitleService:
         temporary = path + ".tmp"
         with open(temporary, "w", encoding="utf-8") as handle:
             json.dump(payload, handle, sort_keys=True, separators=(",", ":"))
+        try:
+            os.chmod(temporary, 0o600)
+        except OSError:
+            pass
         os.replace(temporary, path)
         self._prune_cache()
         return token
