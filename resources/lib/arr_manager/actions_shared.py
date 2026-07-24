@@ -7,6 +7,7 @@ import time
 from .errors import ApiError, BlocklistError, SafetyError
 from .fileops import make_direct_backend
 from .history import unique_history_matches
+from .kodi_jsonrpc import KodiJsonRpcError
 from .util import is_supported_kodi_network_url, paths_equal
 
 POLL_INTERVAL_SECONDS = 1.0
@@ -73,13 +74,20 @@ class SharedSafetyMixin:
             recorder(transaction, exc)
 
     def _plan_kodi(self, kind, selected, linked=None):
-        if kind == "movie" and hasattr(self.ui, "plan_deleted_movie"):
-            return self.ui.plan_deleted_movie(selected)
-        if kind == "series" and hasattr(self.ui, "plan_deleted_series"):
-            return self.ui.plan_deleted_series(selected)
-        if kind == "episodes" and hasattr(self.ui, "plan_deleted_episodes"):
-            return self.ui.plan_deleted_episodes(selected, linked or [])
-        return None
+        try:
+            if kind == "movie" and hasattr(self.ui, "plan_deleted_movie"):
+                return self.ui.plan_deleted_movie(selected)
+            if kind == "series" and hasattr(self.ui, "plan_deleted_series"):
+                return self.ui.plan_deleted_series(selected)
+            if kind == "episodes" and hasattr(self.ui, "plan_deleted_episodes"):
+                return self.ui.plan_deleted_episodes(selected, linked or [])
+            return None
+        except KodiJsonRpcError as exc:
+            context = exc.safe_summary()
+            suffix = f" ({context})" if context else ""
+            raise SafetyError(
+                f"Kodi cleanup preflight failed before destructive changes{suffix}: {exc}"
+            ) from exc
 
     def _sync_kodi(self, kind, selected, linked=None, plan=None):
         try:
@@ -128,8 +136,10 @@ class SharedSafetyMixin:
             except Exception as exc:
                 if not self._is_transient_poll_error(exc):
                     raise
-                last_error = exc; self._log_transient_poll_error("Radarr movie-file reconciliation", exc)
-                self._bounded_wait(POLL_INTERVAL_SECONDS); continue
+                last_error = exc
+                self._log_transient_poll_error("Radarr movie-file reconciliation", exc)
+                self._bounded_wait(POLL_INTERVAL_SECONDS)
+                continue
             if file_id not in ids:
                 return
             self._bounded_wait(POLL_INTERVAL_SECONDS)
@@ -147,8 +157,10 @@ class SharedSafetyMixin:
             except Exception as exc:
                 if not self._is_transient_poll_error(exc):
                     raise
-                last_error = exc; self._log_transient_poll_error("Sonarr episode-file reconciliation", exc)
-                self._bounded_wait(POLL_INTERVAL_SECONDS); continue
+                last_error = exc
+                self._log_transient_poll_error("Sonarr episode-file reconciliation", exc)
+                self._bounded_wait(POLL_INTERVAL_SECONDS)
+                continue
             if not (ids & file_ids):
                 return
             self._bounded_wait(POLL_INTERVAL_SECONDS)
@@ -177,13 +189,33 @@ class SharedSafetyMixin:
         if history_match:
             client.mark_history_failed(history_match.history_id)
 
+    @staticmethod
+    def _accepted_command(response, description):
+        if not isinstance(response, dict):
+            raise SafetyError(f"{description} command was not accepted by Servarr")
+        try:
+            command_id = int(response.get("id") or 0)
+        except (TypeError, ValueError):
+            command_id = 0
+        if command_id <= 0:
+            raise SafetyError(f"{description} command was not accepted by Servarr")
+        status = str(response.get("status") or "queued").lower()
+        result = str(response.get("result") or "").lower()
+        if status in {"failed", "failure", "aborted", "cancelled", "canceled", "orphaned"}:
+            raise SafetyError(f"{description} command was rejected: {status}")
+        if status in {"completed", "complete"} and result not in {"successful", "success", "1"} and response.get("result") != 1:
+            raise SafetyError(f"{description} command completed without a successful result: {result or 'missing result'}")
+        return {"id": command_id, "status": status or "queued", "result": result}
+
     def _queue_search(self, client, response, description):
-        self._poll_command(client, response, description)
+        del client
+        return self._accepted_command(response, description)
 
     def _poll_command(self, client, response, description):
-        if not isinstance(response, dict) or not response.get("id"):
-            raise SafetyError(f"{description} command was not accepted by Servarr")
-        command_id = int(response["id"])
+        accepted = self._accepted_command(response, description)
+        command_id = accepted["id"]
+        if accepted["status"] in {"completed", "complete"}:
+            return response
         deadline = time.monotonic() + self.settings.poll_timeout
         last_error = None
         while time.monotonic() < deadline:
@@ -193,8 +225,10 @@ class SharedSafetyMixin:
             except Exception as exc:
                 if not self._is_transient_poll_error(exc):
                     raise
-                last_error = exc; self._log_transient_poll_error(f"{description} command polling", exc)
-                self._bounded_wait(POLL_INTERVAL_SECONDS); continue
+                last_error = exc
+                self._log_transient_poll_error(f"{description} command polling", exc)
+                self._bounded_wait(POLL_INTERVAL_SECONDS)
+                continue
             if not isinstance(state, dict):
                 raise SafetyError(f"{description} command returned a malformed status response")
             status = str(state.get("status") or "").lower()
@@ -219,7 +253,10 @@ class SharedSafetyMixin:
         if isinstance(exc, (socket.timeout, TimeoutError, ConnectionError)):
             return True
         if isinstance(exc, OSError):
-            return getattr(exc, "errno", None) in {errno.ETIMEDOUT, errno.ECONNRESET, errno.ECONNREFUSED, errno.EHOSTUNREACH, errno.ENETUNREACH}
+            return getattr(exc, "errno", None) in {
+                errno.ETIMEDOUT, errno.ECONNRESET, errno.ECONNREFUSED,
+                errno.EHOSTUNREACH, errno.ENETUNREACH,
+            }
         return False
 
     def _log_transient_poll_error(self, stage, exc):
