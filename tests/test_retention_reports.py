@@ -18,6 +18,9 @@ def make_store(directory):
     store.report_file = os.path.join(directory, "retention-last-report.json")
     store.lock_file = os.path.join(directory, "retention.lock")
     store.lock_token = None
+    store.lock_fd = None
+    store.lock_backend = None
+    store.lock_identity = None
     return store
 
 
@@ -59,21 +62,29 @@ class RetentionStateStoreTests(unittest.TestCase):
             self.assertIsNone(store.load_state())
             self.assertEqual(store.load_report(), {})
 
-    def test_stale_takeover_cannot_be_released_by_previous_owner(self):
+    def test_active_kernel_lock_cannot_be_stolen_even_with_old_timestamp(self):
         with tempfile.TemporaryDirectory() as directory:
             first = make_store(directory)
             second = make_store(directory)
             self.assertTrue(first.acquire_lock(stale_after=1))
             old = time.time() - 60
             os.utime(first.lock_file, (old, old))
-            self.assertTrue(second.acquire_lock(stale_after=1))
-            second_token = second.lock_token
+            self.assertFalse(second.acquire_lock(stale_after=1))
             first.release_lock()
-            self.assertTrue(os.path.exists(second.lock_file))
-            with open(second.lock_file, "r", encoding="utf-8") as handle:
-                self.assertEqual(handle.read().strip(), second_token)
+            self.assertTrue(second.acquire_lock(stale_after=1))
             second.release_lock()
-            self.assertFalse(os.path.exists(second.lock_file))
+
+    def test_unlocked_stale_file_is_reused_safely(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = make_store(directory)
+            with open(store.lock_file, "w", encoding="utf-8") as handle:
+                handle.write("crashed-owner")
+            old = time.time() - 60
+            os.utime(store.lock_file, (old, old))
+            self.assertTrue(store.acquire_lock(stale_after=1))
+            self.assertTrue(store.refresh_lock())
+            store.release_lock()
+            self.assertTrue(os.path.exists(store.lock_file))
 
     def test_refresh_keeps_long_running_owner_live(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -86,14 +97,32 @@ class RetentionStateStoreTests(unittest.TestCase):
             self.assertFalse(second.acquire_lock(stale_after=1))
             first.release_lock()
 
-    def test_release_does_not_remove_foreign_lock(self):
+    def test_previous_owner_cannot_release_new_owner_lock(self):
+        with tempfile.TemporaryDirectory() as directory:
+            first = make_store(directory)
+            second = make_store(directory)
+            self.assertTrue(first.acquire_lock())
+            first.release_lock()
+            self.assertTrue(second.acquire_lock())
+            second_token = second.lock_token
+            first.release_lock()
+            self.assertTrue(second.refresh_lock())
+            self.assertEqual(second.lock_token, second_token)
+            second.release_lock()
+
+    @unittest.skipIf(os.name == "nt", "Windows does not allow replacing an open locked file")
+    def test_external_path_replacement_is_detected(self):
         with tempfile.TemporaryDirectory() as directory:
             store = make_store(directory)
-            store.lock_token = "old-owner"
+            self.assertTrue(store.acquire_lock())
+            moved = store.lock_file + ".moved"
+            os.replace(store.lock_file, moved)
             with open(store.lock_file, "w", encoding="utf-8") as handle:
-                handle.write("new-owner")
+                handle.write("foreign-lock")
+            self.assertFalse(store.refresh_lock())
             store.release_lock()
-            self.assertTrue(os.path.exists(store.lock_file))
+            with open(store.lock_file, "r", encoding="utf-8") as handle:
+                self.assertEqual(handle.read(), "foreign-lock")
 
 
 if __name__ == "__main__":
