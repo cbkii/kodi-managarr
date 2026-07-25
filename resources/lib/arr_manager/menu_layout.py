@@ -81,7 +81,7 @@ def _read_canonical_ranks(get):
         raw = get(rank_setting_id(action["id"]))
         rank, valid = _safe_int(raw, default)
         if not valid and str(raw or "").strip():
-            warnings.append("Invalid position for %s; using %d." % (action["default_label"], default))
+            warnings.append(("invalid_position", action["id"], default))
         ranks[action["id"]] = rank
         if rank != default:
             changed_from_defaults = True
