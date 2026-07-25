@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Localisation metadata for the numbered menu settings surface."""
+"""Localisation metadata for menu settings and the Kodi menu editor."""
 
 SETTINGS_MESSAGES = {
     "menu_layout_help": (33600, "Set an item to 0 to hide it. Lower positive numbers appear first. Leave gaps between numbers so other items can be inserted later."),
@@ -22,6 +22,32 @@ SETTINGS_MESSAGES = {
     "rank_item_heading": (33620, "Enter menu position — 0 hides this item"),
     "rank_group_heading": (33621, "Enter menu position — 0 hides this group"),
     "rank_submenu_heading": (33622, "Enter submenu position — 0 hides this item"),
+    "preview_disabled_heading": (33630, "DISABLED"),
+    "preview_warnings_heading": (33631, "WARNINGS"),
+    "duplicate_rank_warning": (33632, "Duplicate {group} position {rank}: {actions}. Registry default and action ID break the tie."),
+    "choose_group_heading": (33633, "Choose a menu group"),
+    "visible_items_heading": (33634, "Visible {group} items"),
+    "numeric_position_heading": (33635, "Set numeric position"),
+    "numeric_input_heading": (33636, "{action} — enter 0 to hide"),
+    "invalid_position": (33637, "Position must be a whole number from 0 to {maximum}."),
+    "no_enabled_items": (33638, "This menu group has no enabled items."),
+    "reorder_group_heading": (33639, "Reorder {group}"),
+    "move_top": (33640, "Move to top"),
+    "move_bottom": (33641, "Move to bottom"),
+    "enter_numeric_position": (33642, "Enter numeric position"),
+    "move_before": (33643, "Move before: {action}"),
+    "move_after": (33644, "Move after: {action}"),
+    "move_action_heading": (33645, "Move {action}"),
+    "flatten_blocks_heading": (33646, "Flatten submenu blocks into the main menu"),
+    "configure_menu_heading": (33647, "Configure menu"),
+    "choose_visible_items": (33648, "Choose visible items"),
+    "reorder_group_option": (33649, "Reorder {group}"),
+    "choose_flattened_submenus": (33650, "Choose flattened submenus"),
+    "save_exit": (33651, "Save and exit"),
+    "preview_heading": (33652, "Menu layout preview"),
+    "positions_normalised": (33653, "Menu positions normalised to 10, 20, 30, …"),
+    "restore_confirm": (33654, "Restore default positions, visibility and submenu layout?"),
+    "defaults_restored": (33655, "Default menu visibility and ordering restored."),
 }
 
 ACTION_HELP_IDS = {
