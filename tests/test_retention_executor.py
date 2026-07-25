@@ -111,6 +111,35 @@ class RetentionExecutorTests(unittest.TestCase):
         self.assertFalse(result.committed)
         self.assertIn("positive ID", result.error_message)
 
+    def test_safety_error_preserves_the_bounded_safe_message(self):
+        executor = self.executor()
+        safe_text = "S" * 1500
+        with mock.patch.object(
+            executor,
+            "_revalidate_movie",
+            side_effect=SafetyError(safe_text),
+        ):
+            result = executor.execute(movie(), dry_run=False)
+        self.assertEqual(result.action_taken, "failed")
+        self.assertFalse(result.committed)
+        self.assertEqual(result.error_message, safe_text[:1000])
+
+    def test_unexpected_error_uses_generic_nonsecret_message(self):
+        executor = self.executor()
+        with mock.patch.object(
+            executor,
+            "_revalidate_movie",
+            side_effect=RuntimeError("https://user:secret@example.test/private"),
+        ):
+            result = executor.execute(movie(), dry_run=False)
+        self.assertEqual(result.action_taken, "failed")
+        self.assertFalse(result.committed)
+        self.assertEqual(
+            result.error_message,
+            "RuntimeError during retention operation; check kodi.log",
+        )
+        self.assertNotIn("secret", result.error_message)
+
     def test_post_commit_failure_is_reported_as_deleted(self):
         executor = self.executor()
         candidate = movie()
