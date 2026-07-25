@@ -48,6 +48,7 @@ SETTINGS_MESSAGES = {
     "positions_normalised": (33653, "Menu positions normalised to 10, 20, 30, …"),
     "restore_confirm": (33654, "Restore default positions, visibility and submenu layout?"),
     "defaults_restored": (33655, "Default menu visibility and ordering restored."),
+    "invalid_persisted_position": (33656, "Invalid position for {action}; using {default}."),
 }
 
 ACTION_HELP_IDS = {
