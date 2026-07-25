@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -121,12 +122,15 @@ class Logger:
 
 
 class Store:
-    def __init__(self, fail_save=False):
-        self.fail_save = fail_save
+    def __init__(self, fail_state_on_call=None, fail_report=False):
+        self.fail_state_on_call = fail_state_on_call
+        self.fail_report = fail_report
         self.lock_token = None
         self.saved = []
+        self.reports = []
         self.released = False
         self.refreshes = 0
+        self.state_save_calls = 0
 
     def load_state(self):
         return {"auth_generation": "none", "next_due": 0.0}
@@ -140,9 +144,15 @@ class Store:
         return True
 
     def save_state(self, generation, next_due):
+        self.state_save_calls += 1
         self.saved.append((generation, next_due))
-        if self.fail_save:
+        if self.fail_state_on_call == self.state_save_calls:
             raise OSError("storage unavailable")
+
+    def save_report(self, report):
+        self.reports.append(report)
+        if self.fail_report:
+            raise OSError("report storage unavailable")
 
     def release_lock(self):
         self.released = True
@@ -221,6 +231,26 @@ class RetentionServiceTests(unittest.TestCase):
         self.assertFalse(protected[0][1].eligible)
         self.assertFalse(protected[1][1].eligible)
 
+    def test_mixed_policy_duplicate_movie_rows_protect_the_target(self):
+        evaluated = [
+            (movie(1), RetentionEligibility(True, "Criteria met")),
+            (movie(2), RetentionEligibility(False, "Explicit movie exclusion")),
+        ]
+        protected = RetentionService._protect_duplicate_movies(evaluated)
+        self.assertFalse(protected[0][1].eligible)
+        self.assertFalse(protected[1][1].eligible)
+
+    def test_invalid_target_ids_are_explicitly_protected(self):
+        evaluated = [
+            (movie(1, arr_id=0), RetentionEligibility(True, "Criteria met")),
+            (episode(2, 1, 1, file_id=None), RetentionEligibility(True, "Criteria met")),
+        ]
+        protected = RetentionService._protect_invalid_identifiers(evaluated)
+        self.assertFalse(protected[0][1].eligible)
+        self.assertFalse(protected[1][1].eligible)
+        self.assertIn("invalid_target_id", protected[0][1].failed_rules)
+        self.assertIn("invalid_target_id", protected[1][1].failed_rules)
+
     def test_missing_file_id_is_never_an_eligible_deletion_target(self):
         evaluated = [
             (episode(1, 1, 1, file_id=None), RetentionEligibility(True, "Criteria met")),
@@ -294,13 +324,38 @@ class RetentionServiceTests(unittest.TestCase):
         service.addon = addon
         service.ui = UI()
         service.logger = Logger()
-        service.store = Store(fail_save=True)
+        service.store = Store(fail_state_on_call=1)
         service.manager = type("Manager", (), {"settings": Settings()})()
         settings = RetentionSettings(addon).validate()
         service._components = lambda: (settings, object(), object(), Executor())
         service._evaluate = lambda *_args: self.fail("enumeration must not begin")
         self.assertIsNone(service.run_background())
         self.assertEqual(addon.getSetting("retention_periodic_enabled"), "false")
+        self.assertTrue(service.store.released)
+
+    def test_periodic_report_failure_after_commit_suspends_schedule_and_saves_hold(self):
+        service = object.__new__(RetentionService)
+        addon = Addon(
+            retention_periodic_enabled="true",
+            retention_background_dry_run="false",
+        )
+        service.addon = addon
+        service.ui = UI()
+        service.logger = Logger()
+        service.store = Store(fail_report=True)
+        service.manager = type("Manager", (), {"settings": Settings()})()
+        settings = RetentionSettings(addon).validate()
+        executor = Executor()
+        service._components = lambda: (settings, object(), object(), executor)
+        service._evaluate = lambda *_args: [
+            (movie(1), RetentionEligibility(True, "Criteria met")),
+        ]
+        before = time.time()
+        self.assertIsNone(service.run_background())
+        self.assertEqual(len(executor.calls), 1)
+        self.assertEqual(addon.getSetting("retention_periodic_enabled"), "false")
+        self.assertGreaterEqual(len(service.store.saved), 2)
+        self.assertGreater(service.store.saved[-1][1], before + 300 * 24 * 3600)
         self.assertTrue(service.store.released)
 
     def test_pin_generation_changes_with_pin_material(self):
