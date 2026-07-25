@@ -5,14 +5,14 @@ Kodi Managarr is a Kodi 19+ Python 3 add-on for managing Radarr, Sonarr and opti
 ## Kodi-native actions
 
 - **Request & Search** - searches an existing Arr item or adds an unmanaged Kodi movie/show using exact identity and one persistent root/profile default per service, then starts the appropriate search.
-- **Search & download now** - queues and verifies the appropriate Radarr movie, Sonarr series or Sonarr episode search.
+- **Search & download now** - submits the appropriate Radarr movie, Sonarr series or Sonarr episode search and reports the accepted Servarr command as queued.
 - **Interactive search** - presents Radarr/Sonarr release results, rejection reasons and metadata, then revalidates and grabs the selected release through Arr.
 - **Status and Dashboard** - selected-item status plus a bounded, manually refreshed service/health/queue/wanted summary.
 - **Monitoring** - monitor, unmonitor, or change quality profile. An episode quality-profile change is series-wide because Sonarr profiles are assigned to series.
 - **Download queue** - view matching queue entries or remove one from Servarr and its download client without blocklisting it.
 - **Subtitles** - use optional Bazarr integration from Kodi's built-in subtitle-search window with up to three ordered languages.
 - **Delete & Exclude** - removes the selected movie/series, or deletes and unmonitors the selected episode file.
-- **Delete & Replace** - proves and blocklists the imported release, deletes the file, reconciles Servarr, searches for a replacement and synchronises Kodi.
+- **Delete & Replace** - proves and blocklists the imported release, deletes the file, performs any safety-critical reconciliation, queues a replacement search and synchronises Kodi. If an earlier attempt already removed the file, it safely queues only the exact recovery search.
 
 Prowlarr is optional and read-only from Managarr: it contributes indexer health and informational search context, but never bypasses Radarr/Sonarr download tracking or acts as a media/deletion authority.
 
@@ -25,8 +25,8 @@ Prowlarr is optional and read-only from Managarr: it contributes indexer health 
 - Empty, malformed, root, share-root, mapping-root, protected, traversal and ambiguous paths fail closed.
 - Every multi-file direct operation validates every target before blocklisting or deleting anything.
 - Confirmed VFS folder plans are re-enumerated before deletion and removals are verified against parent listings.
-- Servarr commands succeed only with terminal `Completed` status and `Successful` result.
-- Partial commits are persisted without secrets and reported with completed transaction stages.
+- Search commands are accepted once Servarr returns a valid, non-failed command ID; Managarr does not falsely fail a committed replacement while a search continues asynchronously. Terminal `Completed`/`Successful` polling remains mandatory only for rescans or reconciliation that later safety depends on.
+- Partial commits and queued-search outcomes are persisted without secrets, including completed/failed stage, command ID/status/result and sanitised Kodi JSON-RPC evidence.
 - API keys and credential-bearing URLs are never written to diagnostics, subtitle cache state or logs.
 
 ## Install and automatic updates
@@ -107,7 +107,7 @@ PY
 kodi-addon-checker --branch matrix dist/addon-check/context.arr.manager
 ```
 
-Validation covers the ASCII context root, registry dispatch, safe fresh-install defaults, localisation, PIN policy, optional-service isolation, subtitle entrypoint, metadata limits, release packaging and repository generation. CI runs Python 3.8 and 3.12 alongside actionlint, Ruff, archive integrity and Kodi add-on checker.
+Validation covers the ASCII context root, registry dispatch, safe fresh-install defaults, localisation, PIN policy, optional-service isolation, episode-tile JSON-RPC contracts, queued replacement recovery, subtitle entrypoint, metadata limits, release packaging and repository generation. CI runs Python 3.8 and 3.12 alongside actionlint, Ruff, archive integrity and Kodi add-on checker. See [replacement reliability](docs/REPLACEMENT_RELIABILITY.md) for the transaction and recovery contract.
 
 ## Android Kodi validation and release
 
