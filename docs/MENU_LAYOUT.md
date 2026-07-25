@@ -68,12 +68,13 @@ Setting a parent rank to `0` hides the whole group without erasing its child ran
 On first use of layout version 1:
 
 1. Validate legacy `hidden_actions` and `action_order` IDs against the registry.
-2. Resolve the old effective order separately for every group.
-3. Assign visible entries `10`, `20`, `30`, … and hidden entries `0`.
-4. Persist all canonical rank settings and `menu_layout_version=1`.
-5. Retain bounded legacy shadow values for downgrade compatibility; runtime ordering no longer depends on them.
+2. Read the new numbered rank and flatten settings before deciding whether migration is required.
+3. Preserve any rank or flatten setting already changed directly in Kodi settings, even before Managarr's first post-upgrade launch.
+4. Otherwise resolve a customised legacy order separately for every group, assigning visible entries `10`, `20`, `30`, … and hidden entries `0`.
+5. Persist all canonical menu rank settings and `menu_layout_version=1`.
+6. Retain bounded legacy shadow values for downgrade compatibility; runtime ordering no longer depends on them.
 
-Fresh installations with no legacy state receive the registry defaults.
+Fresh installations with no legacy state receive the registry defaults. Registry actions that are not configurable menu entries do not receive or persist rank settings.
 
 ## Safety and recovery
 
