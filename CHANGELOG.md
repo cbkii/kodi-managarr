@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.3.0 — 2026-07-25
+
+- Added opt-in watched and age-aware retention previews, manual cleanup, bounded reports and optional periodic automation.
+- Added explicit Kodi movie, episode, TV-series and season exclusions with fail-closed validation.
+- Added configurable 0-10 movie-rating protection; unrated movies remain protected while the threshold is enabled.
+- Revalidated Kodi and Radarr/Sonarr identity, file state and policy immediately before every API-only retention deletion.
+- Protected shared multi-episode files unless every linked episode remains present and eligible.
+- Defaulted movie/episode inclusion off and both manual and periodic retention to dry-run, with a hard per-pass deletion cap.
+- Applied central PIN protection to real cleanup and periodic enablement, and invalidated periodic real-deletion authority after PIN changes.
+- Added atomic locking, bounded non-secret reports, Kodi service packaging, Android-safe progress/cancellation and focused regression coverage.
+
 ## 1.2.0 — 2026-07-23
 
 - Added smart **Request & Search** for managed or unmanaged movies, series and selected episodes.
