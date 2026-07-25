@@ -76,12 +76,12 @@ Eligibility can require watched state and either all or any enabled age criteria
 
 - **Minimum days since added** uses the newest available Kodi, movie/series or media-file timestamp. This conservative choice protects recently imported or re-added media.
 - **Minimum days since watched** uses Kodi's last-played timestamp and protects missing or future timestamps.
-- **Movie rating protection** keeps movies at or above the configured 0-10 threshold. When the threshold is enabled, an unrated movie is also protected. Use `0` to disable this protection.
+- **Movie rating protection** keeps movies at or above the configured finite 0-10 threshold. When the threshold is enabled, an unrated movie is also protected. Use `0` to disable this protection; malformed or out-of-range values block retention rather than weakening it.
 - **Explicit exclusions** accept comma, semicolon or line-separated entries: `movie:<Kodi movie ID>`, `episode:<Kodi episode ID>`, `series:<Kodi TV show ID>`, and `season:<Kodi TV show ID>:<season>`.
 
-Malformed exclusions invalidate the retention configuration instead of being ignored. Episode cleanup deletes one Sonarr episode-file record only after every episode linked to that file is present in Kodi and still passes the current policy. Movie cleanup uses Radarr deletion with an import-list exclusion. Each mutation is revalidated immediately before commit and followed by targeted Kodi synchronisation.
+Malformed settings or exclusions invalidate retention instead of being silently replaced with permissive defaults. Episode cleanup unmonitors every Sonarr episode linked to the physical episode-file record before deleting that one file, and only proceeds after every linked episode is present in Kodi and still passes the current policy. Movie cleanup uses Radarr deletion with an import-list exclusion. Each mutation is revalidated immediately before commit and followed by targeted Kodi synchronisation. A reconciliation failure after Arr confirms deletion is reported as a committed deletion with an error, not as an uncommitted failure.
 
-Periodic retention runs through Kodi's background service. Enabling it stores the current PIN-generation authorisation; a PIN change disables real periodic deletion until explicitly re-enabled. Failed service passes are delayed before retry rather than looping rapidly.
+Periodic retention runs through Kodi's background service. Enabling it stores the current PIN-generation authorisation; a PIN change disables real periodic deletion until explicitly re-enabled. The service refreshes an ownership token during a pass, rechecks the schedule and authorisation between targets, and pre-arms a long safety hold before mutation. Any state/report persistence failure suspends periodic retention rather than allowing the same destructive pass to repeat.
 
 ## Path mappings
 
