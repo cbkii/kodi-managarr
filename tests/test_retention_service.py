@@ -10,7 +10,7 @@ from arr_manager.retention.models import RetentionCandidate, RetentionEligibilit
 from arr_manager.retention.service import RetentionService
 
 
-def episode(db_id, season, episode_number, file_id=500):
+def episode(db_id, season, episode_number, file_id=500, linked_episode_count=1):
     return RetentionCandidate(
         media_type="episode",
         db_id=db_id,
@@ -24,6 +24,7 @@ def episode(db_id, season, episode_number, file_id=500):
         tvshow_db_id=5,
         season=season,
         episode=episode_number,
+        linked_episode_count=linked_episode_count,
     )
 
 
@@ -37,13 +38,24 @@ class Settings:
 class RetentionServiceTests(unittest.TestCase):
     def test_shared_file_is_protected_when_any_linked_episode_is_protected(self):
         evaluated = [
-            (episode(1, 1, 1), RetentionEligibility(True, "Criteria met")),
-            (episode(2, 1, 2), RetentionEligibility(False, "Explicit episode exclusion")),
+            (episode(1, 1, 1, linked_episode_count=2), RetentionEligibility(True, "Criteria met")),
+            (
+                episode(2, 1, 2, linked_episode_count=2),
+                RetentionEligibility(False, "Explicit episode exclusion"),
+            ),
         ]
         protected = RetentionService._protect_shared_files(evaluated)
         self.assertFalse(protected[0][1].eligible)
         self.assertEqual(protected[0][1].reason, "Shared episode file contains a protected episode")
         self.assertFalse(protected[1][1].eligible)
+
+    def test_shared_file_is_protected_when_a_linked_kodi_row_is_missing(self):
+        evaluated = [
+            (episode(1, 1, 1, linked_episode_count=2), RetentionEligibility(True, "Criteria met")),
+        ]
+        protected = RetentionService._protect_shared_files(evaluated)
+        self.assertFalse(protected[0][1].eligible)
+        self.assertEqual(protected[0][1].reason, "Shared episode file is missing linked Kodi episodes")
 
     def test_distinct_episode_files_are_evaluated_independently(self):
         evaluated = [
