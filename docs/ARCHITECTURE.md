@@ -2,7 +2,9 @@
 
 ## Runtime boundaries
 
-- `entrypoints.py` owns Kodi routing, registry-driven dispatch, optional-service connection tests, menu configuration and PIN management.
+- `entrypoints.py` owns Kodi routing, registry-driven dispatch, optional-service connection tests and PIN management.
+- `menu_entrypoints.py` owns Kodi menu dialogs, resolved-layout preview rendering and installation of the menu adapter over the stable entrypoint dispatcher.
+- `menu_layout.py` owns the pure rank, migration, ordering, normalisation and flattening model and remains importable without Kodi modules.
 - `registry.py` is the central action-policy registry for menu presentation and direct/Keymap invocation.
 - `actions_interactive.py` owns Request & Search, release selection, Dashboard MVP and optional-service setup.
 - `subtitle_service.py` owns playing-item resolution, Bazarr result filtering, single-use result tokens and Kodi-accessible subtitle retrieval; root `subtitles.py` is the thin `xbmc.subtitle.module` adapter.
@@ -28,6 +30,8 @@ Request & Search stores one root folder and quality profile per Arr service. The
 Kodi registers one plain ASCII **Managarr** context item. The runtime registry records stable action ID, localised label, group, order, media types, mutation/destructive classification and selected-item requirements. Advanced is the upgrade-safe default.
 
 `default.py` is a thin adapter into `entrypoints.run_script()`. Registry modes are derived rather than duplicated, query-style arguments are URL-decoded, and direct/Keymap calls pass through the same selection and PIN boundary as menu calls. Obsolete parallel interactive routing is excluded from source and packages.
+
+The menu layout model is split from Kodi integration: `menu_layout.py` parses and persists canonical ranks and resolves hierarchy, while `menu_entrypoints.py` owns remote dialogs, localised preview text and entrypoint dispatch installation. Normalisation includes every enabled action in a group regardless of the currently selected Simple/Advanced presentation mode.
 
 ## Episode and series identity
 
