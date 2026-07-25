@@ -13,7 +13,8 @@ from arr_manager.menu_layout import install as _install_menu_layout  # noqa: E40
 
 if hasattr(_entrypoints, "_write_diagnostics"):
     _install_diagnostics_hardening(_entrypoints)
-_install_menu_layout(_entrypoints)
+if hasattr(_entrypoints, "_run_action") and hasattr(_entrypoints, "Settings"):
+    _install_menu_layout(_entrypoints)
 run_context = _entrypoints.run_context
 
 if __name__ == "__main__":
