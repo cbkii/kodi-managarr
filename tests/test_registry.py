@@ -6,7 +6,7 @@ from arr_manager.registry import ACTION_REGISTRY, get_action_by_id, get_action_b
 class RegistryTests(unittest.TestCase):
     REQUIRED_FIELDS = {
         "id", "label_id", "default_label", "group", "mode", "default_mode",
-        "default_order", "media_types", "mutating", "destructive",
+        "default_order", "default_rank", "default_help", "media_types", "mutating", "destructive",
         "requires_selection", "simple_mode", "advanced_mode", "is_submenu",
         "dispatcher_mode",
     }
@@ -23,6 +23,8 @@ class RegistryTests(unittest.TestCase):
                 self.assertTrue(self.REQUIRED_FIELDS.issubset(action))
                 self.assertEqual(action["dispatcher_mode"], action["mode"])
                 self.assertTrue(action["advanced_mode"])
+                self.assertGreaterEqual(action["default_rank"], 1)
+                self.assertTrue(action["default_help"])
                 self.assertTrue(set(action["media_types"]).issubset({"movie", "tvshow", "episode"}))
                 if action["destructive"]:
                     self.assertTrue(action["mutating"])
@@ -43,10 +45,22 @@ class RegistryTests(unittest.TestCase):
         self.assertFalse(get_action_by_id("interactive_search")["destructive"])
 
     def test_simple_mode_is_remote_friendly_and_complete(self):
-        simple = {action["id"] for action in ACTION_REGISTRY if action["simple_mode"]}
-        self.assertEqual(simple, {
+        simple_root = {
+            action["id"] for action in ACTION_REGISTRY
+            if action["group"] == "root" and action["simple_mode"]
+        }
+        self.assertEqual(simple_root, {
             "request_search", "status", "search_now", "dashboard", "find_subtitles",
             "delete_exclude", "delete_replace", "tools",
+        })
+        simple_tools = {
+            action["id"] for action in ACTION_REGISTRY
+            if action["group"] == "tools" and action["simple_mode"]
+        }
+        self.assertEqual(simple_tools, {
+            "open_settings", "configure_request_defaults", "configure_subtitle_languages",
+            "test_radarr", "test_sonarr", "test_backend", "test_prowlarr", "test_bazarr",
+            "diagnostics", "configure_menu", "manage_pin",
         })
 
     def test_new_actions_are_reachable_and_have_expected_selection_policy(self):
