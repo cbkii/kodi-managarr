@@ -8,6 +8,7 @@ from .errors import ApiError, BlocklistError, SafetyError
 from .fileops import make_direct_backend
 from .history import unique_history_matches
 from .kodi_jsonrpc import KodiJsonRpcError
+from .models import TransactionState
 from .util import is_supported_kodi_network_url, paths_equal
 
 POLL_INTERVAL_SECONDS = 1.0
@@ -85,9 +86,16 @@ class SharedSafetyMixin:
         except KodiJsonRpcError as exc:
             context = exc.safe_summary()
             suffix = f" ({context})" if context else ""
-            raise SafetyError(
+            error = SafetyError(
                 f"Kodi cleanup preflight failed before destructive changes{suffix}: {exc}"
-            ) from exc
+            )
+            error.method = exc.method
+            error.code = exc.code
+            error.safe_data = dict(exc.safe_data)
+            transaction = TransactionState(f"{kind} Kodi cleanup preflight")
+            transaction.begin("Kodi cleanup preflight")
+            self._record_transaction(transaction, error)
+            raise error from exc
 
     def _sync_kodi(self, kind, selected, linked=None, plan=None):
         try:
