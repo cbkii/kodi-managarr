@@ -35,7 +35,7 @@ jobs:
           python3 -m compileall -q resources/lib tests
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -A -- ':!.github/workflows/ci.yml'
+          git add -A
           git commit -m 'fix(replacement): close recovery and preflight edge cases'
           git push origin HEAD:fix/episode-replacement-reliability
 
