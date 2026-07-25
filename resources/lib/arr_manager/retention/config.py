@@ -1,18 +1,59 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+import math
 import re
 
 from ..errors import ConfigurationError
-from ..util import as_bool, as_int
 
 _EXCLUSION_RE = re.compile(r"^(movie|episode|series):(\d+)$|^season:(\d+):(\d+)$", re.I)
+_TRUE_VALUES = {"1", "true", "yes", "on"}
+_FALSE_VALUES = {"0", "false", "no", "off"}
 
 
-def _as_float(value, default=0.0, minimum=0.0, maximum=10.0):
+def _strict_bool(value, default, setting_name):
+    if value is None or str(value).strip() == "":
+        return bool(default)
+    normalised = str(value).strip().lower()
+    if normalised in _TRUE_VALUES:
+        return True
+    if normalised in _FALSE_VALUES:
+        return False
+    raise ConfigurationError(f"Invalid boolean value for retention setting '{setting_name}'.")
+
+
+def _strict_int(value, default, minimum, maximum, setting_name):
+    if value is None or str(value).strip() == "":
+        return int(default)
+    text = str(value).strip()
     try:
-        result = float(str(value or "").strip())
-    except (TypeError, ValueError):
-        result = float(default)
-    return min(max(result, minimum), maximum)
+        result = int(text)
+    except (TypeError, ValueError) as exc:
+        raise ConfigurationError(f"Invalid integer value for retention setting '{setting_name}'.") from exc
+    if result < minimum or result > maximum:
+        raise ConfigurationError(
+            f"Retention setting '{setting_name}' must be between {minimum} and {maximum}."
+        )
+    return result
+
+
+def _strict_float(value, default, minimum, maximum, setting_name):
+    if value is None or str(value).strip() == "":
+        return float(default)
+    try:
+        result = float(str(value).strip())
+    except (TypeError, ValueError) as exc:
+        raise ConfigurationError(f"Invalid number for retention setting '{setting_name}'.") from exc
+    if not math.isfinite(result) or result < minimum or result > maximum:
+        raise ConfigurationError(
+            f"Retention setting '{setting_name}' must be a finite number between {minimum} and {maximum}."
+        )
+    return result
+
+
+def _strict_choice(value, default, choices, setting_name):
+    normalised = str(value or default).strip().lower()
+    if normalised not in choices:
+        raise ConfigurationError(f"Invalid value for retention setting '{setting_name}'.")
+    return normalised
 
 
 def parse_exclusions(raw):
@@ -30,15 +71,17 @@ def parse_exclusions(raw):
             )
         kind = match.group(1)
         if kind:
-            value = int(match.group(2))
-            if value <= 0:
+            item_id = int(match.group(2))
+            if item_id <= 0:
                 raise ConfigurationError("Retention exclusion IDs must be positive integers.")
-            result[kind].add(value)
+            result[kind].add(item_id)
             continue
         show_id = int(match.group(3))
         season = int(match.group(4))
         if show_id <= 0 or season < 0:
-            raise ConfigurationError("Retention season exclusions require a positive show ID and non-negative season.")
+            raise ConfigurationError(
+                "Retention season exclusions require a positive show ID and non-negative season."
+            )
         result["season"].add((show_id, season))
     return result
 
@@ -47,27 +90,60 @@ class RetentionSettings:
     def __init__(self, addon):
         self.addon = addon
         get = addon.getSetting
-        self.enabled = as_bool(get("retention_enabled"), False)
-        self.include_movies = as_bool(get("retention_include_movies"), False)
-        self.include_episodes = as_bool(get("retention_include_episodes"), False)
-        self.watched_only = as_bool(get("retention_watched_only"), True)
-        self.use_added_age = as_bool(get("retention_use_added_age"), True)
-        self.added_age_days = as_int(get("retention_added_age_days"), 30, 0, 9999)
-        self.use_watched_age = as_bool(get("retention_use_watched_age"), True)
-        self.watched_age_days = as_int(get("retention_watched_age_days"), 30, 0, 9999)
-        self.criteria_mode = (get("retention_criteria_mode") or "all").strip().lower()
-        if self.criteria_mode not in {"all", "any"}:
-            self.criteria_mode = "all"
-        self.movie_rating_threshold = _as_float(get("retention_movie_rating_threshold"), 0.0)
+        self.enabled = _strict_bool(get("retention_enabled"), False, "retention_enabled")
+        self.include_movies = _strict_bool(
+            get("retention_include_movies"), False, "retention_include_movies"
+        )
+        self.include_episodes = _strict_bool(
+            get("retention_include_episodes"), False, "retention_include_episodes"
+        )
+        self.watched_only = _strict_bool(
+            get("retention_watched_only"), True, "retention_watched_only"
+        )
+        self.use_added_age = _strict_bool(
+            get("retention_use_added_age"), True, "retention_use_added_age"
+        )
+        self.added_age_days = _strict_int(
+            get("retention_added_age_days"), 30, 0, 9999, "retention_added_age_days"
+        )
+        self.use_watched_age = _strict_bool(
+            get("retention_use_watched_age"), True, "retention_use_watched_age"
+        )
+        self.watched_age_days = _strict_int(
+            get("retention_watched_age_days"), 30, 0, 9999, "retention_watched_age_days"
+        )
+        self.criteria_mode = _strict_choice(
+            get("retention_criteria_mode"), "all", {"all", "any"}, "retention_criteria_mode"
+        )
+        self.movie_rating_threshold = _strict_float(
+            get("retention_movie_rating_threshold"),
+            0.0,
+            0.0,
+            10.0,
+            "retention_movie_rating_threshold",
+        )
         self.exclusions = parse_exclusions(get("retention_exclusions"))
-        self.manual_dry_run = as_bool(get("retention_manual_dry_run"), True)
-        self.periodic_enabled = as_bool(get("retention_periodic_enabled"), False)
-        self.interval_hours = as_int(get("retention_interval_hours"), 24, 1, 720)
-        self.max_deletions = as_int(get("retention_max_deletions"), 5, 1, 100)
-        self.background_dry_run = as_bool(get("retention_background_dry_run"), True)
-        self.notification_mode = (get("retention_notification_mode") or "errors_only").strip().lower()
-        if self.notification_mode not in {"errors_only", "deletions_and_errors", "silent"}:
-            self.notification_mode = "errors_only"
+        self.manual_dry_run = _strict_bool(
+            get("retention_manual_dry_run"), True, "retention_manual_dry_run"
+        )
+        self.periodic_enabled = _strict_bool(
+            get("retention_periodic_enabled"), False, "retention_periodic_enabled"
+        )
+        self.interval_hours = _strict_int(
+            get("retention_interval_hours"), 24, 1, 720, "retention_interval_hours"
+        )
+        self.max_deletions = _strict_int(
+            get("retention_max_deletions"), 5, 1, 100, "retention_max_deletions"
+        )
+        self.background_dry_run = _strict_bool(
+            get("retention_background_dry_run"), True, "retention_background_dry_run"
+        )
+        self.notification_mode = _strict_choice(
+            get("retention_notification_mode"),
+            "errors_only",
+            {"errors_only", "deletions_and_errors", "silent"},
+            "retention_notification_mode",
+        )
 
     def validate(self):
         if not self.enabled:
