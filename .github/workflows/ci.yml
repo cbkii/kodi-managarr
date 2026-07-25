@@ -23,12 +23,26 @@ jobs:
           ref: fix/episode-replacement-reliability
           fetch-depth: 0
           persist-credentials: true
-      - name: Extract reviewed final payload
+      - name: Concatenate encoded payload
         shell: bash
         run: |
           set -euo pipefail
           test -f .automation/pr25/payload-00
-          cat .automation/pr25/payload-* | base64 --decode > /tmp/pr25-final.tar.gz
+          cat .automation/pr25/payload-* > /tmp/pr25-final.b64
+          test -s /tmp/pr25-final.b64
+      - name: Decode payload
+        shell: bash
+        run: base64 --decode /tmp/pr25-final.b64 > /tmp/pr25-final.tar.gz
+      - name: Verify gzip payload
+        shell: bash
+        run: gzip -t /tmp/pr25-final.tar.gz
+      - name: Verify archive members
+        shell: bash
+        run: tar -tzf /tmp/pr25-final.tar.gz
+      - name: Extract reviewed final payload
+        shell: bash
+        run: |
+          set -euo pipefail
           tar -xzf /tmp/pr25-final.tar.gz -C .
           rm -rf .automation/pr25
           rmdir .automation 2>/dev/null || true
