@@ -75,7 +75,8 @@ class EntrypointTests(unittest.TestCase):
             "Request & Search", "Status", "Search & download now", "Interactive search",
             "Monitoring", "Download queue", "Dashboard", "Find subtitles",
             "Delete & Exclude", "Delete & Replace", "Configure Request & Search defaults",
-            "Configure subtitle languages", "Tools & settings",
+            "Configure subtitle languages", "Retention preview", "Run retention cleanup",
+            "Last retention report", "Tools & settings",
         ])
         self.assertEqual(Manager.calls, ["request_search"])
 

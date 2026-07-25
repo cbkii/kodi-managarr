@@ -48,7 +48,7 @@ def main():
     print("OK Python compilation")
 
     required = [
-        "addon.xml", "context.py", "default.py", "subtitles.py", "LICENSE.txt",
+        "addon.xml", "context.py", "default.py", "service.py", "subtitles.py", "LICENSE.txt",
         "resources/icon.png", "resources/fanart.jpg", "resources/settings.xml",
         "resources/language/resource.language.en_gb/strings.po",
     ]
@@ -98,6 +98,12 @@ def _validate_safe_defaults(settings):
         "confirm_actions": "true",
         "dry_run": "true",
         "require_blocklist": "true",
+        "retention_enabled": "false",
+        "retention_include_movies": "false",
+        "retention_include_episodes": "false",
+        "retention_manual_dry_run": "true",
+        "retention_background_dry_run": "true",
+        "retention_periodic_enabled": "false",
     }
     for setting_id, wanted in expected.items():
         node = settings.find(f".//setting[@id='{setting_id}']")
@@ -134,6 +140,9 @@ def _validate_extensions(addon):
     script = addon.find("extension[@point='xbmc.python.script']")
     if script is None or script.attrib.get("library") != "default.py":
         raise SystemExit("addon.xml must register default.py as xbmc.python.script")
+    service = addon.find("extension[@point='xbmc.service']")
+    if service is None or service.attrib.get("library") != "service.py":
+        raise SystemExit("addon.xml must register service.py as xbmc.service")
 
 
 def _validate_images():
@@ -274,8 +283,8 @@ def _validate_strings(addon, settings):
 
 
 def _validate_spdx():
-    files = [ROOT / "context.py", ROOT / "default.py", ROOT / "subtitles.py"]
-    files.extend((ROOT / "resources/lib/arr_manager").glob("*.py"))
+    files = [ROOT / "context.py", ROOT / "default.py", ROOT / "service.py", ROOT / "subtitles.py"]
+    files.extend((ROOT / "resources/lib/arr_manager").rglob("*.py"))
     for path in files:
         first_lines = "\n".join(path.read_text(encoding="utf-8").splitlines()[:3])
         if "SPDX-License-Identifier: GPL-3.0-or-later" not in first_lines:

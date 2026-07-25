@@ -13,18 +13,23 @@ Kodi Managarr is a Kodi 19+ Python 3 add-on for managing Radarr, Sonarr and opti
 - **Subtitles** - use optional Bazarr integration from Kodi's built-in subtitle-search window with up to three ordered languages.
 - **Delete & Exclude** - removes the selected movie/series, or deletes and unmonitors the selected episode file.
 - **Delete & Replace** - proves and blocklists the imported release, deletes the file, reconciles Servarr, searches for a replacement and synchronises Kodi.
+- **Retention** - previews or safely removes watched movies and episode files using age criteria, explicit exclusions and movie-rating protection, manually or on an optional schedule.
 
 Prowlarr is optional and read-only from Managarr: it contributes indexer health and informational search context, but never bypasses Radarr/Sonarr download tracking or acts as a media/deletion authority.
 
 ## Safety model
 
-- **Dry run is enabled by default on fresh installations.** An existing saved setting is preserved during upgrade.
-- Servarr API deletion is the default and recommended backend.
-- Direct SMB/SFTP deletion uses Kodi VFS and Kodi-managed credentials.
+- **Dry run is enabled by default on fresh installations.** Existing saved settings are preserved during upgrade.
+- Retention is disabled by default; movies and episodes must each be explicitly included.
+- Manual and periodic retention each default to dry-run, with a configurable hard deletion cap.
+- Servarr API deletion is the default and recommended backend. Retention always uses the API-only path.
+- Direct SMB/SFTP deletion uses Kodi VFS and Kodi-managed credentials for the existing explicit delete workflows.
 - Direct deletion always requires confirmation, even if confirmation is disabled for API-only operations.
 - Empty, malformed, root, share-root, mapping-root, protected, traversal and ambiguous paths fail closed.
 - Every multi-file direct operation validates every target before blocklisting or deleting anything.
 - Confirmed VFS folder plans are re-enumerated before deletion and removals are verified against parent listings.
+- Retention revalidates Kodi and Arr identity, file state and policy immediately before each deletion.
+- A shared multi-episode file remains protected unless every linked episode is still eligible.
 - Servarr commands succeed only with terminal `Completed` status and `Successful` result.
 - Partial commits are persisted without secrets and reported with completed transaction stages.
 - API keys and credential-bearing URLs are never written to diagnostics, subtitle cache state or logs.
@@ -37,7 +42,7 @@ Prowlarr is optional and read-only from Managarr: it contributes indexer health 
 4. Open **Install from repository -> Kodi Managarr Repository -> Context menus** and install **Kodi Managarr**.
 5. Leave Kodi's normal add-on auto-update setting enabled.
 6. Configure **My add-ons -> Context menus -> Kodi Managarr** and run the applicable connection tests.
-7. Keep **Dry run** enabled for the first destructive end-to-end validation.
+7. Keep **Dry run** and both retention dry-run settings enabled for the first destructive end-to-end validation.
 
 The repository publishes canonical Kodi filenames, `addons.xml`, Kodi's `addons.xml.md5` change token and SHA-256 checksum files. It validates the exact stable release ZIP before publication and does not claim cryptographic signing.
 
@@ -61,7 +66,22 @@ Subtitle results store only short-lived, sanitised provider identity and stable 
 
 The plain-text **Managarr** root item appears for Kodi library movies, TV shows and episodes. **Advanced** is the upgrade-safe default. **Simple** keeps common actions visible. **Configure menu** can hide or reorder registered actions and restore defaults using Kodi-native TV-remote dialogs. Hidden actions remain callable through direct `RunScript(...,mode=...)` key mappings.
 
-**Manage PIN** can create, change, remove or repair a local 4-8 digit numeric PIN. The PIN is salted and derived with PBKDF2-HMAC; plaintext is not stored. It protects media deletion, exclusion and replacement actions, including direct-mode invocations. Queue removal remains confirmation-only. This protects against accidental local use; it is not a boundary against a user who can modify Kodi's local add-on data.
+**Manage PIN** can create, change, remove or repair a local 4-8 digit numeric PIN. The PIN is salted and derived with PBKDF2-HMAC; plaintext is not stored. It protects media deletion, exclusion and replacement actions, real manual retention cleanup, and enabling periodic retention. Queue removal and disabling periodic retention remain confirmation-only or unrestricted as appropriate. Changing or repairing the PIN invalidates authorisation for real periodic retention. This protects against accidental local use; it is not a boundary against a user who can modify Kodi's local add-on data.
+
+## Retention cleanup
+
+Retention is opt-in. Configure the **Retention** settings category, enable movies and/or episodes, and keep both dry-run settings enabled while reviewing **Retention preview** and **Last retention report**.
+
+Eligibility can require watched state and either all or any enabled age criteria:
+
+- **Minimum days since added** uses the newest available Kodi, movie/series or media-file timestamp. This conservative choice protects recently imported or re-added media.
+- **Minimum days since watched** uses Kodi's last-played timestamp and protects missing or future timestamps.
+- **Movie rating protection** keeps movies at or above the configured 0-10 threshold. When the threshold is enabled, an unrated movie is also protected. Use `0` to disable this protection.
+- **Explicit exclusions** accept comma, semicolon or line-separated entries: `movie:<Kodi movie ID>`, `episode:<Kodi episode ID>`, `series:<Kodi TV show ID>`, and `season:<Kodi TV show ID>:<season>`.
+
+Malformed exclusions invalidate the retention configuration instead of being ignored. Episode cleanup deletes one Sonarr episode-file record only after every episode linked to that file is present in Kodi and still passes the current policy. Movie cleanup uses Radarr deletion with an import-list exclusion. Each mutation is revalidated immediately before commit and followed by targeted Kodi synchronisation.
+
+Periodic retention runs through Kodi's background service. Enabling it stores the current PIN-generation authorisation; a PIN change disables real periodic deletion until explicitly re-enabled. Failed service passes are delayed before retry rather than looping rapidly.
 
 ## Path mappings
 
@@ -81,6 +101,8 @@ Keymap Editor exposes **Launch Kodi Managarr** under Add-ons actions. Advanced k
 <key>RunScript(special://home/addons/context.arr.manager/default.py,mode=request_search)</key>
 <key>RunScript(special://home/addons/context.arr.manager/default.py,mode=interactive_search)</key>
 <key>RunScript(special://home/addons/context.arr.manager/default.py,mode=dashboard)</key>
+<key>RunScript(special://home/addons/context.arr.manager/default.py,mode=retention_preview)</key>
+<key>RunScript(special://home/addons/context.arr.manager/default.py,mode=retention_cleanup)</key>
 <key>RunScript(special://home/addons/context.arr.manager/default.py,mode=delete_replace)</key>
 ```
 
@@ -107,7 +129,7 @@ PY
 kodi-addon-checker --branch matrix dist/addon-check/context.arr.manager
 ```
 
-Validation covers the ASCII context root, registry dispatch, safe fresh-install defaults, localisation, PIN policy, optional-service isolation, subtitle entrypoint, metadata limits, release packaging and repository generation. CI runs Python 3.8 and 3.12 alongside actionlint, Ruff, archive integrity and Kodi add-on checker.
+Validation covers the ASCII context root, registry dispatch, safe fresh-install defaults, localisation, PIN policy, retention service registration and packaging, optional-service isolation, subtitle entrypoint, metadata limits, deterministic archives and repository generation. CI runs Python 3.8 and 3.12 alongside actionlint, Ruff, archive integrity and Kodi add-on checker.
 
 ## Android Kodi validation and release
 

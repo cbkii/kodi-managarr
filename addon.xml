@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<addon id="context.arr.manager" name="Kodi Managarr" version="1.2.0" provider-name="CB">
+<addon id="context.arr.manager" name="Kodi Managarr" version="1.3.0" provider-name="CB">
   <requires>
     <import addon="xbmc.python" version="3.0.0" />
   </requires>
@@ -11,15 +11,16 @@
   <extension point="xbmc.python.script" library="default.py">
     <provides>executable</provides>
   </extension>
+  <extension point="xbmc.service" library="service.py" />
   <extension point="xbmc.subtitle.module" library="subtitles.py" />
   <extension point="xbmc.addon.metadata">
-    <summary lang="en_GB">Manage Arr media and Bazarr subtitles from Kodi.</summary>
-    <description lang="en_GB">Kodi-native Request &amp; Search, interactive Radarr/Sonarr release selection, service dashboard, monitoring, queue, Bazarr subtitle download, deletion, exclusion and replacement controls.</description>
+    <summary lang="en_GB">Manage Arr media, Bazarr subtitles and safe watched-media retention from Kodi.</summary>
+    <description lang="en_GB">Kodi-native Request &amp; Search, interactive Radarr/Sonarr release selection, service dashboard, monitoring, queue, Bazarr subtitle download, deletion, exclusion and replacement controls. Optional retention provides dry-run previews, watched and age-aware cleanup, explicit movie/episode/series/season exclusions, movie-rating protection and bounded PIN-authorised periodic runs.</description>
     <platform>all</platform>
     <license>GPL-3.0-or-later</license>
     <source>https://github.com/cbkii/kodi-managarr</source>
     <website>https://github.com/cbkii/kodi-managarr</website>
-    <news>v1.2.0 (2026-07-23) - Add Request &amp; Search, interactive Arr release selection, a bounded dashboard and Kodi-native Bazarr subtitles. Harden Android Kodi episode identity, international-title matching, subtitle language variants and single-use downloads; enable dry run by default for new installs.</news>
+    <news>v1.3.0 - Add watched and age-aware retention preview, manual cleanup and optional periodic automation. Protect explicit movie, episode, series and season exclusions; protect movies at or above a configurable rating threshold; revalidate Kodi and Arr identities before every API-only deletion; preserve shared multi-episode files whenever any linked episode is protected; default manual and periodic runs to dry-run.</news>
     <assets>
       <icon>resources/icon.png</icon>
       <fanart>resources/fanart.jpg</fanart>

@@ -8,12 +8,13 @@ Use this concise gate with [`ANDROID_KODI_VALIDATION.md`](ANDROID_KODI_VALIDATIO
 - [ ] Python 3.8 and 3.12 host CI, Ruff, actionlint and complete unit tests pass with no placeholder/disabled tests.
 - [ ] `scripts/validate.py` and Kodi add-on checker pass.
 - [ ] Metadata remains nonempty and within project limits: summary 160, description 1000, news 1500 characters.
-- [ ] Fresh-install defaults keep confirmation, dry run and blocklist requirements enabled.
+- [ ] Fresh-install defaults keep confirmation, general dry run and blocklist requirements enabled.
+- [ ] Fresh-install retention is disabled, movies/episodes are excluded, periodic scheduling is disabled, and both retention dry-run settings are enabled.
 - [ ] Registry modes, aliases and direct dispatch remain consistent; no obsolete parallel entrypoint is packaged.
 - [ ] Deterministic packaging produces one valid `context.arr.manager/` root with safe non-executable permissions.
 - [ ] ZIP excludes tests, docs, scripts, hidden/generated files, bytecode and obsolete runtime modules.
-- [ ] ZIP contains `addon.xml`, `LICENSE.txt`, `default.py`, `context.py`, `subtitles.py`, resources/runtime files and artwork.
-- [ ] `xbmc.subtitle.module` points to the packaged subtitle entrypoint.
+- [ ] ZIP contains `addon.xml`, `LICENSE.txt`, `default.py`, `context.py`, `service.py`, `subtitles.py`, resources/runtime files and artwork.
+- [ ] `xbmc.service` and `xbmc.subtitle.module` point to their packaged entrypoints.
 - [ ] Public assets use `managarr-addon_vX.Y.Z.zip` and a portable matching SHA-256 file.
 
 ## Kodi repository publication
@@ -35,6 +36,24 @@ Use this concise gate with [`ANDROID_KODI_VALIDATION.md`](ANDROID_KODI_VALIDATIO
 - [ ] Radarr/Sonarr tests, dry runs, cancellation and one disposable API mutation pass.
 - [ ] Diagnostics/logs contain no credentials or private URLs.
 
+## Retention checks
+
+Use disposable media only; do not test real deletion against irreplaceable library content.
+
+- [ ] Retention remains unavailable until enabled and at least movies or episodes are explicitly included.
+- [ ] Preview honours watched state, added-age and watched-age thresholds in both **all** and **any** modes.
+- [ ] `movie:<id>`, `episode:<id>`, `series:<id>` and `season:<show-id>:<season>` exclusions protect their exact scope.
+- [ ] Malformed exclusion syntax invalidates retention instead of being silently ignored.
+- [ ] A movie at or above the configured rating threshold is protected; an unrated movie is protected while the threshold is enabled.
+- [ ] Manual dry-run creates a bounded report without changing Kodi, Radarr or Sonarr.
+- [ ] Real manual cleanup requires the central PIN when configured and respects the per-pass deletion cap.
+- [ ] Movie cleanup revalidates identity, removes through Radarr with an import-list exclusion and targets only the corresponding Kodi row.
+- [ ] Episode cleanup revalidates every linked Sonarr/Kodi episode, unmonitors them, deletes exactly one episode-file record and targets only those Kodi rows.
+- [ ] A shared multi-episode file remains untouched when any linked episode is excluded, missing, unwatched or otherwise ineligible.
+- [ ] Enabling periodic retention requires central PIN authorisation; disabling it never requires a PIN.
+- [ ] Changing, repairing or removing PIN material disables real periodic cleanup until explicitly re-enabled.
+- [ ] Periodic dry-run, deletion cap, atomic lock, report and notification modes behave as configured after a Kodi restart.
+
 ## Interactive feature checks
 
 - [ ] Request defaults can be selected and persist.
@@ -55,7 +74,7 @@ Use this concise gate with [`ANDROID_KODI_VALIDATION.md`](ANDROID_KODI_VALIDATIO
 - Runtime: Kodi 19+ with Kodi's Python 3 runtime, including Android Kodi.
 - Unsupported: Kodi 18 and Python 2.
 - Host CI: CPython 3.8 and 3.12 for pure-code/tooling validation; this is separate from the Kodi runtime compatibility claim.
-- Mark physical Android, SMB, SFTP, Prowlarr or Bazarr checks **NOT TESTED** rather than overstating evidence.
+- Mark physical Android, SMB, SFTP, Prowlarr, Bazarr or real retention checks **NOT TESTED** rather than overstating evidence.
 
 ## Release workflow
 
