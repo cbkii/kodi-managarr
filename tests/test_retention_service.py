@@ -6,7 +6,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "resources", "lib"))
 
 from arr_manager.retention.auth import pin_generation
-from arr_manager.retention.models import RetentionCandidate, RetentionEligibility
+from arr_manager.retention.models import RetentionCandidate, RetentionEligibility, RetentionReportItem
 from arr_manager.retention.service import RetentionService
 
 
@@ -33,6 +33,48 @@ class Settings:
     pin_enabled = False
     pin_hash = b""
     pin_salt = b""
+
+
+class Addon:
+    def getLocalizedString(self, _string_id):
+        return ""
+
+
+class Progress:
+    def __init__(self):
+        self.updates = []
+        self.closed = False
+
+    def update(self, percentage, message):
+        self.updates.append((percentage, message))
+
+    def iscanceled(self):
+        return False
+
+    def close(self):
+        self.closed = True
+
+
+class UI:
+    monitor = None
+
+    def __init__(self):
+        self.progress_dialog = Progress()
+
+    def progress(self, _heading, _message):
+        return self.progress_dialog
+
+
+class Executor:
+    def execute(self, candidate, dry_run):
+        return RetentionReportItem(
+            candidate.media_type,
+            candidate.display_name,
+            candidate.db_id,
+            True,
+            "Criteria met",
+            "dry_run" if dry_run else "deleted",
+        )
 
 
 class RetentionServiceTests(unittest.TestCase):
@@ -65,6 +107,28 @@ class RetentionServiceTests(unittest.TestCase):
         protected = RetentionService._protect_shared_files(evaluated)
         self.assertTrue(protected[0][1].eligible)
         self.assertFalse(protected[1][1].eligible)
+
+    def test_missing_file_id_is_never_an_eligible_deletion_target(self):
+        evaluated = [
+            (episode(1, 1, 1, file_id=None), RetentionEligibility(True, "Criteria met")),
+            (episode(2, 1, 2, file_id=501), RetentionEligibility(True, "Criteria met")),
+        ]
+        eligible = RetentionService._eligible_unique(evaluated)
+        self.assertEqual([candidate.file_id for candidate in eligible], [501])
+
+    def test_interactive_progress_reaches_100_percent(self):
+        service = object.__new__(RetentionService)
+        service.addon = Addon()
+        service.ui = UI()
+        summary = service._run_pass(
+            [episode(1, 1, 1), episode(2, 1, 2, file_id=501)],
+            Executor(),
+            dry_run=True,
+            interactive=True,
+        )
+        self.assertEqual(service.ui.progress_dialog.updates[-1][0], 100)
+        self.assertTrue(service.ui.progress_dialog.closed)
+        self.assertEqual(summary["planned"], 2)
 
     def test_pin_generation_changes_with_pin_material(self):
         settings = Settings()
