@@ -53,7 +53,20 @@ Use an episode with distinct episode and series TVDb IDs, ideally including a se
 5. Repeat with a skin/view that exposes incomplete list-item metadata; Kodi JSON-RPC should supply parent TV-show title, year and stable IDs.
 6. Confirm ambiguous title/year fallback stops for explicit resolution instead of choosing the first match.
 
-## 5. PIN and existing safety
+## 5. Episode-tile replacement reliability
+
+Use a disposable episode and, separately, a disposable multi-episode file.
+
+1. From the episode tile, run Delete & Replace in dry-run mode and confirm Kodi accepts the episode-detail request without `Invalid params`.
+2. Confirm a normal single-episode file does not enumerate the entire show.
+3. For a multi-episode file, confirm all linked rows in the same season are planned and unrelated rows are untouched.
+4. Induce a Kodi JSON-RPC preflight failure and confirm no Sonarr history, delete or search mutation occurs; diagnostics must show a pre-commit stop and the sanitised method/code.
+5. Perform one disposable API-backend replacement and confirm the result reports the Sonarr search as queued rather than timing out while the command remains active.
+6. Repeat after the file is already absent and confirm Managarr queues only the exact recovery search without a second blocklist, delete or Kodi-row removal.
+7. Confirm only the linked episode rows are removed from Kodi and the parent TV-show row and unrelated episodes remain.
+8. Confirm transaction diagnostics contain no media path, URL, API key or credentials.
+
+## 6. PIN and existing safety
 
 1. Create, change and remove a 4-8 digit PIN; reject malformed PINs.
 2. Confirm Delete & Exclude and Delete & Replace require it from menu and direct modes.
@@ -63,19 +76,19 @@ Use an episode with distinct episode and series TVDb IDs, ideally including a se
 6. Disable **Dry run**, perform only one explicitly disposable API-backend mutation, verify the result, then immediately re-enable **Dry run**.
 7. Verify targeted Kodi cleanup and accurate transaction state.
 
-## 6. Request & Search
+## 7. Request & Search
 
 Use disposable items.
 
 1. Configure one root/profile for each enabled Arr service.
-2. On a managed movie, confirm no duplicate is created, monitoring is enabled if needed and search completes.
+2. On a managed movie, confirm no duplicate is created, monitoring is enabled if needed and the search is accepted as queued.
 3. On an unmanaged movie with a TMDb ID, confirm it is added once and searched.
 4. On an unmanaged series, confirm it is added once and searched using the configured monitoring policy.
 5. On an unmanaged episode, confirm the parent series is added if required but only the selected episode is monitored/searched.
 6. Confirm ambiguous lookup asks for the exact title/year/ID.
-7. Induce a search-command failure after a disposable add and confirm partial success is reported without deleting the new Arr entity.
+7. Induce a search-command submission failure after a disposable add and confirm partial success is reported without deleting the new Arr entity.
 
-## 7. Interactive release search and Dashboard
+## 8. Interactive release search and Dashboard
 
 1. Open Interactive search for a managed disposable movie and episode.
 2. Confirm results include useful quality/indexer/rejection detail.
@@ -86,7 +99,7 @@ Use disposable items.
 7. Open Dashboard with one deliberately unavailable optional service; healthy services must still render without secret URLs.
 8. Confirm refresh is manual and Kodi remains responsive.
 
-## 8. Bazarr subtitle integration
+## 9. Bazarr subtitle integration
 
 1. Enable Bazarr and run its connection test.
 2. Configure one base language, then three ordered unique languages.
@@ -100,13 +113,13 @@ Use disposable items.
 10. Confirm disabled Bazarr, no languages, no results and malformed responses close the subtitle directory with a reported failure rather than caching a broken result.
 11. Inspect the add-on profile: short-lived result files contain no media path, API key, service URL or credentials and expire/are consumed.
 
-## 9. Diagnostics and optional VFS
+## 10. Diagnostics and optional VFS
 
 1. Run all configured service connection tests.
 2. Write diagnostics and confirm no credentials/private URLs.
 3. Test SMB/SFTP only when claimed. Confirm mapped roots remain protected and mark untested backends **NOT TESTED**.
 
-## 10. Evidence summary
+## 11. Evidence summary
 
 ```markdown
 # Managarr Android Kodi validation
@@ -123,6 +136,7 @@ Use disposable items.
 | Movie/show/episode Managarr root and menus | PASS/FAIL | |
 | Menu hide/order/direct-mode and PIN boundary | PASS/FAIL | |
 | Episode parent-series identity / season zero | PASS/FAIL | |
+| Episode-tile Delete & Replace / queued recovery | PASS/FAIL | |
 | International-title matching | PASS/FAIL | |
 | Request & Search: managed/unmanaged movie | PASS/FAIL | |
 | Request & Search: series/selected episode | PASS/FAIL | |

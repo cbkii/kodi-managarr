@@ -20,7 +20,7 @@
     <license>GPL-3.0-or-later</license>
     <source>https://github.com/cbkii/kodi-managarr</source>
     <website>https://github.com/cbkii/kodi-managarr</website>
-    <news>v1.3.0 - Add watched and age-aware retention preview, manual cleanup and optional periodic automation. Protect explicit movie, episode, series and season exclusions; protect movies at or above a configurable rating threshold; revalidate Kodi and Arr identities before every API-only deletion; preserve shared multi-episode files whenever any linked episode is protected; default manual and periodic runs to dry-run.</news>
+    <news>v1.3.0 - Add opt-in watched and age-aware retention with strict fail-closed persistence and targeted Kodi synchronisation. Harden episode-tile Delete &amp; Replace with Kodi-valid identity, accepted asynchronous searches, safe missing-file recovery and sanitised transaction diagnostics.</news>
     <assets>
       <icon>resources/icon.png</icon>
       <fanart>resources/fanart.jpg</fanart>

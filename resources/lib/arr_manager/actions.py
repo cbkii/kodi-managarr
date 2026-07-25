@@ -2,6 +2,7 @@
 from .actions_destructive import DestructiveMixin
 from .actions_interactive import InteractiveMixin
 from .actions_management import ManagementMixin
+from .actions_replacement import ReplacementReliabilityMixin
 from .actions_shared import SharedSafetyMixin
 from .bazarr_client import BazarrClient
 from .clients import ProwlarrClient, RadarrClient, SonarrClient
@@ -10,7 +11,7 @@ from .messages import message
 from .retention import RetentionService
 
 
-class ArrManager(InteractiveMixin, ManagementMixin, DestructiveMixin, SharedSafetyMixin):
+class ArrManager(ReplacementReliabilityMixin, InteractiveMixin, ManagementMixin, DestructiveMixin, SharedSafetyMixin):
     def __init__(self, settings, ui, logger):
         self.settings = settings
         self.ui = ui
@@ -21,7 +22,15 @@ class ArrManager(InteractiveMixin, ManagementMixin, DestructiveMixin, SharedSafe
         self._bazarr = None
 
     def _m(self, key, **values):
-        return message(self.ui, key, **values)
+        queued_aliases = {
+            "search_movie_done": "search_movie_queued",
+            "search_series_done": "search_series_queued",
+            "search_episode_done": "search_episode_queued",
+            "movie_replace_done": "movie_replace_queued",
+            "episode_replace_done": "episode_replace_queued",
+            "series_replace_done": "series_replace_queued",
+        }
+        return message(self.ui, queued_aliases.get(key, key), **values)
 
     @property
     def radarr(self):

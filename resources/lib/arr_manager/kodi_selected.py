@@ -181,7 +181,9 @@ def enrich_selected_series_identity(selected, kodi_client):
         if isinstance(episode, dict):
             tvshow_id = int(episode.get("tvshowid") or 0)
             selected.tvshow_db_id = tvshow_id
-            selected.tvshow_title = selected.tvshow_title or str(episode.get("tvshowtitle") or "")
+            selected.tvshow_title = selected.tvshow_title or str(
+                episode.get("showtitle") or episode.get("tvshowtitle") or ""
+            )
     if tvshow_id <= 0:
         return selected
     try:

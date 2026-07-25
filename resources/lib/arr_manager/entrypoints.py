@@ -470,9 +470,20 @@ def _write_diagnostics(addon, settings, logger):
         if isinstance(candidate, dict):
             last_transaction_status = {
                 "operation": str(candidate.get("operation", "")),
+                "stages": [str(value) for value in candidate.get("stages", []) if isinstance(value, str)][:20],
                 "committed": bool(candidate.get("committed")),
                 "status": str(candidate.get("status", "")),
+                "failedStage": str(candidate.get("failedStage", "")),
                 "errorType": str(candidate.get("errorType", "")),
+                "commandId": int(candidate.get("commandId") or 0),
+                "commandDescription": str(candidate.get("commandDescription", ""))[:100],
+                "commandStatus": str(candidate.get("commandStatus", ""))[:50],
+                "commandResult": str(candidate.get("commandResult", ""))[:50],
+                "kodiJsonRpcMethod": str(candidate.get("kodiJsonRpcMethod", ""))[:100],
+                "kodiJsonRpcCode": candidate.get("kodiJsonRpcCode")
+                if isinstance(candidate.get("kodiJsonRpcCode"), int) else None,
+                "kodiJsonRpcData": candidate.get("kodiJsonRpcData", {})
+                if isinstance(candidate.get("kodiJsonRpcData"), dict) else {},
             }
     except FileNotFoundError:
         pass
