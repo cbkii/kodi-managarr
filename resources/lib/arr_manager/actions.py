@@ -7,6 +7,7 @@ from .bazarr_client import BazarrClient
 from .clients import ProwlarrClient, RadarrClient, SonarrClient
 from .errors import ResolutionError
 from .messages import message
+from .retention import RetentionService
 
 
 class ArrManager(InteractiveMixin, ManagementMixin, DestructiveMixin, SharedSafetyMixin):
@@ -59,6 +60,7 @@ class ArrManager(InteractiveMixin, ManagementMixin, DestructiveMixin, SharedSafe
         return self._bazarr
 
     def execute(self, action, selected=None, **kwargs):
+        retention = lambda: RetentionService(self, self.ui, self.logger)
         handlers = {
             "delete_exclude": self.delete_exclude,
             "delete_replace": self.delete_replace,
@@ -75,6 +77,11 @@ class ArrManager(InteractiveMixin, ManagementMixin, DestructiveMixin, SharedSafe
             "find_subtitles": self.find_subtitles,
             "configure_request_defaults": self.configure_request_defaults,
             "configure_subtitle_languages": self.configure_subtitle_languages,
+            "retention_preview": lambda item: retention().run_preview(item),
+            "retention_cleanup": lambda item: retention().run_cleanup_now(item),
+            "retention_report": lambda item: retention().view_report(item),
+            "retention_enable_periodic": lambda item: retention().enable_periodic(item),
+            "retention_disable_periodic": lambda item: retention().disable_periodic(item),
         }
         if action not in handlers:
             raise ResolutionError(f"Unknown action: {action}")
