@@ -50,6 +50,28 @@ class MenuLayoutTests(unittest.TestCase):
         self.assertEqual(addon.values["menu_layout_version"], "1")
         self.assertEqual(addon.values[rank_setting_id("status")], "0")
 
+    def test_numbered_settings_edit_wins_before_first_post_upgrade_launch(self):
+        addon = Addon(menu_layout_version="0", menu_rank_status="7")
+        settings = Settings(
+            hidden_actions=["status"],
+            action_order=["queue", "status", "search_now"],
+        )
+
+        attach_menu_layout(settings, addon)
+
+        self.assertEqual(settings.menu_ranks["status"], 7)
+        self.assertEqual(addon.values[rank_setting_id("status")], "7")
+        self.assertEqual(addon.values["menu_layout_version"], "1")
+
+    def test_flatten_toggle_wins_before_first_post_upgrade_launch(self):
+        addon = Addon(menu_layout_version="0", menu_flatten_monitoring="true")
+        settings = Settings(action_order=["queue", "monitoring"])
+
+        attach_menu_layout(settings, addon)
+
+        self.assertIn("monitoring", settings.flatten_groups)
+        self.assertEqual(settings.menu_ranks["monitoring"], 50)
+
     def test_fresh_layout_uses_registry_defaults(self):
         ranks = derive_legacy_ranks([], [])
         for action in ACTION_REGISTRY:
@@ -65,6 +87,23 @@ class MenuLayoutTests(unittest.TestCase):
         ids = [action["id"] for action in resolve_actions(settings, "root")]
         self.assertEqual(ids[0], "queue")
         self.assertNotIn("status", ids)
+
+    def test_non_menu_registry_actions_cannot_create_undeclared_rank_settings(self):
+        addon = Addon(menu_layout_version="1")
+        settings = attach_menu_layout(Settings(), addon)
+
+        self.assertFalse(set_rank(addon, settings, "retention_enable_periodic", 25))
+        restore_defaults(addon, settings)
+
+        menu_action_ids = {
+            action["id"] for action in ACTION_REGISTRY if action["group"] in MENU_GROUPS
+        }
+        persisted_rank_ids = {
+            key.removeprefix("menu_rank_")
+            for key in addon.values
+            if key.startswith("menu_rank_")
+        }
+        self.assertTrue(persisted_rank_ids.issubset(menu_action_ids))
 
     def test_duplicate_ranks_are_deterministic_and_reported(self):
         addon = Addon(menu_layout_version="1")
