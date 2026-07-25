@@ -54,6 +54,7 @@ class JsonRpcTests(unittest.TestCase):
         detail = xbmc.requests[0]["params"]
         listing = xbmc.requests[1]["params"]
         self.assertIn("showtitle", detail["properties"])
+        self.assertIn("tvshowid", detail["properties"])
         self.assertNotIn("tvshowtitle", detail["properties"])
         self.assertEqual(listing["properties"], ["season", "episode", "file"])
         self.assertEqual(listing["season"], 1)
@@ -93,7 +94,7 @@ class JsonRpcTests(unittest.TestCase):
         ui = object.__new__(KodiUI); ui.jsonrpc = KodiJsonRpcClient(xbmc)
         selected = SelectedItem(media_type="episode", db_id=10, tvshow_title="Show", season=1, episode=2, file_path="/shows/right.mkv")
         with self.assertRaises(KodiJsonRpcError):
-            KodiUI.plan_deleted_episodes(ui, selected, [{"seasonNumber": 1, "episodeNumber": 2}])
+            KodiUI.sync_deleted_episodes(ui, selected, [{"seasonNumber": 1, "episodeNumber": 2}])
         self.assertNotIn("VideoLibrary.RemoveEpisode", [request["method"] for request in xbmc.requests])
 
     def test_sync_plan_does_not_remove_rows_until_applied(self):
