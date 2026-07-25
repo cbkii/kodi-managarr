@@ -104,37 +104,37 @@ ACTION_REGISTRY = [
 
     _action("open_settings", 32501, "Open settings",
             "Open the standard Kodi settings page for all Managarr services and safety options.",
-            "tools", "settings", 10, simple=True, requires_selection=False, media_types=()),
+            "tools", "settings", 10, simple=False, requires_selection=False, media_types=()),
     _action("configure_request_defaults", 33007, "Configure Request & Search defaults",
             "Choose the default Arr root folders, quality profiles and Sonarr monitoring behaviour.",
-            "tools", "configure_request_defaults", 20, simple=True, requires_selection=False, media_types=()),
+            "tools", "configure_request_defaults", 20, simple=False, requires_selection=False, media_types=()),
     _action("configure_subtitle_languages", 33006, "Configure subtitle languages",
             "Choose up to three ordered Bazarr language variants used by Kodi subtitle search.",
-            "tools", "configure_subtitle_languages", 30, simple=True, requires_selection=False, media_types=()),
+            "tools", "configure_subtitle_languages", 30, simple=False, requires_selection=False, media_types=()),
     _action("test_radarr", 32206, "Test Radarr connection",
             "Perform a read-only Radarr connection and API-version check.",
-            "tools", "test_radarr", 40, simple=True, requires_selection=False, media_types=()),
+            "tools", "test_radarr", 40, simple=False, requires_selection=False, media_types=()),
     _action("test_sonarr", 32306, "Test Sonarr connection",
             "Perform a read-only Sonarr connection and API-version check.",
-            "tools", "test_sonarr", 50, simple=True, requires_selection=False, media_types=()),
+            "tools", "test_sonarr", 50, simple=False, requires_selection=False, media_types=()),
     _action("test_backend", 32404, "Test file backend",
             "Perform a read-only accessibility check using the selected deletion backend and mappings.",
-            "tools", "test_backend", 60, simple=True, requires_selection=False, media_types=()),
+            "tools", "test_backend", 60, simple=False, requires_selection=False, media_types=()),
     _action("test_prowlarr", 33106, "Test Prowlarr connection",
             "Perform a read-only Prowlarr connection and API-version check.",
-            "tools", "test_prowlarr", 70, simple=True, requires_selection=False, media_types=()),
+            "tools", "test_prowlarr", 70, simple=False, requires_selection=False, media_types=()),
     _action("test_bazarr", 33205, "Test Bazarr connection",
             "Perform a read-only Bazarr status and language-capability check.",
-            "tools", "test_bazarr", 80, simple=True, requires_selection=False, media_types=()),
+            "tools", "test_bazarr", 80, simple=False, requires_selection=False, media_types=()),
     _action("diagnostics", 32505, "Write diagnostics",
             "Write a bounded non-secret support report containing configuration shape and recent operation stages.",
-            "tools", "diagnostics", 90, simple=True, requires_selection=False, media_types=()),
+            "tools", "diagnostics", 90, simple=False, requires_selection=False, media_types=()),
     _action("configure_menu", 32906, "Configure menu",
             "Open the TV-remote-friendly batch visibility, destination move and numeric-rank editor.",
-            "tools", "configure_menu", 100, simple=True, requires_selection=False, media_types=()),
+            "tools", "configure_menu", 100, simple=False, requires_selection=False, media_types=()),
     _action("manage_pin", 32910, "Manage PIN",
             "Set, change, remove or repair the local numeric PIN used for protected actions.",
-            "tools", "manage_pin", 110, simple=True, requires_selection=False, media_types=()),
+            "tools", "manage_pin", 110, simple=False, requires_selection=False, media_types=()),
 
     _action("retention_enable_periodic", 33503, "Enable periodic retention",
             "Authorise and enable periodic retention using the current policy and PIN state.",
@@ -145,6 +145,12 @@ ACTION_REGISTRY = [
             "retention_settings", "retention_disable_periodic", 20, simple=False, mutating=True,
             requires_selection=False, media_types=()),
 ]
+
+# ``default_order`` remains a globally unique registry identity/order contract for
+# existing validators and compatibility paths. ``default_rank`` is intentionally
+# local to each menu group and is the canonical layout default.
+for _registry_index, _registry_action in enumerate(ACTION_REGISTRY, 1):
+    _registry_action["default_order"] = _registry_index * 10
 
 
 def get_action_by_id(action_id):
