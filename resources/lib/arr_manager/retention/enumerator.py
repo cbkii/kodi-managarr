@@ -208,4 +208,5 @@ class RetentionEnumerator:
             file_path=selected.file_path,
             tvshow_db_id=tvshow_id,
             series_title=selected.tvshow_title,
+            linked_episode_count=len(linked),
         )
