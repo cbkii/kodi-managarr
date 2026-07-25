@@ -2,15 +2,17 @@
 from .actions_destructive import DestructiveMixin
 from .actions_interactive import InteractiveMixin
 from .actions_management import ManagementMixin
+from .actions_replacement import ReplacementReliabilityMixin
 from .actions_shared import SharedSafetyMixin
 from .bazarr_client import BazarrClient
 from .clients import ProwlarrClient, RadarrClient, SonarrClient
 from .errors import ResolutionError
 from .messages import message
+from .replacement_messages import replacement_message
 from .retention import RetentionService
 
 
-class ArrManager(InteractiveMixin, ManagementMixin, DestructiveMixin, SharedSafetyMixin):
+class ArrManager(ReplacementReliabilityMixin, InteractiveMixin, ManagementMixin, DestructiveMixin, SharedSafetyMixin):
     def __init__(self, settings, ui, logger):
         self.settings = settings
         self.ui = ui
@@ -21,6 +23,9 @@ class ArrManager(InteractiveMixin, ManagementMixin, DestructiveMixin, SharedSafe
         self._bazarr = None
 
     def _m(self, key, **values):
+        replacement = replacement_message(key, values)
+        if replacement is not None:
+            return replacement
         return message(self.ui, key, **values)
 
     @property

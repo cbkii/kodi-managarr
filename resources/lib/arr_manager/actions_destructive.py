@@ -4,7 +4,7 @@ from .errors import BlocklistError, ResolutionError, SafetyError
 from .fileops import make_direct_backend
 from .history import match_history, unique_history_matches
 from .models import TransactionState
-from .resolver import resolve_episode_context, resolve_movie, resolve_series
+from .resolver import resolve_episode, resolve_episode_context, resolve_movie, resolve_series
 from .util import paths_equal
 
 
@@ -142,9 +142,23 @@ class DestructiveMixin:
             if backend:
                 backend.close()
 
+    def _record_queued_search(self, operation, description, command):
+        transaction = TransactionState(operation)
+        transaction.begin("replacement search submission")
+        transaction.record_command(description, command)
+        transaction.mark("replacement search queued")
+        self._record_transaction(transaction)
+        return transaction
+
     def _movie_replace(self, selected):
         movie = resolve_movie(selected, self.radarr, self.settings.path_mapper)
         files = self.radarr.movie_files(movie["id"])
+        if not files:
+            command = self._queue_search(
+                self.radarr, self.radarr.search_movie(movie["id"]), "Radarr movie search"
+            )
+            self._record_queued_search("movie replacement recovery", "Radarr movie search", command)
+            return self._m("movie_missing_search_queued", title=movie.get("title"))
         if len(files) != 1:
             raise ResolutionError(self._m("replace_one_file_required", files=len(files)))
         file_record = files[0]
@@ -153,70 +167,136 @@ class DestructiveMixin:
         backend, path = self._preflight_movie_backend(movie, file_record)
         kodi_plan = self._plan_kodi("movie", selected)
         try:
-            prompt = self._m("movie_replace_confirm", blocklist=self._blocklist_confirmation([match]), title=movie.get("title"))
+            prompt = self._m(
+                "movie_replace_confirm",
+                blocklist=self._blocklist_confirmation([match]),
+                title=movie.get("title"),
+            )
             if not self._approved(self._m("delete_replace_heading"), prompt, backend is not None):
                 return self._m("cancelled")
             if self.settings.dry_run:
-                return self._m("dry_movie_replace", title=movie.get("title"), blocklist=self._blocklist_summary([match]))
+                return self._m(
+                    "dry_movie_replace",
+                    title=movie.get("title"),
+                    blocklist=self._blocklist_summary([match]),
+                )
             tx = TransactionState("movie replacement")
             try:
-                self._mark_failed(self.radarr, match); tx.mark("release blocklist", committed=bool(match))
+                tx.begin("release blocklist")
+                self._mark_failed(self.radarr, match)
+                tx.mark("release blocklist", committed=bool(match))
+                tx.begin("movie file deletion")
                 if backend is None:
                     self.radarr.delete_movie_file(file_record["id"])
                 else:
                     backend.delete_file(path)
                 tx.mark("movie file deletion", committed=True)
                 if backend:
+                    tx.begin("Radarr reconciliation")
                     self._poll_command(self.radarr, self.radarr.rescan_movie(movie["id"]), "Radarr rescan")
                     self._wait_for_movie_file_removed(movie["id"], int(file_record["id"]))
                     tx.mark("Radarr reconciliation")
-                self._queue_search(self.radarr, self.radarr.search_movie(movie["id"]), "Radarr movie search")
-                tx.mark("replacement search")
-                self._sync_kodi("movie", selected, plan=kodi_plan); tx.mark("Kodi library synchronisation")
+                tx.begin("replacement search submission")
+                command = self._queue_search(
+                    self.radarr, self.radarr.search_movie(movie["id"]), "Radarr movie search"
+                )
+                tx.record_command("Radarr movie search", command)
+                tx.mark("replacement search queued")
+                tx.begin("Kodi library synchronisation")
+                self._sync_kodi("movie", selected, plan=kodi_plan)
+                tx.mark("Kodi library synchronisation")
             except Exception as exc:
                 self._record_transaction(tx, exc)
                 raise SafetyError(tx.failure_message(exc)) from exc
             self._record_transaction(tx)
-            return self._m("movie_replace_done", blocklist=self._blocklist_summary([match]), title=movie.get("title"))
+            return self._m(
+                "movie_replace_done",
+                blocklist=self._blocklist_summary([match]),
+                title=movie.get("title"),
+            )
         finally:
             if backend:
                 backend.close()
 
     def _episode_replace(self, selected):
         series = resolve_series(selected, self.sonarr, self.settings.path_mapper)
+        episode = resolve_episode(selected, self.sonarr, series)
+        if int(episode.get("episodeFileId") or 0) <= 0:
+            command = self._queue_search(
+                self.sonarr, self.sonarr.search_episodes([int(episode["id"])]), "Sonarr episode search"
+            )
+            self._record_queued_search("episode replacement recovery", "Sonarr episode search", command)
+            return self._m(
+                "episode_missing_search_queued",
+                title=series.get("title"),
+                season=selected.season,
+                episode=selected.episode,
+            )
         _, linked, file_record = resolve_episode_context(selected, self.sonarr, series)
         episode_ids = [int(ep["id"]) for ep in linked]
-        match = match_history(self.sonarr.series_history(series["id"], selected.season, event_type=3), file_record, episode_ids)
-        name = ", ".join(f"S{int(ep.get('seasonNumber', 0)):02d}E{int(ep.get('episodeNumber', 0)):02d}" for ep in linked)
+        match = match_history(
+            self.sonarr.series_history(series["id"], selected.season, event_type=3),
+            file_record,
+            episode_ids,
+        )
+        name = ", ".join(
+            f"S{int(ep.get('seasonNumber', 0)):02d}E{int(ep.get('episodeNumber', 0)):02d}"
+            for ep in linked
+        )
         self._require_history(match, f"{series.get('title')} {name}")
         backend, path = self._preflight_episode_backend(series, file_record)
         kodi_plan = self._plan_kodi("episodes", selected, linked)
         try:
-            prompt = self._m("episode_replace_confirm", blocklist=self._blocklist_confirmation([match]), title=series.get("title"), episodes=name)
+            prompt = self._m(
+                "episode_replace_confirm",
+                blocklist=self._blocklist_confirmation([match]),
+                title=series.get("title"),
+                episodes=name,
+            )
             if not self._approved(self._m("delete_replace_heading"), prompt, backend is not None):
                 return self._m("cancelled")
             if self.settings.dry_run:
-                return self._m("dry_episode_replace", title=series.get("title"), episodes=name, blocklist=self._blocklist_summary([match]))
+                return self._m(
+                    "dry_episode_replace",
+                    title=series.get("title"),
+                    episodes=name,
+                    blocklist=self._blocklist_summary([match]),
+                )
             tx = TransactionState("episode replacement")
             try:
-                self._mark_failed(self.sonarr, match); tx.mark("release blocklist", committed=bool(match))
+                tx.begin("release blocklist")
+                self._mark_failed(self.sonarr, match)
+                tx.mark("release blocklist", committed=bool(match))
+                tx.begin("episode file deletion")
                 if backend is None:
                     self.sonarr.delete_episode_file(file_record["id"])
                 else:
                     backend.delete_file(path)
                 tx.mark("episode file deletion", committed=True)
                 if backend:
+                    tx.begin("Sonarr reconciliation")
                     self._poll_command(self.sonarr, self.sonarr.rescan_series(series["id"]), "Sonarr rescan")
                     self._wait_for_episode_files_removed(series["id"], {int(file_record["id"])})
                     tx.mark("Sonarr reconciliation")
-                self._queue_search(self.sonarr, self.sonarr.search_episodes(episode_ids), "Sonarr episode search")
-                tx.mark("replacement search")
-                self._sync_kodi("episodes", selected, linked, plan=kodi_plan); tx.mark("Kodi library synchronisation")
+                tx.begin("replacement search submission")
+                command = self._queue_search(
+                    self.sonarr, self.sonarr.search_episodes(episode_ids), "Sonarr episode search"
+                )
+                tx.record_command("Sonarr episode search", command)
+                tx.mark("replacement search queued")
+                tx.begin("Kodi library synchronisation")
+                self._sync_kodi("episodes", selected, linked, plan=kodi_plan)
+                tx.mark("Kodi library synchronisation")
             except Exception as exc:
                 self._record_transaction(tx, exc)
                 raise SafetyError(tx.failure_message(exc)) from exc
             self._record_transaction(tx)
-            return self._m("episode_replace_done", blocklist=self._blocklist_summary([match]), title=series.get("title"), episodes=name)
+            return self._m(
+                "episode_replace_done",
+                blocklist=self._blocklist_summary([match]),
+                title=series.get("title"),
+                episodes=name,
+            )
         finally:
             if backend:
                 backend.close()
@@ -295,8 +375,11 @@ class DestructiveMixin:
                 self._wait_for_episode_files_removed(series["id"], file_ids)
                 tx.mark("Sonarr reconciliation")
             self._update_progress(progress, 80, self._m("progress_search"))
-            self._queue_search(self.sonarr, self.sonarr.search_series(series["id"]), "Sonarr series search")
-            tx.mark("replacement search")
+            command = self._queue_search(
+                self.sonarr, self.sonarr.search_series(series["id"]), "Sonarr series search"
+            )
+            tx.record_command("Sonarr series search", command)
+            tx.mark("replacement search queued")
             self._update_progress(progress, 95, self._m("progress_kodi"))
             self._sync_kodi("episodes", selected, affected, plan=kodi_plan)
             tx.mark("Kodi library synchronisation")

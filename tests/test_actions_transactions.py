@@ -29,10 +29,11 @@ class UI:
 
 
 class Radarr:
-    def __init__(self, fail_blocklist=False, search_result="successful"):
+    def __init__(self, fail_blocklist=False, search_result="successful", search_response=None):
         self.calls = []
         self.fail_blocklist = fail_blocklist
         self.search_result = search_result
+        self.search_response = search_response
     def movie_files(self, movie_id):
         self.calls.append(("files", movie_id)); return [{"id": 7, "path": "/movies/Film/file.mkv"}]
     def movie_history(self, movie_id, event_type=3):
@@ -41,14 +42,16 @@ class Radarr:
         self.calls.append(("failed", history_id))
         if self.fail_blocklist: raise ApiError("blocklist failed")
     def delete_movie_file(self, file_id): self.calls.append(("delete", file_id))
-    def search_movie(self, movie_id): self.calls.append(("search", movie_id)); return {"id": 99}
+    def search_movie(self, movie_id):
+        self.calls.append(("search", movie_id))
+        return self.search_response if self.search_response is not None else {"id": 99}
     def command_status(self, command_id):
         self.calls.append(("command", command_id))
         return {"id": command_id, "status": "completed", "result": self.search_result}
 
 
 class TransactionTests(unittest.TestCase):
-    def test_movie_replace_blocklists_before_delete_and_search(self):
+    def test_movie_replace_blocklists_before_delete_and_queues_search(self):
         ui = UI(); manager = ArrManager(Settings(), ui, logger=None); manager._radarr = Radarr()
         selected = SelectedItem(media_type="movie", title="Film")
         match = HistoryMatch(history_id=42, source_title="Release", download_id="abc")
@@ -58,7 +61,7 @@ class TransactionTests(unittest.TestCase):
         self.assertIn("Blocklisted 1 matched release", result)
         self.assertEqual(manager._radarr.calls, [
             ("files", 3), ("history", 3, 3), ("failed", 42),
-            ("delete", 7), ("search", 3), ("command", 99),
+            ("delete", 7), ("search", 3),
         ])
         self.assertTrue(ui.synced)
 
@@ -72,8 +75,17 @@ class TransactionTests(unittest.TestCase):
         self.assertNotIn(("delete", 7), manager._radarr.calls)
         self.assertNotIn(("search", 3), manager._radarr.calls)
 
-    def test_unsuccessful_search_reports_partial_commit(self):
+    def test_accepted_search_is_not_polled_to_terminal_state(self):
         manager = ArrManager(Settings(), UI(), logger=None); manager._radarr = Radarr(search_result="unsuccessful")
+        match = HistoryMatch(42, "Release", "abc")
+        with patch("arr_manager.actions_destructive.resolve_movie", return_value={"id": 3, "title": "Film"}), \
+             patch("arr_manager.actions_destructive.match_history", return_value=match):
+            manager._movie_replace(SelectedItem(media_type="movie", title="Film"))
+        self.assertNotIn(("command", 99), manager._radarr.calls)
+
+    def test_immediately_failed_search_response_reports_partial_commit(self):
+        manager = ArrManager(Settings(), UI(), logger=None)
+        manager._radarr = Radarr(search_response={"id": 99, "status": "failed"})
         match = HistoryMatch(42, "Release", "abc")
         with patch("arr_manager.actions_destructive.resolve_movie", return_value={"id": 3, "title": "Film"}), \
              patch("arr_manager.actions_destructive.match_history", return_value=match):
@@ -81,8 +93,7 @@ class TransactionTests(unittest.TestCase):
                 manager._movie_replace(SelectedItem(media_type="movie", title="Film"))
 
 
-if __name__ == "__main__":
-    unittest.main()
+if __name__ == "__main__": unittest.main()
 
 class TestCloseProgress(unittest.TestCase):
     def test_close_progress_success(self):

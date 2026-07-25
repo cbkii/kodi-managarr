@@ -7,7 +7,11 @@ LIB_DIR = os.path.join(ADDON_DIR, "resources", "lib")
 if LIB_DIR not in sys.path:
     sys.path.insert(0, LIB_DIR)
 
-from arr_manager.entrypoints import run_script  # noqa: E402
+import arr_manager.entrypoints as _entrypoints  # noqa: E402
+from arr_manager.diagnostics_hardening import install as _install_diagnostics_hardening  # noqa: E402
+
+_install_diagnostics_hardening(_entrypoints)
+run_script = _entrypoints.run_script
 
 
 if __name__ == "__main__":

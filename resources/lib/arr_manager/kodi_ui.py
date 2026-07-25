@@ -95,40 +95,57 @@ class KodiUI:
         return {"status": "planned", "kind": "tvshow", "id": tvshow_id}
 
     def plan_deleted_episodes(self, selected, linked=None, file_paths=None):
-        linked = list(linked or [])
+        linked = [item for item in (linked or []) if isinstance(item, dict)]
         target_paths = [path for path in (file_paths or []) if path]
         if getattr(selected, "file_path", ""):
             target_paths.append(selected.file_path)
+        target_numbers = {
+            (int(item.get("seasonNumber", -999)), int(item.get("episodeNumber", -999)))
+            for item in linked
+        }
         episode_ids = []
+        matched_numbers = set()
         tvshow_id = 0
+
         if selected.media_type == "episode" and int(getattr(selected, "db_id", 0) or 0) > 0:
-            try:
-                detail = self.jsonrpc.episode_details(selected.db_id)
-            except KodiJsonRpcError:
-                detail = None
-            if detail and self._episode_matches_selected(detail, selected):
-                episode_ids.append(int(detail.get("episodeid") or selected.db_id))
-                tvshow_id = int(detail.get("tvshowid") or 0)
+            detail = self.jsonrpc.episode_details(selected.db_id)
+            if not self._episode_matches_selected(detail, selected):
+                raise KodiJsonRpcError(
+                    "The selected Kodi episode row contradicted the episode tile identity",
+                    method="VideoLibrary.GetEpisodeDetails",
+                )
+            episode_ids.append(int(detail.get("episodeid") or selected.db_id))
+            tvshow_id = int(detail.get("tvshowid") or 0)
+            selected_number = (int(detail.get("season", -999)), int(detail.get("episode", -999)))
+            if selected_number in target_numbers:
+                matched_numbers.add(selected_number)
+
         if selected.media_type == "tvshow" and int(getattr(selected, "db_id", 0) or 0) > 0:
             tvshow_id = self._resolve_tvshow_id(selected) or 0
         if not tvshow_id:
             tvshow_id = self._resolve_tvshow_id(selected, allow_absent=False) or 0
-        target_numbers = {
-            (int(item.get("seasonNumber", -999)), int(item.get("episodeNumber", -999)))
-            for item in linked if isinstance(item, dict)
-        }
-        candidates = self.jsonrpc.episodes(tvshow_id)
-        matched_numbers = set()
-        for episode in candidates:
-            episode_id = int(episode.get("episodeid") or 0)
-            number = (int(episode.get("season", -999)), int(episode.get("episode", -999)))
-            path_match = bool(target_paths) and any(_same_path(episode.get("file", ""), path) for path in target_paths)
-            number_match = number in target_numbers
-            if episode_id > 0 and (path_match or number_match):
+
+        needs_additional_lookup = selected.media_type == "tvshow" or len(target_numbers) > 1 or not episode_ids
+        if needs_additional_lookup:
+            season = selected.season if selected.media_type == "episode" and int(selected.season) >= 0 else None
+            candidates = self.jsonrpc.episodes(tvshow_id, season=season)
+            matches_by_number = {}
+            for episode in candidates:
+                episode_id = int(episode.get("episodeid") or 0)
+                number = (int(episode.get("season", -999)), int(episode.get("episode", -999)))
+                path_match = bool(target_paths) and any(_same_path(episode.get("file", ""), path) for path in target_paths)
+                number_match = number in target_numbers
+                if episode_id <= 0 or not (path_match or number_match):
+                    continue
+                if number_match:
+                    existing = matches_by_number.get(number)
+                    if existing and existing != episode_id:
+                        raise KodiJsonRpcError("Multiple Kodi episode rows matched the same linked episode")
+                    matches_by_number[number] = episode_id
+                    matched_numbers.add(number)
                 if episode_id not in episode_ids:
                     episode_ids.append(episode_id)
-                if number_match:
-                    matched_numbers.add(number)
+
         if not episode_ids:
             return {"status": "already_absent", "kind": "episodes", "targets": sorted(target_numbers)}
         return {
@@ -211,7 +228,7 @@ class KodiUI:
         if int(details.get("episode", -999)) != int(getattr(selected, "episode", -998)):
             return False
         selected_show = normalise_title(getattr(selected, "tvshow_title", "") or getattr(selected, "title", ""))
-        detail_show = normalise_title(details.get("tvshowtitle", ""))
+        detail_show = normalise_title(details.get("showtitle") or details.get("tvshowtitle") or "")
         if selected_show and detail_show and selected_show != detail_show:
             return False
         selected_path = getattr(selected, "file_path", "")

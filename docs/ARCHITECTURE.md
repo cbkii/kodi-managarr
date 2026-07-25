@@ -35,6 +35,14 @@ Kodi episode unique IDs identify the episode and are not reused as parent-series
 
 This permits stable API-backend matching without path mappings, preserves season-zero specials and keeps exact fallback matching fail-closed. Unicode-aware normalisation retains accented Latin, CJK, Cyrillic and other alphanumeric scripts.
 
+## Replacement reliability
+
+Episode cleanup preflight uses Kodi's canonical `showtitle` property for `VideoLibrary.GetEpisodeDetails` and requests only `season`, `episode` and `file` when enumerating linked rows. Ordinary single-episode files do not trigger a whole-show scan; multi-episode files use a season-scoped lookup and reject contradictory or duplicate identities before any Servarr mutation.
+
+Servarr search commands are asynchronous. A valid non-failed command ID is recorded as **queued** without waiting for the full indexer search to finish. Strict terminal polling remains limited to rescans and file-record reconciliation required before a later destructive or replacement stage can proceed. Transaction state records completed and failed stages, commit state, command ID/status/result and sanitised Kodi JSON-RPC evidence. These fields distinguish a completed operation, an accepted queued search, a stopped-before-commit failure and a failure after destructive commit.
+
+An already-missing exact movie or episode enters search-only recovery. That path never repeats history failure/blocklisting, deletion or Kodi row removal. The detailed contract and Android evidence procedure are maintained in [`REPLACEMENT_RELIABILITY.md`](REPLACEMENT_RELIABILITY.md).
+
 ## Request & Search
 
 For a managed item, Managarr reuses stable Arr identity, enables monitoring where required and starts the matching search. For an unmanaged item it:
