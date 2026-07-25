@@ -23,7 +23,7 @@ ADDON_ID = ADDON.attrib["id"]
 VERSION = ADDON.attrib["version"]
 OUTPUT_DIR = ROOT / "dist"
 OUTPUT = OUTPUT_DIR / f"{ADDON_ID}-{VERSION}.zip"
-INCLUDED_ROOT_FILES = ("addon.xml", "context.py", "default.py", "subtitles.py", "LICENSE.txt")
+INCLUDED_ROOT_FILES = ("addon.xml", "context.py", "default.py", "service.py", "subtitles.py", "LICENSE.txt")
 INCLUDED_ROOT_DIRS = ("resources",)
 ALLOWED_SUFFIXES = {".py", ".xml", ".po", ".png", ".jpg", ".jpeg"}
 MIN_ZIP_EPOCH = 315532800
@@ -115,7 +115,7 @@ def _validate_archive(path):
             raise RuntimeError("Generated package failed ZIP integrity validation")
         required = {
             f"{ADDON_ID}/addon.xml", f"{ADDON_ID}/context.py", f"{ADDON_ID}/default.py",
-            f"{ADDON_ID}/subtitles.py", f"{ADDON_ID}/resources/settings.xml",
+            f"{ADDON_ID}/service.py", f"{ADDON_ID}/subtitles.py", f"{ADDON_ID}/resources/settings.xml",
             f"{ADDON_ID}/{STRINGS_PATH}",
         }
         names = set(archive.namelist())
@@ -132,6 +132,9 @@ def _validate_archive(path):
         subtitle = addon.find("extension[@point='xbmc.subtitle.module']")
         if subtitle is None or subtitle.attrib.get("library") != "subtitles.py":
             raise RuntimeError("Packaged addon.xml is missing the subtitles.py module registration")
+        service = addon.find("extension[@point='xbmc.service']")
+        if service is None or service.attrib.get("library") != "service.py":
+            raise RuntimeError("Packaged addon.xml is missing the service.py registration")
         _validate_packaged_context(archive, addon)
 
 
