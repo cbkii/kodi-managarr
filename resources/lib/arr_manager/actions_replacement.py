@@ -2,7 +2,7 @@
 """Final replacement-transaction hardening layered ahead of destructive actions."""
 
 from . import actions_destructive as destructive
-from .errors import SafetyError
+from .errors import ResolutionError, SafetyError
 from .models import TransactionState
 
 
@@ -12,9 +12,84 @@ class ReplacementReliabilityMixin:
     def _movie_replace(self, selected):
         movie = destructive.resolve_movie(selected, self.radarr, self.settings.path_mapper)
         files = self.radarr.movie_files(movie["id"])
-        if files:
-            return super()._movie_replace(selected)
+        if not files:
+            return self._recover_missing_movie(selected, movie)
+        if len(files) != 1:
+            raise ResolutionError(self._m("replace_one_file_required", files=len(files)))
 
+        file_record = files[0]
+        match = destructive.match_history(
+            self.radarr.movie_history(movie["id"], event_type=3),
+            file_record,
+        )
+        self._require_history(match, movie.get("title", "movie"))
+        backend, path = self._preflight_movie_backend(movie, file_record)
+        kodi_plan = self._plan_kodi("movie", selected)
+        try:
+            prompt = self._m(
+                "movie_replace_confirm",
+                blocklist=self._blocklist_confirmation([match]),
+                title=movie.get("title"),
+            )
+            if not self._approved(self._m("delete_replace_heading"), prompt, backend is not None):
+                return self._m("cancelled")
+            if self.settings.dry_run:
+                return self._m(
+                    "dry_movie_replace",
+                    title=movie.get("title"),
+                    blocklist=self._blocklist_summary([match]),
+                )
+
+            tx = TransactionState("movie replacement")
+            try:
+                tx.begin("release blocklist")
+                self._mark_failed(self.radarr, match)
+                tx.mark("release blocklist", committed=bool(match))
+
+                tx.begin("movie file deletion")
+                if backend is None:
+                    self.radarr.delete_movie_file(file_record["id"])
+                else:
+                    backend.delete_file(path)
+                tx.mark("movie file deletion", committed=True)
+
+                if backend:
+                    tx.begin("Radarr reconciliation")
+                    self._poll_command(
+                        self.radarr,
+                        self.radarr.rescan_movie(movie["id"]),
+                        "Radarr rescan",
+                    )
+                    self._wait_for_movie_file_removed(movie["id"], int(file_record["id"]))
+                    tx.mark("Radarr reconciliation")
+
+                tx.begin("replacement search submission")
+                command = self._queue_search(
+                    self.radarr,
+                    self.radarr.search_movie(movie["id"]),
+                    "Radarr movie search",
+                )
+                tx.record_command("Radarr movie search", command)
+                tx.mark("replacement search queued")
+
+                tx.begin("Kodi library synchronisation")
+                self._sync_kodi("movie", selected, plan=kodi_plan)
+                tx.mark("Kodi library synchronisation")
+            except Exception as exc:
+                self._record_transaction(tx, exc)
+                raise SafetyError(tx.failure_message(exc)) from exc
+            self._record_transaction(tx)
+            return self._m(
+                "movie_replace_done",
+                blocklist=self._blocklist_summary([match]),
+                title=movie.get("title"),
+            )
+        finally:
+            if backend:
+                backend.close()
+
+    def _recover_missing_movie(self, selected, movie):
+        del selected
         prompt = self._m("movie_missing_search_confirm", title=movie.get("title"))
         if not self._approved(self._m("delete_replace_heading"), prompt):
             return self._m("cancelled")
