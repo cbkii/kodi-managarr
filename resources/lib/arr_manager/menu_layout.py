@@ -14,6 +14,7 @@ MAX_RANK = 999
 RANK_PREFIX = "menu_rank_"
 FLATTEN_PREFIX = "menu_flatten_"
 LAYOUT_VERSION_SETTING = "menu_layout_version"
+MENU_ACTIONS = tuple(action for action in ACTION_REGISTRY if action["group"] in MENU_GROUPS)
 
 
 def rank_setting_id(action_id):
@@ -65,10 +66,23 @@ def derive_legacy_ranks(hidden_actions, action_order):
             else:
                 ranks[action["id"]] = next_rank
                 next_rank += 10
-    for action in ACTION_REGISTRY:
-        if action["id"] not in ranks:
-            ranks[action["id"]] = 0 if action["id"] in hidden else int(action["default_rank"])
     return ranks
+
+
+def _read_canonical_ranks(get):
+    ranks = {}
+    warnings = []
+    changed_from_defaults = False
+    for action in MENU_ACTIONS:
+        default = int(action["default_rank"])
+        raw = get(rank_setting_id(action["id"]))
+        rank, valid = _safe_int(raw, default)
+        if not valid and str(raw or "").strip():
+            warnings.append("Invalid position for %s; using %d." % (action["default_label"], default))
+        ranks[action["id"]] = rank
+        if rank != default:
+            changed_from_defaults = True
+    return ranks, warnings, changed_from_defaults
 
 
 def _shadow_order(ranks):
@@ -92,7 +106,7 @@ def _persist_shadow(addon, settings):
     if not callable(setter):
         return
     ranks = getattr(settings, "menu_ranks", {})
-    hidden = [action["id"] for action in ACTION_REGISTRY if int(ranks.get(action["id"], 0)) == 0]
+    hidden = [action["id"] for action in MENU_ACTIONS if int(ranks.get(action["id"], 0)) == 0]
     order = _shadow_order(ranks)
     setter("hidden_actions", ",".join(hidden))
     setter("action_order", ",".join(order))
@@ -101,37 +115,37 @@ def _persist_shadow(addon, settings):
 
 
 def attach_menu_layout(settings, addon):
-    """Load or migrate canonical ranks onto an existing Settings instance."""
+    """Load canonical ranks or migrate a customised legacy layout exactly once."""
     get = addon.getSetting
     version, valid_version = _safe_int(get(LAYOUT_VERSION_SETTING), 0)
     if not valid_version:
         version = 0
-    warnings = []
 
-    if version >= LAYOUT_VERSION:
-        ranks = {}
-        for action in ACTION_REGISTRY:
-            default = int(action["default_rank"])
-            raw = get(rank_setting_id(action["id"]))
-            rank, valid = _safe_int(raw, default)
-            if not valid and str(raw or "").strip():
-                warnings.append("Invalid position for %s; using %d." % (action["default_label"], default))
-            ranks[action["id"]] = rank
-    else:
-        hidden, order = _legacy_state(settings)
-        ranks = derive_legacy_ranks(hidden, order)
-
-    settings.menu_ranks = ranks
-    settings.flatten_groups = {
+    canonical_ranks, warnings, canonical_changed = _read_canonical_ranks(get)
+    flatten_groups = {
         group for group in FLATTENABLE_GROUPS
         if as_bool(get(flatten_setting_id(group)), False)
     }
+    hidden, order = _legacy_state(settings)
+    legacy_customised = bool(hidden or order)
+
+    # A direct edit in Kodi's numbered settings must win even before the first
+    # post-upgrade script launch. Otherwise migrate a real legacy customisation;
+    # fresh/default installs simply adopt the canonical settings defaults.
+    if version < LAYOUT_VERSION and legacy_customised and not canonical_changed and not flatten_groups:
+        ranks = derive_legacy_ranks(hidden, order)
+        warnings = []
+    else:
+        ranks = canonical_ranks
+
+    settings.menu_ranks = ranks
+    settings.flatten_groups = flatten_groups
     settings.menu_layout_version = LAYOUT_VERSION
     settings.menu_layout_warnings = warnings
 
     setter = getattr(addon, "setSetting", None)
     if version < LAYOUT_VERSION and callable(setter):
-        for action in ACTION_REGISTRY:
+        for action in MENU_ACTIONS:
             setter(rank_setting_id(action["id"]), str(ranks[action["id"]]))
         for group in FLATTENABLE_GROUPS:
             setter(flatten_setting_id(group), "true" if group in settings.flatten_groups else "false")
@@ -211,7 +225,7 @@ def resolve_actions(settings, group):
 
 def set_rank(addon, settings, action_id, rank):
     action = get_action_by_id(action_id)
-    if not action:
+    if not action or action["group"] not in MENU_GROUPS:
         return False
     parsed, valid = _safe_int(rank, int(action["default_rank"]))
     if not valid:
@@ -260,7 +274,7 @@ def normalise_all(addon, settings):
 
 def restore_defaults(addon, settings):
     ensure_menu_layout(settings, addon)
-    for action in ACTION_REGISTRY:
+    for action in MENU_ACTIONS:
         set_rank(addon, settings, action["id"], int(action["default_rank"]))
     for group in FLATTENABLE_GROUPS:
         set_flattened(addon, settings, group, False)
@@ -319,7 +333,7 @@ def render_preview(entrypoints, addon, settings):
         for action in sorted_group_actions(settings, group):
             lines.append("%03d  %s" % (rank_for(settings, action), _localised(entrypoints, addon, action)))
 
-    disabled = [action for action in ACTION_REGISTRY if action["group"] in MENU_GROUPS and rank_for(settings, action) == 0]
+    disabled = [action for action in MENU_ACTIONS if rank_for(settings, action) == 0]
     if disabled:
         lines.extend(["", "DISABLED", ""])
         for action in sorted(disabled, key=lambda item: (MENU_GROUPS.index(item["group"]), item["default_rank"])):
@@ -330,7 +344,7 @@ def render_preview(entrypoints, addon, settings):
 
     warnings = list(getattr(settings, "menu_layout_warnings", []) or [])
     for group, rank, actions in duplicate_ranks(settings):
-        warnings.append("Duplicate %s position %d: %s. Registry order breaks the tie." % (
+        warnings.append("Duplicate %s position %d: %s. Registry default and action ID break the tie." % (
             _group_label(entrypoints, addon, group), rank,
             ", ".join(_localised(entrypoints, addon, action) for action in actions),
         ))
