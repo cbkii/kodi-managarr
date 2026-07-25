@@ -137,6 +137,14 @@ class MenuEditorTests(unittest.TestCase):
         self.assertIn("Duplicate Main menu position 30", preview)
         self.assertIn("Registry default and action ID break the tie", preview)
 
+    def test_invalid_persisted_rank_warning_is_localised_at_render_time(self):
+        addon = Addon(menu_layout_version="1", menu_rank_status="broken")
+        settings = attach_menu_layout(Settings(), addon)
+
+        preview = render_preview(Entrypoints, addon, settings)
+
+        self.assertIn("Invalid position for Status; using 20.", preview)
+
     def test_simple_mode_preview_omits_mode_hidden_submenus(self):
         addon, settings = self.settings()
         settings.menu_mode = "0"
