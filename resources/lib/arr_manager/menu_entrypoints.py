@@ -83,7 +83,20 @@ def render_preview(entrypoints, addon, settings):
                 _localised(entrypoints, addon, action),
             ))
 
-    warnings = list(getattr(settings, "menu_layout_warnings", []) or [])
+    warnings = []
+    for warning in list(getattr(settings, "menu_layout_warnings", []) or []):
+        if isinstance(warning, tuple) and len(warning) == 3 and warning[0] == "invalid_position":
+            action = get_action_by_id(warning[1])
+            if action:
+                warnings.append(_text(
+                    entrypoints,
+                    addon,
+                    "invalid_persisted_position",
+                    action=_localised(entrypoints, addon, action),
+                    default=warning[2],
+                ))
+        elif isinstance(warning, str):
+            warnings.append(warning)
     for group, rank, actions in duplicate_ranks(settings):
         warnings.append(_text(
             entrypoints,
