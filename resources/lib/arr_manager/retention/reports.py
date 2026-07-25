@@ -4,7 +4,6 @@ import math
 import os
 import secrets
 import tempfile
-import time
 
 
 class RetentionStateStore:
@@ -17,6 +16,9 @@ class RetentionStateStore:
         self.report_file = os.path.join(self.profile, "retention-last-report.json")
         self.lock_file = os.path.join(self.profile, "retention.lock")
         self.lock_token = None
+        self.lock_fd = None
+        self.lock_backend = None
+        self.lock_identity = None
 
     @staticmethod
     def _read(path):
@@ -115,75 +117,116 @@ class RetentionStateStore:
             raise ValueError("Retention report schema is invalid")
         self._write(self.report_file, payload)
 
-    def _lock_snapshot(self):
+    @staticmethod
+    def _acquire_os_lock(descriptor):
         try:
-            stat_result = os.stat(self.lock_file)
-            with open(self.lock_file, "r", encoding="utf-8") as handle:
-                token = handle.read(256).strip()
-            return token, stat_result.st_mtime_ns, stat_result.st_mtime
-        except (OSError, UnicodeError):
+            import fcntl
+        except ImportError:
+            import msvcrt
+
+            os.lseek(descriptor, 0, os.SEEK_SET)
+            try:
+                msvcrt.locking(descriptor, msvcrt.LK_NBLCK, 1)
+            except OSError:
+                return None
+            return "msvcrt"
+        try:
+            fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
             return None
+        return "fcntl"
+
+    @staticmethod
+    def _release_os_lock(descriptor, backend):
+        try:
+            if backend == "fcntl":
+                import fcntl
+
+                fcntl.flock(descriptor, fcntl.LOCK_UN)
+            elif backend == "msvcrt":
+                import msvcrt
+
+                os.lseek(descriptor, 0, os.SEEK_SET)
+                msvcrt.locking(descriptor, msvcrt.LK_UNLCK, 1)
+        except OSError:
+            pass
+
+    @staticmethod
+    def _identity(stat_result):
+        return stat_result.st_dev, stat_result.st_ino
 
     def acquire_lock(self, stale_after=1800):
-        if self.lock_token:
+        del stale_after  # Kernel locks are released after process death; no stale stealing is needed.
+        if self.lock_fd is not None:
             return False
-        token = secrets.token_hex(16)
-        for _attempt in range(2):
-            try:
-                descriptor = os.open(self.lock_file, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
-            except FileExistsError:
-                snapshot = self._lock_snapshot()
-                if snapshot is None or time.time() - snapshot[2] <= stale_after:
-                    return False
-                confirmation = self._lock_snapshot()
-                if confirmation is None or confirmation[:2] != snapshot[:2]:
-                    return False
-                try:
-                    os.remove(self.lock_file)
-                except OSError:
-                    return False
-                continue
-            except OSError:
+        descriptor = None
+        backend = None
+        try:
+            descriptor = os.open(self.lock_file, os.O_CREAT | os.O_RDWR, 0o600)
+            if os.fstat(descriptor).st_size < 1:
+                os.write(descriptor, b"\0")
+                os.fsync(descriptor)
+            backend = self._acquire_os_lock(descriptor)
+            if backend is None:
+                os.close(descriptor)
                 return False
-            try:
-                with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
-                    handle.write(token)
-                    handle.flush()
-                    os.fsync(handle.fileno())
-            except Exception:
+            descriptor_stat = os.fstat(descriptor)
+            path_stat = os.stat(self.lock_file)
+            if self._identity(descriptor_stat) != self._identity(path_stat):
+                self._release_os_lock(descriptor, backend)
+                os.close(descriptor)
+                return False
+            token = secrets.token_hex(16)
+            os.lseek(descriptor, 0, os.SEEK_SET)
+            os.ftruncate(descriptor, 0)
+            os.write(descriptor, token.encode("ascii"))
+            os.fsync(descriptor)
+            self.lock_token = token
+            self.lock_fd = descriptor
+            self.lock_backend = backend
+            self.lock_identity = self._identity(descriptor_stat)
+            return True
+        except OSError:
+            if descriptor is not None:
+                if backend is not None:
+                    self._release_os_lock(descriptor, backend)
                 try:
-                    os.remove(self.lock_file)
+                    os.close(descriptor)
                 except OSError:
                     pass
-                raise
-            self.lock_token = token
-            return True
-        return False
+            return False
 
     def refresh_lock(self):
-        if not self.lock_token:
-            return False
-        snapshot = self._lock_snapshot()
-        if snapshot is None or snapshot[0] != self.lock_token:
-            self.lock_token = None
+        if self.lock_fd is None or not self.lock_token or self.lock_identity is None:
             return False
         try:
+            descriptor_stat = os.fstat(self.lock_fd)
+            path_stat = os.stat(self.lock_file)
+            if self._identity(descriptor_stat) != self.lock_identity:
+                return False
+            if self._identity(path_stat) != self.lock_identity:
+                return False
+            os.lseek(self.lock_fd, 0, os.SEEK_SET)
+            token = os.read(self.lock_fd, 256).decode("ascii", "strict")
+            if token != self.lock_token:
+                return False
             os.utime(self.lock_file, None)
-        except OSError:
+            os.fsync(self.lock_fd)
+            return True
+        except (OSError, UnicodeError):
             return False
-        return True
 
     def release_lock(self):
-        token = self.lock_token
+        descriptor = self.lock_fd
+        backend = self.lock_backend
         self.lock_token = None
-        if not token:
+        self.lock_fd = None
+        self.lock_backend = None
+        self.lock_identity = None
+        if descriptor is None:
             return
-        snapshot = self._lock_snapshot()
-        if snapshot is None or snapshot[0] != token:
-            return
+        self._release_os_lock(descriptor, backend)
         try:
-            os.remove(self.lock_file)
-        except FileNotFoundError:
-            pass
+            os.close(descriptor)
         except OSError:
             pass
