@@ -1,5 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Fail-closed normalisation for persisted replacement transaction evidence."""
+"""Fail-closed diagnostics normalisation and optional Bazarr evidence."""
+
+import json
+import os
 
 
 def normalise_transaction_candidate(candidate):
@@ -23,8 +26,60 @@ def normalise_transaction_candidate(candidate):
     return output
 
 
+def bazarr_diagnostics(settings, logger, client_class):
+    """Return bounded read-only Bazarr health evidence without endpoint or credential data."""
+    cfg = settings.bazarr
+    output = {
+        "enabled": bool(cfg.enabled),
+        "configured": bool(cfg.url and cfg.api_key),
+        "languageCount": len(settings.bazarr_languages),
+        "version": "",
+        "lastOperation": "",
+        "lastCategory": "not_run",
+        "lastHttpStatus": None,
+    }
+    if not output["enabled"] or not output["configured"]:
+        return output
+    client = client_class(cfg.url, cfg.api_key, cfg.timeout, cfg.verify_tls, logger, cfg.user_agent)
+    try:
+        status = client.status()
+        output["version"] = str(status.get("bazarr_version") or status.get("version") or "")[:80]
+        output["availableLanguageCount"] = len(client.languages())
+    except Exception as exc:
+        output["lastOperation"] = str(getattr(exc, "operation", client.last_operation) or "request")[:80]
+        output["lastCategory"] = str(getattr(exc, "category", client.last_category) or "api")[:40]
+        status = getattr(exc, "status", client.last_status)
+        output["lastHttpStatus"] = status if isinstance(status, int) else None
+        return output
+    output["lastOperation"] = str(client.last_operation or "languages")[:80]
+    output["lastCategory"] = str(client.last_category or "success")[:40]
+    output["lastHttpStatus"] = client.last_status if isinstance(client.last_status, int) else None
+    return output
+
+
+def _augment_bazarr_file(addon, settings, logger, client_class):
+    try:
+        import xbmcvfs
+        profile = xbmcvfs.translatePath(addon.getAddonInfo("profile"))
+        path = os.path.join(profile, "diagnostics.json")
+        with open(path, encoding="utf-8") as handle:
+            payload = json.load(handle)
+        if not isinstance(payload, dict):
+            return
+        payload["bazarr"] = bazarr_diagnostics(settings, logger, client_class)
+        temporary = path + ".tmp"
+        with open(temporary, "w", encoding="utf-8") as handle:
+            json.dump(payload, handle, indent=2, sort_keys=True)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+    except (OSError, ValueError) as exc:
+        if logger:
+            logger.warning("Could not add non-secret Bazarr diagnostics: %s", type(exc).__name__)
+
+
 def install(entrypoints_module):
-    """Wrap the diagnostics reader before ``run_script`` can dispatch diagnostics."""
+    """Wrap diagnostics before ``run_script`` can dispatch it."""
     if getattr(entrypoints_module, "_transaction_normalisation_installed", False):
         return
     original = entrypoints_module._write_diagnostics
@@ -37,9 +92,11 @@ def install(entrypoints_module):
 
         entrypoints_module.json.load = safe_load
         try:
-            return original(addon, settings, logger)
+            result = original(addon, settings, logger)
         finally:
             entrypoints_module.json.load = original_load
+        _augment_bazarr_file(addon, settings, logger, entrypoints_module.BazarrClient)
+        return result
 
     entrypoints_module._write_diagnostics = hardened_write_diagnostics
     entrypoints_module._transaction_normalisation_installed = True
