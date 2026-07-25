@@ -134,6 +134,26 @@ class RetentionPolicyTests(unittest.TestCase):
         self.assertFalse(policy.evaluate(movie(rating=None)).eligible)
         self.assertTrue(policy.evaluate(movie(rating=7.0)).eligible)
 
+    def test_missing_added_date_fails_closed(self):
+        result = self.policy().evaluate(movie(date_added=None))
+        self.assertFalse(result.eligible)
+        self.assertIn("added_age_missing_date", result.failed_rules)
+
+    def test_missing_last_played_date_fails_closed_for_watched_media(self):
+        result = self.policy().evaluate(movie(watched=True, last_played=None))
+        self.assertFalse(result.eligible)
+        self.assertIn("watched_age_missing_date", result.failed_rules)
+
+    def test_future_added_date_fails_closed(self):
+        result = self.policy().evaluate(movie(date_added=self.NOW + 86400))
+        self.assertFalse(result.eligible)
+        self.assertIn("added_age_future_date", result.failed_rules)
+
+    def test_future_last_played_date_fails_closed(self):
+        result = self.policy().evaluate(movie(last_played=self.NOW + 86400))
+        self.assertFalse(result.eligible)
+        self.assertIn("watched_age_future_date", result.failed_rules)
+
     def test_explicit_movie_episode_series_and_season_exclusions_win(self):
         cases = [
             ("movie:10", movie()),
