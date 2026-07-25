@@ -27,9 +27,17 @@ class RegistryTests(unittest.TestCase):
                 if action["destructive"]:
                     self.assertTrue(action["mutating"])
 
-    def test_destructive_pin_scope_is_media_deletion_only(self):
+    def test_destructive_pin_scope_covers_real_media_deletion_and_automation(self):
         destructive = {action["id"] for action in ACTION_REGISTRY if action["destructive"]}
-        self.assertEqual(destructive, {"delete_exclude", "delete_replace"})
+        self.assertEqual(destructive, {
+            "delete_exclude",
+            "delete_replace",
+            "retention_cleanup",
+            "retention_enable_periodic",
+        })
+        self.assertFalse(get_action_by_id("retention_preview")["destructive"])
+        self.assertFalse(get_action_by_id("retention_report")["destructive"])
+        self.assertFalse(get_action_by_id("retention_disable_periodic")["destructive"])
         self.assertFalse(get_action_by_id("queue_remove")["destructive"])
         self.assertFalse(get_action_by_id("request_search")["destructive"])
         self.assertFalse(get_action_by_id("interactive_search")["destructive"])
@@ -45,6 +53,8 @@ class RegistryTests(unittest.TestCase):
         for action_id in (
             "request_search", "interactive_search", "dashboard", "find_subtitles",
             "configure_request_defaults", "configure_subtitle_languages",
+            "retention_preview", "retention_cleanup", "retention_report",
+            "retention_enable_periodic", "retention_disable_periodic",
         ):
             action = get_action_by_id(action_id)
             self.assertIsNotNone(action)
@@ -52,6 +62,8 @@ class RegistryTests(unittest.TestCase):
         self.assertTrue(get_action_by_id("request_search")["requires_selection"])
         self.assertFalse(get_action_by_id("dashboard")["requires_selection"])
         self.assertFalse(get_action_by_id("find_subtitles")["requires_selection"])
+        self.assertFalse(get_action_by_id("retention_cleanup")["requires_selection"])
+        self.assertFalse(get_action_by_id("retention_enable_periodic")["requires_selection"])
 
     def test_lookup_by_id_and_mode(self):
         status = get_action_by_id("status")
