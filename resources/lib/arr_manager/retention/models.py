@@ -41,3 +41,4 @@ class RetentionReportItem:
     reason: str
     action_taken: str
     error_message: str = ""
+    committed: bool = False

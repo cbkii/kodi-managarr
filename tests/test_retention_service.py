@@ -1,11 +1,13 @@
 import os
 import sys
+import time
 import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "resources", "lib"))
 
 from arr_manager.retention.auth import pin_generation
+from arr_manager.retention.config import RetentionSettings
 from arr_manager.retention.models import RetentionCandidate, RetentionEligibility, RetentionReportItem
 from arr_manager.retention.service import RetentionService
 
@@ -28,6 +30,20 @@ def episode(db_id, season, episode_number, file_id=500, linked_episode_count=1):
     )
 
 
+def movie(db_id, arr_id=60, file_id=600):
+    return RetentionCandidate(
+        media_type="movie",
+        db_id=db_id,
+        arr_id=arr_id,
+        file_id=file_id,
+        title="Movie",
+        display_name=f"Movie {db_id}",
+        watched=True,
+        last_played=1,
+        date_added=1,
+    )
+
+
 class Settings:
     pin_invalid = False
     pin_enabled = False
@@ -36,8 +52,36 @@ class Settings:
 
 
 class Addon:
+    def __init__(self, **values):
+        self.values = {
+            "retention_enabled": "true",
+            "retention_include_movies": "true",
+            "retention_include_episodes": "true",
+            "retention_watched_only": "true",
+            "retention_use_added_age": "true",
+            "retention_added_age_days": "30",
+            "retention_use_watched_age": "true",
+            "retention_watched_age_days": "30",
+            "retention_criteria_mode": "all",
+            "retention_movie_rating_threshold": "0",
+            "retention_exclusions": "",
+            "retention_manual_dry_run": "true",
+            "retention_periodic_enabled": "true",
+            "retention_interval_hours": "24",
+            "retention_max_deletions": "5",
+            "retention_background_dry_run": "true",
+            "retention_notification_mode": "errors_only",
+        }
+        self.values.update(values)
+
     def getLocalizedString(self, _string_id):
         return ""
+
+    def getSetting(self, key):
+        return self.values.get(key, "")
+
+    def setSetting(self, key, value):
+        self.values[key] = value
 
 
 class Progress:
@@ -60,13 +104,70 @@ class UI:
 
     def __init__(self):
         self.progress_dialog = Progress()
+        self.notifications = []
 
     def progress(self, _heading, _message):
         return self.progress_dialog
 
+    def notification(self, message, **kwargs):
+        self.notifications.append((message, kwargs))
+
+
+class Logger:
+    def error(self, *args):
+        pass
+
+    def exception(self, *args):
+        pass
+
+
+class Store:
+    def __init__(self, fail_state_on_call=None, fail_report=False):
+        self.fail_state_on_call = fail_state_on_call
+        self.fail_report = fail_report
+        self.lock_token = None
+        self.saved = []
+        self.reports = []
+        self.released = False
+        self.refreshes = 0
+        self.state_save_calls = 0
+
+    def load_state(self):
+        return {"auth_generation": "none", "next_due": 0.0}
+
+    def acquire_lock(self):
+        self.lock_token = "owner"
+        return True
+
+    def refresh_lock(self):
+        self.refreshes += 1
+        return True
+
+    def save_state(self, generation, next_due):
+        self.state_save_calls += 1
+        self.saved.append((generation, next_due))
+        if self.fail_state_on_call == self.state_save_calls:
+            raise OSError("storage unavailable")
+
+    def save_report(self, report):
+        self.reports.append(report)
+        if self.fail_report:
+            raise OSError("report storage unavailable")
+
+    def release_lock(self):
+        self.released = True
+        self.lock_token = None
+
 
 class Executor:
+    def __init__(self, results=None):
+        self.calls = []
+        self.results = list(results or [])
+
     def execute(self, candidate, dry_run):
+        self.calls.append((candidate, dry_run))
+        if self.results:
+            return self.results.pop(0)
         return RetentionReportItem(
             candidate.media_type,
             candidate.display_name,
@@ -74,6 +175,7 @@ class Executor:
             True,
             "Criteria met",
             "dry_run" if dry_run else "deleted",
+            committed=not dry_run,
         )
 
 
@@ -97,7 +199,19 @@ class RetentionServiceTests(unittest.TestCase):
         ]
         protected = RetentionService._protect_shared_files(evaluated)
         self.assertFalse(protected[0][1].eligible)
-        self.assertEqual(protected[0][1].reason, "Shared episode file is missing linked Kodi episodes")
+        self.assertEqual(
+            protected[0][1].reason,
+            "Shared episode file has missing or duplicate Kodi episode identities",
+        )
+
+    def test_duplicate_episode_identity_cannot_satisfy_shared_file_count(self):
+        evaluated = [
+            (episode(1, 1, 1, linked_episode_count=2), RetentionEligibility(True, "Criteria met")),
+            (episode(2, 1, 1, linked_episode_count=2), RetentionEligibility(True, "Criteria met")),
+        ]
+        protected = RetentionService._protect_shared_files(evaluated)
+        self.assertFalse(protected[0][1].eligible)
+        self.assertFalse(protected[1][1].eligible)
 
     def test_distinct_episode_files_are_evaluated_independently(self):
         evaluated = [
@@ -107,6 +221,35 @@ class RetentionServiceTests(unittest.TestCase):
         protected = RetentionService._protect_shared_files(evaluated)
         self.assertTrue(protected[0][1].eligible)
         self.assertFalse(protected[1][1].eligible)
+
+    def test_duplicate_movie_rows_protect_the_physical_radarr_target(self):
+        evaluated = [
+            (movie(1), RetentionEligibility(True, "Criteria met")),
+            (movie(2), RetentionEligibility(True, "Criteria met")),
+        ]
+        protected = RetentionService._protect_duplicate_movies(evaluated)
+        self.assertFalse(protected[0][1].eligible)
+        self.assertFalse(protected[1][1].eligible)
+
+    def test_mixed_policy_duplicate_movie_rows_protect_the_target(self):
+        evaluated = [
+            (movie(1), RetentionEligibility(True, "Criteria met")),
+            (movie(2), RetentionEligibility(False, "Explicit movie exclusion")),
+        ]
+        protected = RetentionService._protect_duplicate_movies(evaluated)
+        self.assertFalse(protected[0][1].eligible)
+        self.assertFalse(protected[1][1].eligible)
+
+    def test_invalid_target_ids_are_explicitly_protected(self):
+        evaluated = [
+            (movie(1, arr_id=0), RetentionEligibility(True, "Criteria met")),
+            (episode(2, 1, 1, file_id=None), RetentionEligibility(True, "Criteria met")),
+        ]
+        protected = RetentionService._protect_invalid_identifiers(evaluated)
+        self.assertFalse(protected[0][1].eligible)
+        self.assertFalse(protected[1][1].eligible)
+        self.assertIn("invalid_target_id", protected[0][1].failed_rules)
+        self.assertIn("invalid_target_id", protected[1][1].failed_rules)
 
     def test_missing_file_id_is_never_an_eligible_deletion_target(self):
         evaluated = [
@@ -120,6 +263,7 @@ class RetentionServiceTests(unittest.TestCase):
         service = object.__new__(RetentionService)
         service.addon = Addon()
         service.ui = UI()
+        service.store = Store()
         summary = service._run_pass(
             [episode(1, 1, 1), episode(2, 1, 2, file_id=501)],
             Executor(),
@@ -129,6 +273,90 @@ class RetentionServiceTests(unittest.TestCase):
         self.assertEqual(service.ui.progress_dialog.updates[-1][0], 100)
         self.assertTrue(service.ui.progress_dialog.closed)
         self.assertEqual(summary["planned"], 2)
+
+    def test_disable_check_stops_between_deletions(self):
+        service = object.__new__(RetentionService)
+        service.addon = Addon()
+        service.ui = UI()
+        service.store = Store()
+        executor = Executor()
+        checks = iter((True, False))
+        summary = service._run_pass(
+            [episode(1, 1, 1), episode(2, 1, 2, file_id=501)],
+            executor,
+            dry_run=False,
+            interactive=False,
+            continue_check=lambda: next(checks),
+            refresh_lock=True,
+        )
+        self.assertEqual(len(executor.calls), 1)
+        self.assertEqual(summary["deleted"], 1)
+        self.assertEqual(summary["skipped"], 1)
+        self.assertEqual(service.store.refreshes, 1)
+
+    def test_committed_deletion_with_sync_error_counts_as_deleted_and_failed(self):
+        service = object.__new__(RetentionService)
+        service.addon = Addon()
+        service.ui = UI()
+        service.store = Store()
+        result = RetentionReportItem(
+            "movie",
+            "Movie",
+            1,
+            True,
+            "Criteria met",
+            "deleted_with_error",
+            "Kodi reconciliation failed",
+            committed=True,
+        )
+        summary = service._run_pass(
+            [movie(1)],
+            Executor([result]),
+            dry_run=False,
+            interactive=False,
+        )
+        self.assertEqual(summary["deleted"], 1)
+        self.assertEqual(summary["failed"], 1)
+
+    def test_periodic_storage_failure_aborts_before_enumeration_and_disables_schedule(self):
+        service = object.__new__(RetentionService)
+        addon = Addon(retention_periodic_enabled="true")
+        service.addon = addon
+        service.ui = UI()
+        service.logger = Logger()
+        service.store = Store(fail_state_on_call=1)
+        service.manager = type("Manager", (), {"settings": Settings()})()
+        settings = RetentionSettings(addon).validate()
+        service._components = lambda: (settings, object(), object(), Executor())
+        service._evaluate = lambda *_args: self.fail("enumeration must not begin")
+        self.assertIsNone(service.run_background())
+        self.assertEqual(addon.getSetting("retention_periodic_enabled"), "false")
+        self.assertTrue(service.store.released)
+
+    def test_periodic_report_failure_after_commit_suspends_schedule_and_saves_hold(self):
+        service = object.__new__(RetentionService)
+        addon = Addon(
+            retention_periodic_enabled="true",
+            retention_background_dry_run="false",
+        )
+        service.addon = addon
+        service.ui = UI()
+        service.logger = Logger()
+        service.store = Store(fail_report=True)
+        service.manager = type("Manager", (), {"settings": Settings()})()
+        settings = RetentionSettings(addon).validate()
+        executor = Executor()
+        service._components = lambda: (settings, object(), object(), executor)
+        service._evaluate = lambda *_args: [
+            (movie(1), RetentionEligibility(True, "Criteria met")),
+        ]
+        before = time.time()
+        self.assertIsNone(service.run_background())
+        self.assertEqual(len(executor.calls), 1)
+        self.assertEqual(addon.getSetting("retention_periodic_enabled"), "false")
+        self.assertGreaterEqual(len(service.store.saved), 2)
+        self.assertGreater(service.store.saved[-1][1], before + 300 * 24 * 3600)
+        self.assertTrue(service.store.released)
 
     def test_pin_generation_changes_with_pin_material(self):
         settings = Settings()

@@ -107,6 +107,43 @@ class RetentionConfigurationTests(unittest.TestCase):
                 retention_use_watched_age="false",
             )).validate()
 
+    def test_malformed_protective_booleans_fail_closed(self):
+        for setting_name in (
+            "retention_watched_only",
+            "retention_use_added_age",
+            "retention_use_watched_age",
+            "retention_manual_dry_run",
+            "retention_background_dry_run",
+        ):
+            with self.subTest(setting=setting_name):
+                with self.assertRaises(ConfigurationError):
+                    RetentionSettings(Addon(**{setting_name: "definitely"}))
+
+    def test_invalid_numeric_settings_fail_closed(self):
+        cases = {
+            "retention_added_age_days": ("unknown", "-1", "10000"),
+            "retention_watched_age_days": ("unknown", "-1", "10000"),
+            "retention_interval_hours": ("unknown", "0", "721"),
+            "retention_max_deletions": ("unknown", "0", "101"),
+        }
+        for setting_name, values in cases.items():
+            for value in values:
+                with self.subTest(setting=setting_name, value=value):
+                    with self.assertRaises(ConfigurationError):
+                        RetentionSettings(Addon(**{setting_name: value}))
+
+    def test_invalid_rating_thresholds_fail_closed(self):
+        for value in ("unknown", "-1", "11", "nan", "inf", "-inf"):
+            with self.subTest(value=value):
+                with self.assertRaises(ConfigurationError):
+                    RetentionSettings(Addon(retention_movie_rating_threshold=value))
+
+    def test_invalid_choice_settings_fail_closed(self):
+        with self.assertRaises(ConfigurationError):
+            RetentionSettings(Addon(retention_criteria_mode="sometimes"))
+        with self.assertRaises(ConfigurationError):
+            RetentionSettings(Addon(retention_notification_mode="loudly"))
+
 
 class RetentionPolicyTests(unittest.TestCase):
     NOW = 200 * 86400
