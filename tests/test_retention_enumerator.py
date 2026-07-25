@@ -108,7 +108,7 @@ class RetentionEnumeratorTests(unittest.TestCase):
         with self.assertRaises(SafetyError):
             enumerator._paged("Library.Get", "rows", [], lambda row: row)
 
-    def test_malformed_nonempty_date_skips_candidate(self):
+    def test_malformed_nonempty_kodi_date_skips_candidate(self):
         kodi = PagedKodi([{"rows": [{"date": "not-a-date"}]}])
         enumerator = RetentionEnumerator(kodi, object(), None, Logger())
         result = enumerator._paged(
@@ -118,6 +118,11 @@ class RetentionEnumeratorTests(unittest.TestCase):
             lambda row: enumerator._parse_kodi_date(row["date"]),
         )
         self.assertEqual(result, [])
+
+    def test_malformed_nonempty_arr_date_fails_closed(self):
+        enumerator = RetentionEnumerator(object(), object(), None)
+        with self.assertRaises(SafetyError):
+            enumerator._parse_arr_date("not-an-arr-date")
 
     def test_episode_enumeration_reuses_one_sonarr_snapshot_per_series(self):
         kodi = SeriesKodi()
