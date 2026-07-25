@@ -11,56 +11,6 @@ env:
   PYTHONDONTWRITEBYTECODE: "1"
 
 jobs:
-  apply-pr25-final-payload:
-    if: github.event_name == 'pull_request' && github.head_ref == 'fix/episode-replacement-reliability'
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: write
-    steps:
-      - name: Check out the writable PR branch
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: fix/episode-replacement-reliability
-          fetch-depth: 0
-          persist-credentials: true
-      - name: Concatenate encoded payload
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -f .automation/pr25/payload-00
-          cat .automation/pr25/payload-* > /tmp/pr25-final.b64
-          test -s /tmp/pr25-final.b64
-      - name: Decode payload
-        shell: bash
-        run: base64 --decode /tmp/pr25-final.b64 > /tmp/pr25-final.tar.gz
-      - name: Verify gzip payload
-        shell: bash
-        run: gzip -t /tmp/pr25-final.tar.gz
-      - name: Verify archive members
-        shell: bash
-        run: tar -tzf /tmp/pr25-final.tar.gz
-      - name: Extract reviewed final payload
-        shell: bash
-        run: |
-          set -euo pipefail
-          tar -xzf /tmp/pr25-final.tar.gz -C .
-          rm -rf .automation/pr25
-          rmdir .automation 2>/dev/null || true
-      - name: Compile applied Python
-        shell: bash
-        run: python3 -m compileall -q resources/lib tests
-      - name: Commit applied product changes
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -A
-          git commit -m 'fix(replacement): close recovery and preflight edge cases'
-      - name: Push applied product changes
-        shell: bash
-        run: git push origin HEAD:fix/episode-replacement-reliability
-
   actionlint:
     runs-on: ubuntu-latest
     steps:
