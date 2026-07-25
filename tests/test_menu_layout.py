@@ -98,10 +98,11 @@ class MenuLayoutTests(unittest.TestCase):
         menu_action_ids = {
             action["id"] for action in ACTION_REGISTRY if action["group"] in MENU_GROUPS
         }
+        prefix = "menu_rank_"
         persisted_rank_ids = {
-            key.removeprefix("menu_rank_")
+            key[len(prefix):]
             for key in addon.values
-            if key.startswith("menu_rank_")
+            if key.startswith(prefix)
         }
         self.assertTrue(persisted_rank_ids.issubset(menu_action_ids))
 
