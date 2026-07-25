@@ -99,7 +99,10 @@ class BazarrClient:
         self.last_category = ""
         self.last_status = None
         try:
-            response = self.http.request(method, path, params=params)
+            if params is None:
+                response = self.http.request(method, path)
+            else:
+                response = self.http.request(method, path, params=params)
         except ApiError as exc:
             category = _category(exc)
             self.last_category = category
