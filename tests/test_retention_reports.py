@@ -52,6 +52,35 @@ class RetentionStateStoreTests(unittest.TestCase):
             self.assertEqual(store.load_report(), report)
             self.assertFalse(any(name.endswith(".tmp") for name in os.listdir(directory)))
 
+    def test_report_is_bounded_to_100_results_and_2000_characters(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = make_store(directory)
+            long_text = "x" * 2500
+            report = {
+                "run_type": "manual",
+                "dry_run": True,
+                "timestamp": 200.0,
+                "deleted": 0,
+                "planned": 105,
+                "failed": 0,
+                "skipped": 0,
+                "results": [
+                    {
+                        "name": long_text,
+                        "action": long_text,
+                        "reason": long_text,
+                        "error": long_text,
+                    }
+                    for _index in range(105)
+                ],
+            }
+            store.save_report(report)
+            loaded = store.load_report()
+            self.assertEqual(len(loaded["results"]), 100)
+            for result in loaded["results"]:
+                for field in ("name", "action", "reason", "error"):
+                    self.assertEqual(len(result[field]), 2000)
+
     def test_malformed_state_and_report_are_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
             store = make_store(directory)
