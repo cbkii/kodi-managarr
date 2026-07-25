@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<addon id="context.arr.manager" name="Kodi Managarr" version="1.3.0" provider-name="CB">
+<addon id="context.arr.manager" name="Kodi Managarr" version="1.3.3" provider-name="CB">
   <requires>
     <import addon="xbmc.python" version="3.0.0" />
   </requires>
@@ -20,7 +20,7 @@
     <license>GPL-3.0-or-later</license>
     <source>https://github.com/cbkii/kodi-managarr</source>
     <website>https://github.com/cbkii/kodi-managarr</website>
-    <news>v1.3.0 - Add opt-in watched and age-aware retention with strict fail-closed persistence and targeted Kodi synchronisation. Harden episode-tile Delete &amp; Replace with Kodi-valid identity, accepted asynchronous searches, safe missing-file recovery and sanitised transaction diagnostics.</news>
+    <news>v1.3.3 - Complete the replacement-reliability and Bazarr subtitle hardening line. Protect provider bootstrap and directory completion, use canonical Kodi episode identity, classify Bazarr API failures without secrets, preserve forced/HI flags, enforce single-use tokens, and return only Kodi-accessible mapped or sidecar subtitle paths on Android.</news>
     <assets>
       <icon>resources/icon.png</icon>
       <fanart>resources/fanart.jpg</fanart>

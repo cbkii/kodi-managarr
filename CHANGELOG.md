@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.3.3 — 2026-07-26
+
+- Rebuilt episode replacement reliability on the hardened retention base and corrected Kodi episode identity, asynchronous Servarr search acceptance, missing-file recovery and sanitised transaction evidence.
+- Protected the Kodi subtitle-provider bootstrap so malformed invocation, import, search and download failures always close the subtitle directory cleanly.
+- Aligned Bazarr movie and episode provider search/download requests with the authenticated `/api/providers/*` contract and added explicit unsupported-contract handling.
+- Classified Bazarr authentication, permission, validation, connection, TLS, timeout, server and malformed-response failures without exposing URLs, API keys, payloads or private paths.
+- Preserved forced, hearing-impaired and original-format flags with strict boolean parsing, bounded results to three configured languages, and preferred canonical Kodi `showtitle` episode identity.
+- Enforced single-use subtitle result tokens, current-playback revalidation and Android-accessible delivery through verified Kodi paths, explicit mappings or newly visible SMB sidecars.
+- Added read-only bounded Bazarr diagnostics, Kodi 21 empty-setting schema coverage and focused provider/delivery regression tests.
+
 ## 1.3.0 — 2026-07-25
 
 - Added opt-in watched and age-aware retention previews, manual cleanup, bounded reports and optional periodic automation.
