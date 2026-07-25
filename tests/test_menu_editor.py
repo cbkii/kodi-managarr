@@ -5,10 +5,11 @@ import unittest
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "resources", "lib"))
 
-from arr_manager.menu_layout import (
+from arr_manager.menu_entrypoints import (
     _edit_flattening, _edit_group_order, _edit_numeric, _edit_visibility,
-    attach_menu_layout, rank_for, render_preview,
+    render_preview,
 )
+from arr_manager.menu_layout import attach_menu_layout, rank_for
 from arr_manager.registry import get_action_by_id
 
 
@@ -135,6 +136,16 @@ class MenuEditorTests(unittest.TestCase):
         self.assertIn("050/010  Monitoring › Monitor", preview)
         self.assertIn("Duplicate Main menu position 30", preview)
         self.assertIn("Registry default and action ID break the tie", preview)
+
+    def test_simple_mode_preview_omits_mode_hidden_submenus(self):
+        addon, settings = self.settings()
+        settings.menu_mode = "0"
+
+        preview = render_preview(Entrypoints, addon, settings)
+
+        self.assertNotIn("\nMONITORING\n", preview)
+        self.assertNotIn("\nDOWNLOAD QUEUE\n", preview)
+        self.assertNotIn("\nRETENTION\n", preview)
 
 
 if __name__ == "__main__":
