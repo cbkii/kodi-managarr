@@ -8,6 +8,7 @@ from .bazarr_client import BazarrClient
 from .clients import ProwlarrClient, RadarrClient, SonarrClient
 from .errors import ResolutionError
 from .messages import message
+from .replacement_messages import replacement_message
 from .retention import RetentionService
 
 
@@ -22,15 +23,10 @@ class ArrManager(ReplacementReliabilityMixin, InteractiveMixin, ManagementMixin,
         self._bazarr = None
 
     def _m(self, key, **values):
-        queued_aliases = {
-            "search_movie_done": "search_movie_queued",
-            "search_series_done": "search_series_queued",
-            "search_episode_done": "search_episode_queued",
-            "movie_replace_done": "movie_replace_queued",
-            "episode_replace_done": "episode_replace_queued",
-            "series_replace_done": "series_replace_queued",
-        }
-        return message(self.ui, queued_aliases.get(key, key), **values)
+        replacement = replacement_message(key, values)
+        if replacement is not None:
+            return replacement
+        return message(self.ui, key, **values)
 
     @property
     def radarr(self):
