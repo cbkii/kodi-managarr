@@ -79,7 +79,7 @@ class RetentionService:
         result = []
         seen = set()
         for candidate, eligibility in evaluated:
-            if not eligibility.eligible:
+            if not eligibility.eligible or not candidate.file_id:
                 continue
             key = (
                 ("movie", candidate.db_id)
@@ -239,7 +239,7 @@ class RetentionService:
                     break
                 if progress is not None:
                     progress.update(
-                        int(index / max(len(candidates), 1) * 100),
+                        int((index + 1) / max(len(candidates), 1) * 100),
                         self._m("retention_processing", name=candidate.display_name),
                     )
                 results.append(executor.execute(candidate, dry_run=dry_run))
