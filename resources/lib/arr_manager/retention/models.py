@@ -21,6 +21,7 @@ class RetentionCandidate:
     tvshow_db_id: int = 0
     series_title: str = ""
     rating: Optional[float] = None
+    linked_episode_count: int = 1
 
 
 @dataclass
