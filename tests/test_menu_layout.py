@@ -161,6 +161,24 @@ class MenuLayoutTests(unittest.TestCase):
         self.assertEqual(enabled_root, sorted(enabled_root))
         self.assertTrue(all(rank % 10 == 0 for rank in enabled_root))
 
+    def test_normalise_in_simple_mode_includes_advanced_only_actions(self):
+        addon = Addon(menu_layout_version="1")
+        settings = attach_menu_layout(Settings(), addon)
+        settings.menu_mode = "0"
+        set_rank(addon, settings, "interactive_search", 5)
+        set_rank(addon, settings, "monitoring", 6)
+        set_rank(addon, settings, "queue", 7)
+
+        normalise_all(addon, settings)
+
+        self.assertEqual(settings.menu_ranks["interactive_search"], 10)
+        self.assertEqual(settings.menu_ranks["monitoring"], 20)
+        self.assertEqual(settings.menu_ranks["queue"], 30)
+        settings.menu_mode = "1"
+        advanced_ids = [action["id"] for action in resolve_actions(settings, "root")]
+        self.assertLess(advanced_ids.index("interactive_search"), advanced_ids.index("monitoring"))
+        self.assertLess(advanced_ids.index("monitoring"), advanced_ids.index("queue"))
+
     def test_restore_defaults_resets_only_layout_state(self):
         addon = Addon(menu_layout_version="1", radarr_url="http://radarr")
         settings = attach_menu_layout(Settings(), addon)
