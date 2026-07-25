@@ -57,28 +57,28 @@
         <setting id="request_sonarr_profile" type="integer" label="33304" help="33324"><level>4</level><default>0</default></setting>
       </group>
     </category>
-    <category id="retention" label="33410" help="33411">
+    <category id="retention" label="33510" help="33511">
       <group id="1" label="">
-        <setting id="retention_enabled" type="boolean" label="33412" help="33413"><level>0</level><default>false</default><control type="toggle" /></setting>
-        <setting id="retention_include_movies" type="boolean" label="33414" help="33415"><level>0</level><default>false</default><control type="toggle" /></setting>
-        <setting id="retention_include_episodes" type="boolean" label="33416" help="33417"><level>0</level><default>false</default><control type="toggle" /></setting>
-        <setting id="retention_watched_only" type="boolean" label="33418" help="33419"><level>0</level><default>true</default><control type="toggle" /></setting>
-        <setting id="retention_use_added_age" type="boolean" label="33420" help="33421"><level>0</level><default>true</default><control type="toggle" /></setting>
-        <setting id="retention_added_age_days" type="integer" label="33422" help="33423"><level>0</level><default>30</default><constraints><minimum>0</minimum><step>1</step><maximum>9999</maximum></constraints><control type="slider" format="integer"><popup>false</popup></control></setting>
-        <setting id="retention_use_watched_age" type="boolean" label="33424" help="33425"><level>0</level><default>true</default><control type="toggle" /></setting>
-        <setting id="retention_watched_age_days" type="integer" label="33426" help="33427"><level>0</level><default>30</default><constraints><minimum>0</minimum><step>1</step><maximum>9999</maximum></constraints><control type="slider" format="integer"><popup>false</popup></control></setting>
-        <setting id="retention_criteria_mode" type="string" label="33430" help="33431"><level>0</level><default>all</default><constraints><options><option label="33428">all</option><option label="33429">any</option></options></constraints><control type="spinner" format="string" /></setting>
-        <setting id="retention_movie_rating_threshold" type="string" label="33432" help="33433"><level>0</level><default>0</default><control type="edit" format="string"><heading>33432</heading></control></setting>
-        <setting id="retention_exclusions" type="string" label="33434" help="33435"><level>0</level><default /><constraints><allowempty>true</allowempty></constraints><control type="edit" format="string"><heading>33434</heading></control></setting>
-        <setting id="retention_manual_dry_run" type="boolean" label="33436" help="33437"><level>0</level><default>true</default><control type="toggle" /></setting>
-        <setting id="retention_max_deletions" type="integer" label="33438" help="33439"><level>0</level><default>5</default><constraints><minimum>1</minimum><step>1</step><maximum>100</maximum></constraints><control type="slider" format="integer"><popup>false</popup></control></setting>
+        <setting id="retention_enabled" type="boolean" label="33512" help="33513"><level>0</level><default>false</default><control type="toggle" /></setting>
+        <setting id="retention_include_movies" type="boolean" label="33514" help="33515"><level>0</level><default>false</default><control type="toggle" /></setting>
+        <setting id="retention_include_episodes" type="boolean" label="33516" help="33517"><level>0</level><default>false</default><control type="toggle" /></setting>
+        <setting id="retention_watched_only" type="boolean" label="33518" help="33519"><level>0</level><default>true</default><control type="toggle" /></setting>
+        <setting id="retention_use_added_age" type="boolean" label="33520" help="33521"><level>0</level><default>true</default><control type="toggle" /></setting>
+        <setting id="retention_added_age_days" type="integer" label="33522" help="33523"><level>0</level><default>30</default><constraints><minimum>0</minimum><step>1</step><maximum>9999</maximum></constraints><control type="slider" format="integer"><popup>false</popup></control></setting>
+        <setting id="retention_use_watched_age" type="boolean" label="33524" help="33525"><level>0</level><default>true</default><control type="toggle" /></setting>
+        <setting id="retention_watched_age_days" type="integer" label="33526" help="33527"><level>0</level><default>30</default><constraints><minimum>0</minimum><step>1</step><maximum>9999</maximum></constraints><control type="slider" format="integer"><popup>false</popup></control></setting>
+        <setting id="retention_criteria_mode" type="string" label="33530" help="33531"><level>0</level><default>all</default><constraints><options><option label="33528">all</option><option label="33529">any</option></options></constraints><control type="spinner" format="string" /></setting>
+        <setting id="retention_movie_rating_threshold" type="string" label="33532" help="33533"><level>0</level><default>0</default><control type="edit" format="string"><heading>33532</heading></control></setting>
+        <setting id="retention_exclusions" type="string" label="33534" help="33535"><level>0</level><default /><constraints><allowempty>true</allowempty></constraints><control type="edit" format="string"><heading>33534</heading></control></setting>
+        <setting id="retention_manual_dry_run" type="boolean" label="33536" help="33537"><level>0</level><default>true</default><control type="toggle" /></setting>
+        <setting id="retention_max_deletions" type="integer" label="33538" help="33539"><level>0</level><default>5</default><constraints><minimum>1</minimum><step>1</step><maximum>100</maximum></constraints><control type="slider" format="integer"><popup>false</popup></control></setting>
       </group>
       <group id="2" label="">
-        <setting id="retention_interval_hours" type="integer" label="33440" help="33441"><level>0</level><default>24</default><constraints><minimum>1</minimum><step>1</step><maximum>720</maximum></constraints><control type="slider" format="integer"><popup>false</popup></control></setting>
-        <setting id="retention_background_dry_run" type="boolean" label="33442" help="33443"><level>0</level><default>true</default><control type="toggle" /></setting>
-        <setting id="retention_notification_mode" type="string" label="33444" help="33445"><level>0</level><default>errors_only</default><constraints><options><option label="33446">errors_only</option><option label="33447">deletions_and_errors</option><option label="33448">silent</option></options></constraints><control type="spinner" format="string" /></setting>
-        <setting id="retention_enable_periodic" type="action" label="33403" help="33449"><level>0</level><data>RunScript(context.arr.manager,mode=retention_enable_periodic)</data><control type="button" format="action"><close>true</close></control></setting>
-        <setting id="retention_disable_periodic" type="action" label="33404" help="33450"><level>0</level><data>RunScript(context.arr.manager,mode=retention_disable_periodic)</data><control type="button" format="action"><close>true</close></control></setting>
+        <setting id="retention_interval_hours" type="integer" label="33540" help="33541"><level>0</level><default>24</default><constraints><minimum>1</minimum><step>1</step><maximum>720</maximum></constraints><control type="slider" format="integer"><popup>false</popup></control></setting>
+        <setting id="retention_background_dry_run" type="boolean" label="33542" help="33543"><level>0</level><default>true</default><control type="toggle" /></setting>
+        <setting id="retention_notification_mode" type="string" label="33544" help="33545"><level>0</level><default>errors_only</default><constraints><options><option label="33546">errors_only</option><option label="33547">deletions_and_errors</option><option label="33548">silent</option></options></constraints><control type="spinner" format="string" /></setting>
+        <setting id="retention_enable_periodic" type="action" label="33503" help="33549"><level>0</level><data>RunScript(context.arr.manager,mode=retention_enable_periodic)</data><control type="button" format="action"><close>true</close></control></setting>
+        <setting id="retention_disable_periodic" type="action" label="33504" help="33550"><level>0</level><data>RunScript(context.arr.manager,mode=retention_disable_periodic)</data><control type="button" format="action"><close>true</close></control></setting>
         <setting id="retention_periodic_enabled" type="string" label="32912" help="32912"><level>4</level><default>false</default></setting>
       </group>
     </category>
