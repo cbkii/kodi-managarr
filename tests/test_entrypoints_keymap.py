@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.join(ROOT, "resources", "lib"))
 
 from arr_manager import entrypoints
 from arr_manager.errors import ConfigurationError
-from arr_manager.menu_layout import install as install_menu_layout
+from arr_manager.menu_entrypoints import install as install_menu_layout
 from arr_manager.models import SelectedItem
 
 install_menu_layout(entrypoints)
