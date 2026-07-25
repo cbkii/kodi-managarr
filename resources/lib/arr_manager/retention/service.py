@@ -10,6 +10,8 @@ from .executor import RetentionExecutor
 from .policy import RetentionPolicy
 from .reports import RetentionStateStore
 
+_PERIODIC_SAFETY_HOLD_SECONDS = 365 * 24 * 3600
+
 
 class RetentionService:
     def __init__(self, arr_manager, ui, logger):
@@ -41,22 +43,58 @@ class RetentionService:
         return settings, policy, enumerator, executor
 
     @staticmethod
+    def _protect_invalid_identifiers(evaluated):
+        for candidate, eligibility in evaluated:
+            identifiers = (candidate.db_id, candidate.arr_id, candidate.file_id)
+            try:
+                valid = all(int(value) > 0 for value in identifiers)
+            except (TypeError, ValueError):
+                valid = False
+            if eligibility.eligible and not valid:
+                eligibility.eligible = False
+                eligibility.reason = "Retention target is missing a positive Kodi, Arr, or file ID"
+                eligibility.failed_rules.append("invalid_target_id")
+        return evaluated
+
+    @staticmethod
+    def _protect_duplicate_movies(evaluated):
+        groups = {}
+        for index, (candidate, _eligibility) in enumerate(evaluated):
+            if candidate.media_type == "movie" and candidate.arr_id:
+                groups.setdefault(candidate.arr_id, []).append(index)
+        for indexes in groups.values():
+            if len(indexes) <= 1:
+                continue
+            for index in indexes:
+                eligibility = evaluated[index][1]
+                if eligibility.eligible:
+                    eligibility.eligible = False
+                    eligibility.reason = "Duplicate Kodi movie rows resolve to the same Radarr target"
+                    eligibility.failed_rules.append("duplicate_movie_target")
+        return evaluated
+
+    @staticmethod
     def _protect_shared_files(evaluated):
         groups = {}
         for index, (candidate, _eligibility) in enumerate(evaluated):
-            if candidate.media_type == "episode":
+            if candidate.media_type == "episode" and candidate.file_id:
                 groups.setdefault((candidate.arr_id, candidate.file_id), []).append(index)
         for indexes in groups.values():
             expected = max(
                 max(1, int(evaluated[index][0].linked_episode_count or 1))
                 for index in indexes
             )
-            incomplete = len(indexes) != expected
+            identities = {
+                (evaluated[index][0].season, evaluated[index][0].episode)
+                for index in indexes
+            }
+            duplicate_rows = len(identities) != len(indexes)
+            incomplete = duplicate_rows or len(identities) != expected
             has_protected = any(not evaluated[index][1].eligible for index in indexes)
             if not incomplete and not has_protected:
                 continue
             reason = (
-                "Shared episode file is missing linked Kodi episodes"
+                "Shared episode file has missing or duplicate Kodi episode identities"
                 if incomplete
                 else "Shared episode file contains a protected episode"
             )
@@ -72,6 +110,8 @@ class RetentionService:
     def _evaluate(self, settings, policy, enumerator):
         candidates = enumerator.get_candidates(settings)
         evaluated = [(candidate, policy.evaluate(candidate)) for candidate in candidates]
+        evaluated = self._protect_invalid_identifiers(evaluated)
+        evaluated = self._protect_duplicate_movies(evaluated)
         return self._protect_shared_files(evaluated)
 
     @staticmethod
@@ -79,10 +119,15 @@ class RetentionService:
         result = []
         seen = set()
         for candidate, eligibility in evaluated:
-            if not eligibility.eligible or not candidate.file_id:
+            if not eligibility.eligible:
+                continue
+            try:
+                if int(candidate.db_id) <= 0 or int(candidate.arr_id) <= 0 or int(candidate.file_id) <= 0:
+                    continue
+            except (TypeError, ValueError):
                 continue
             key = (
-                ("movie", candidate.db_id)
+                ("movie", candidate.arr_id)
                 if candidate.media_type == "movie"
                 else ("episode-file", candidate.arr_id, candidate.file_id)
             )
@@ -137,6 +182,7 @@ class RetentionService:
                 executor,
                 settings.manual_dry_run,
                 interactive=True,
+                refresh_lock=True,
             )
             summary["skipped"] += max(0, len(eligible) - settings.max_deletions)
             self._save_report("manual", settings.manual_dry_run, summary)
@@ -184,6 +230,34 @@ class RetentionService:
         self.ui.text(self._m("retention_report_heading"), text)
         return text
 
+    def _suspend_periodic(self, reason):
+        if self.logger:
+            self.logger.error("Periodic retention suspended: %s", reason)
+        try:
+            self.addon.setSetting("retention_periodic_enabled", "false")
+        except Exception:
+            if self.logger:
+                self.logger.exception("Could not disable periodic retention after a safety failure")
+        if self.store.lock_token:
+            try:
+                self.store.save_state("", time.time() + _PERIODIC_SAFETY_HOLD_SECONDS)
+            except Exception:
+                if self.logger:
+                    self.logger.exception("Could not persist the periodic retention safety hold")
+
+    def _periodic_authorised(self, dry_run, auth_generation):
+        try:
+            settings = RetentionSettings(self.addon).validate()
+        except ConfigurationError:
+            return False
+        if not settings.enabled or not settings.periodic_enabled:
+            return False
+        if settings.background_dry_run != dry_run:
+            return False
+        if not dry_run and pin_generation(self.manager.settings) != auth_generation:
+            return False
+        return True
+
     def run_background(self):
         try:
             settings = RetentionSettings(self.addon)
@@ -191,42 +265,82 @@ class RetentionService:
                 return None
             settings.validate()
         except ConfigurationError as exc:
-            if self.logger:
-                self.logger.error("Periodic retention configuration is invalid: %s", exc)
+            self._suspend_periodic(str(exc))
             return None
         state = self.store.load_state()
+        if state is None:
+            self._suspend_periodic("retention state is missing or malformed")
+            return None
         now = time.time()
-        if now < float(state.get("next_due") or 0):
+        if now < state["next_due"]:
             return None
         current_generation = pin_generation(self.manager.settings)
-        if not settings.background_dry_run and state.get("auth_generation") != current_generation:
-            self.addon.setSetting("retention_periodic_enabled", "false")
-            if self.logger:
-                self.logger.error("Periodic retention disabled because PIN authorisation changed")
+        if not settings.background_dry_run and state["auth_generation"] != current_generation:
+            self._suspend_periodic("PIN authorisation changed")
             self.ui.notification(self._m("retention_periodic_auth_changed"), error=True)
             return None
         if not self.store.acquire_lock():
             return None
         try:
             settings, policy, enumerator, executor = self._components()
+            if not self._periodic_authorised(settings.background_dry_run, current_generation):
+                return None
+            try:
+                self.store.save_state(
+                    current_generation,
+                    time.time() + _PERIODIC_SAFETY_HOLD_SECONDS,
+                )
+            except Exception:
+                self._suspend_periodic("state persistence failed before the destructive pass")
+                return None
             evaluated = self._evaluate(settings, policy, enumerator)
             all_eligible = self._eligible_unique(evaluated)
             eligible = all_eligible[:settings.max_deletions]
-            summary = self._run_pass(eligible, executor, settings.background_dry_run, interactive=False)
+            summary = self._run_pass(
+                eligible,
+                executor,
+                settings.background_dry_run,
+                interactive=False,
+                continue_check=lambda: self._periodic_authorised(
+                    settings.background_dry_run,
+                    current_generation,
+                ),
+                refresh_lock=True,
+            )
             summary["skipped"] += max(0, len(all_eligible) - len(eligible))
             self._save_report("periodic", settings.background_dry_run, summary)
-            self.store.save_state(current_generation, time.time() + settings.interval_hours * 3600)
+            if not self._periodic_authorised(settings.background_dry_run, current_generation):
+                try:
+                    fresh = RetentionSettings(self.addon)
+                except ConfigurationError:
+                    self._suspend_periodic("configuration changed during the retention pass")
+                else:
+                    if fresh.periodic_enabled:
+                        self._suspend_periodic("authorisation changed during the retention pass")
+                return summary
+            self.store.save_state(
+                current_generation,
+                time.time() + settings.interval_hours * 3600,
+            )
             self._notify_background(settings, summary)
             return summary
         except Exception:
             if self.logger:
                 self.logger.exception("Periodic retention run failed before completion")
-            self.store.save_state(current_generation, time.time() + 3600)
+            self._suspend_periodic("the retention pass or its persistence failed")
             return None
         finally:
             self.store.release_lock()
 
-    def _run_pass(self, candidates, executor, dry_run, interactive):
+    def _run_pass(
+        self,
+        candidates,
+        executor,
+        dry_run,
+        interactive,
+        continue_check=None,
+        refresh_lock=False,
+    ):
         results = []
         progress = (
             self.ui.progress(self._m("retention_cleanup_heading"), self._m("retention_progress"))
@@ -237,6 +351,10 @@ class RetentionService:
             for index, candidate in enumerate(candidates):
                 if self._abort_requested(progress):
                     break
+                if continue_check is not None and not continue_check():
+                    break
+                if refresh_lock and not self.store.refresh_lock():
+                    raise SafetyError("Retention lock ownership was lost during the pass")
                 if progress is not None:
                     progress.update(
                         int((index + 1) / max(len(candidates), 1) * 100),
@@ -247,9 +365,9 @@ class RetentionService:
             if progress is not None:
                 progress.close()
         return {
-            "deleted": sum(item.action_taken == "deleted" for item in results),
+            "deleted": sum(item.committed for item in results),
             "planned": sum(item.action_taken == "dry_run" for item in results),
-            "failed": sum(item.action_taken == "failed" for item in results),
+            "failed": sum(bool(item.error_message) for item in results),
             "skipped": max(0, len(candidates) - len(results)),
             "results": results,
         }
