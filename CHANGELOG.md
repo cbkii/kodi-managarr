@@ -10,6 +10,10 @@
 - Defaulted movie/episode inclusion off and both manual and periodic retention to dry-run, with a hard per-pass deletion cap.
 - Applied central PIN protection to real cleanup and periodic enablement, and invalidated periodic real-deletion authority after PIN changes.
 - Added atomic locking, bounded non-secret reports, Kodi service packaging, Android-safe progress/cancellation and focused regression coverage.
+- Hardened retention after full review with strict destructive-setting parsing, positive Arr/file IDs, duplicate physical-target protection, per-series Sonarr snapshots and fail-closed malformed timestamps.
+- Added owned refreshable lock leases, unique atomic state/report writes, validated persistence schemas and a pre-armed scheduler safety hold so persistence failures cannot repeat a destructive pass.
+- Rechecked periodic enable/PIN/dry-run state between targets, stopped in-flight passes after disablement, and reported committed Arr deletions accurately when later Kodi reconciliation fails.
+- Kept linked Sonarr episodes unmonitored after an ambiguous episode-file DELETE failure to prevent automatic reacquisition of a file that may already have been removed.
 
 ## 1.2.0 — 2026-07-23
 
