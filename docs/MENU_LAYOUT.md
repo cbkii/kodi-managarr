@@ -5,10 +5,11 @@ Kodi Managarr uses one canonical numeric rank for every configurable menu action
 ## Rank rules
 
 - `0` disables an action.
-- Any positive integer enables it.
+- Integers from `1` through `999` enable it.
 - Lower values appear first.
-- Defaults are spaced by ten (`10`, `20`, `30`, …), but every integer is valid so an item can be inserted between two existing entries.
-- Equal ranks are resolved deterministically by the registry default and action ID. The preview reports the tie instead of silently rewriting it.
+- Defaults are spaced by ten (`10`, `20`, `30`, …), but every integer in the accepted range is valid, so an item can be inserted between two existing entries.
+- Negative values, values above `999` and non-integer text are invalid. Kodi's settings constraints prevent normal out-of-range entry; externally corrupted stored values fall back to the registry default and appear as a preview warning. The remote editor rejects invalid input without replacing the current valid rank.
+- Equal ranks are resolved deterministically by `(rank, registry default rank, action ID)`. The preview reports the tie instead of silently rewriting it.
 - **Normalise positions** rewrites enabled items in each group to `10`, `20`, `30`, … while leaving disabled items at `0`.
 
 Numeric ranks are the canonical stored representation. The standard Kodi settings page and the remote-friendly dialog editor both update the same values.
@@ -56,7 +57,9 @@ Numeric ranks are the canonical stored representation. The standard Kodi setting
 
 ## Flattening
 
-Flattening replaces a submenu parent with its enabled children as one contiguous block. Runtime labels are prefixed with their group, for example `Monitoring › Monitor`. Sorting uses `(parent rank, child rank, registry default, action ID)`; child ranks never collide with the next root item.
+Flattening replaces a submenu parent with its enabled children as one contiguous block. Runtime labels are prefixed with their group, for example `Monitoring › Monitor`. Sorting uses `(parent rank, child rank, registry default rank, action ID)`; the child rank is local to its parent block rather than a global main-menu rank.
+
+For example, with Monitoring at root rank `50`, `Monitor` at child rank `15`, and Download queue at root rank `60`, the flattened `Monitoring › Monitor` entry remains inside the Monitoring block at root position `50`. It appears before Download queue; it is not converted to global rank `65` and therefore cannot collide with the next root entry.
 
 Setting a parent rank to `0` hides the whole group without erasing its child ranks. Disabling an individual child sets only that child's rank to `0`.
 
@@ -76,5 +79,5 @@ Fresh installations with no legacy state receive the registry defaults.
 
 - Direct/Keymap actions remain callable even when their menu entry is disabled.
 - The settings page always retains actions to preview, normalise and restore the layout.
-- Invalid rank text or out-of-range values fall back to the registry default and are reported in the preview.
+- Invalid persisted ranks fall back to the registry default and are reported in the preview; invalid remote-editor input is rejected without changing the current rank.
 - Restoring defaults resets ranks and flattening only; it does not alter service, deletion, retention or PIN settings.
