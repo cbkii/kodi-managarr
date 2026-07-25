@@ -23,7 +23,7 @@ jobs:
           ref: fix/episode-replacement-reliability
           fetch-depth: 0
           persist-credentials: true
-      - name: Apply reviewed final payload
+      - name: Extract reviewed final payload
         shell: bash
         run: |
           set -euo pipefail
@@ -32,12 +32,20 @@ jobs:
           tar -xzf /tmp/pr25-final.tar.gz -C .
           rm -rf .automation/pr25
           rmdir .automation 2>/dev/null || true
-          python3 -m compileall -q resources/lib tests
+      - name: Compile applied Python
+        shell: bash
+        run: python3 -m compileall -q resources/lib tests
+      - name: Commit applied product changes
+        shell: bash
+        run: |
+          set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
           git commit -m 'fix(replacement): close recovery and preflight edge cases'
-          git push origin HEAD:fix/episode-replacement-reliability
+      - name: Push applied product changes
+        shell: bash
+        run: git push origin HEAD:fix/episode-replacement-reliability
 
   actionlint:
     runs-on: ubuntu-latest
