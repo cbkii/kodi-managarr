@@ -23,22 +23,19 @@ jobs:
           ref: fix/episode-replacement-reliability
           fetch-depth: 0
           persist-credentials: true
-      - name: Apply reviewed final payload and self-remove
+      - name: Apply reviewed final payload
         shell: bash
         run: |
           set -euo pipefail
           test -f .automation/pr25/payload-00
           cat .automation/pr25/payload-* | base64 --decode > /tmp/pr25-final.tar.gz
           tar -xzf /tmp/pr25-final.tar.gz -C .
-          git fetch --no-tags origin main
-          git show origin/main:resources/language/resource.language.en_gb/strings.po > resources/language/resource.language.en_gb/strings.po
-          git show origin/main:.github/workflows/ci.yml > .github/workflows/ci.yml
           rm -rf .automation/pr25
           rmdir .automation 2>/dev/null || true
           python3 -m compileall -q resources/lib tests
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -A
+          git add -A -- ':!.github/workflows/ci.yml'
           git commit -m 'fix(replacement): close recovery and preflight edge cases'
           git push origin HEAD:fix/episode-replacement-reliability
 
