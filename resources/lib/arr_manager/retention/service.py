@@ -43,19 +43,30 @@ class RetentionService:
     @staticmethod
     def _protect_shared_files(evaluated):
         groups = {}
-        for index, (candidate, eligibility) in enumerate(evaluated):
+        for index, (candidate, _eligibility) in enumerate(evaluated):
             if candidate.media_type == "episode":
                 groups.setdefault((candidate.arr_id, candidate.file_id), []).append(index)
         for indexes in groups.values():
-            if len(indexes) < 2:
+            expected = max(
+                max(1, int(evaluated[index][0].linked_episode_count or 1))
+                for index in indexes
+            )
+            incomplete = len(indexes) != expected
+            has_protected = any(not evaluated[index][1].eligible for index in indexes)
+            if not incomplete and not has_protected:
                 continue
-            if any(not evaluated[index][1].eligible for index in indexes):
-                for index in indexes:
-                    candidate, eligibility = evaluated[index]
-                    if eligibility.eligible:
-                        eligibility.eligible = False
-                        eligibility.reason = "Shared episode file contains a protected episode"
-                        eligibility.failed_rules.append("shared_file_protected")
+            reason = (
+                "Shared episode file is missing linked Kodi episodes"
+                if incomplete
+                else "Shared episode file contains a protected episode"
+            )
+            rule = "shared_file_incomplete" if incomplete else "shared_file_protected"
+            for index in indexes:
+                eligibility = evaluated[index][1]
+                if eligibility.eligible:
+                    eligibility.eligible = False
+                    eligibility.reason = reason
+                    eligibility.failed_rules.append(rule)
         return evaluated
 
     def _evaluate(self, settings, policy, enumerator):
@@ -127,6 +138,7 @@ class RetentionService:
                 settings.manual_dry_run,
                 interactive=True,
             )
+            summary["skipped"] += max(0, len(eligible) - settings.max_deletions)
             self._save_report("manual", settings.manual_dry_run, summary)
         finally:
             self.store.release_lock()
@@ -198,9 +210,10 @@ class RetentionService:
         try:
             settings, policy, enumerator, executor = self._components()
             evaluated = self._evaluate(settings, policy, enumerator)
-            eligible = self._eligible_unique(evaluated)[:settings.max_deletions]
+            all_eligible = self._eligible_unique(evaluated)
+            eligible = all_eligible[:settings.max_deletions]
             summary = self._run_pass(eligible, executor, settings.background_dry_run, interactive=False)
-            summary["skipped"] += max(0, len(self._eligible_unique(evaluated)) - len(eligible))
+            summary["skipped"] += max(0, len(all_eligible) - len(eligible))
             self._save_report("periodic", settings.background_dry_run, summary)
             self.store.save_state(current_generation, time.time() + settings.interval_hours * 3600)
             self._notify_background(settings, summary)
@@ -215,7 +228,11 @@ class RetentionService:
 
     def _run_pass(self, candidates, executor, dry_run, interactive):
         results = []
-        progress = self.ui.progress(self._m("retention_cleanup_heading"), self._m("retention_progress")) if interactive else None
+        progress = (
+            self.ui.progress(self._m("retention_cleanup_heading"), self._m("retention_progress"))
+            if interactive
+            else None
+        )
         try:
             for index, candidate in enumerate(candidates):
                 if self._abort_requested(progress):
