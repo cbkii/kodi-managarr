@@ -20,7 +20,7 @@
     <license>GPL-3.0-or-later</license>
     <source>https://github.com/cbkii/kodi-managarr</source>
     <website>https://github.com/cbkii/kodi-managarr</website>
-    <news>v1.3.3 - Complete the replacement-reliability and Bazarr subtitle hardening line. Protect provider bootstrap and directory completion, use canonical Kodi episode identity, classify Bazarr API failures without secrets, preserve forced/HI flags, enforce single-use tokens, and return only Kodi-accessible mapped or sidecar subtitle paths on Android.</news>
+    <news>v1.3.3 (2026-07-25) - Complete the replacement-reliability and Bazarr subtitle hardening line. Protect provider bootstrap and directory completion, use canonical Kodi episode identity, classify Bazarr API failures without secrets, preserve forced/HI flags, enforce single-use tokens, and return only Kodi-accessible mapped or sidecar subtitle paths on Android.</news>
     <assets>
       <icon>resources/icon.png</icon>
       <fanart>resources/fanart.jpg</fanart>
