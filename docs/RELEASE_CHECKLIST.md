@@ -31,6 +31,9 @@ Use this concise gate with [`ANDROID_KODI_VALIDATION.md`](ANDROID_KODI_VALIDATIO
 - [ ] Encoded query-style direct modes dispatch correctly.
 - [ ] PIN create/change/remove and fail-closed direct/menu enforcement work.
 - [ ] Episode actions resolve the parent series through Kodi TV-show metadata, including season zero and API-backend/no-mapping use.
+- [ ] Episode Delete & Replace uses Kodi-valid `showtitle`, minimal/season-scoped linked-row enumeration and makes no Servarr mutation after a failed Kodi preflight.
+- [ ] Accepted replacement searches report queued command evidence without waiting for indexer completion; safety-critical rescans still require terminal success.
+- [ ] Already-missing movie/episode recovery queues only the exact search and does not repeat blocklisting, deletion or Kodi cleanup.
 - [ ] International titles remain matchable after normalisation.
 - [ ] Radarr/Sonarr tests, dry runs, cancellation and one disposable API mutation pass.
 - [ ] Diagnostics/logs contain no credentials or private URLs.
@@ -38,7 +41,7 @@ Use this concise gate with [`ANDROID_KODI_VALIDATION.md`](ANDROID_KODI_VALIDATIO
 ## Interactive feature checks
 
 - [ ] Request defaults can be selected and persist.
-- [ ] Managed/unmanaged movie Request & Search avoids duplicates and completes search.
+- [ ] Managed/unmanaged movie Request & Search avoids duplicates and submits the intended search.
 - [ ] Series and selected-episode Request & Search use the intended monitoring/search scope and parent-series ID.
 - [ ] Ambiguous lookup requires explicit selection; partial add/search failure is honest.
 - [ ] Interactive movie/episode release details, cancellation, revalidation and Arr grab pass.
