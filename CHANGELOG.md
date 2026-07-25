@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.4.0 — 2026-07-26
+
+- Added canonical numeric menu positions: `0` disables an entry and positive integers sort it in ascending order.
+- Added grouped integer-edit rows with concise plain-English focus help for every main-menu and submenu action.
+- Replaced repetitive move-up/move-down configuration with batch visibility, direct numeric entry and one-step top, bottom, before or after destination moves.
+- Added a Retention submenu and moved request defaults, subtitle-language configuration, connection tests, diagnostics, menu setup and PIN management into a registry-driven Tools & settings submenu.
+- Added optional contiguous block flattening for Monitoring, Download queue, Retention and Tools with unambiguous group-prefixed labels.
+- Added a resolved-layout preview, duplicate-rank warnings, explicit `10, 20, 30, …` normalisation and layout-only default restoration.
+- Migrated existing hidden/action-order state per group while preserving direct and Keymap action dispatch when a menu entry is disabled.
+- Added focused migration, ordering, flattening, settings-schema and grouped-launcher regression coverage.
+
 ## 1.3.3 — 2026-07-26
 
 - Rebuilt episode replacement reliability on the hardened retention base and corrected Kodi episode identity, asynchronous Servarr search acceptance, missing-file recovery and sanitised transaction evidence.
