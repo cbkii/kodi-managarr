@@ -13,7 +13,7 @@ if hasattr(_entrypoints, "_write_diagnostics"):
     from arr_manager.diagnostics_hardening import install as _install_diagnostics_hardening  # noqa: E402
     _install_diagnostics_hardening(_entrypoints)
 if hasattr(_entrypoints, "_run_action") and hasattr(_entrypoints, "Settings"):
-    from arr_manager.menu_layout import install as _install_menu_layout  # noqa: E402
+    from arr_manager.menu_entrypoints import install as _install_menu_layout  # noqa: E402
     _install_menu_layout(_entrypoints)
 run_context = _entrypoints.run_context
 
