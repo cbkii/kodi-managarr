@@ -10,6 +10,12 @@ on:
         required: false
         default: ""
         type: string
+  workflow_call:
+    inputs:
+      release_tag:
+        description: Exact published stable release tag to deploy
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -24,7 +30,7 @@ env:
 
 jobs:
   publish:
-    if: github.event_name == 'workflow_dispatch' || (github.event.release.draft == false && github.event.release.prerelease == false)
+    if: github.event_name == 'workflow_call' || github.event_name == 'workflow_dispatch' || (github.event.release.draft == false && github.event.release.prerelease == false)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -126,9 +132,13 @@ jobs:
           assert repository.findtext('datadir') == f'{expected_base}/'
 
           index = (output_root / 'index.html').read_text(encoding='utf-8')
+          readme = (output_root / 'README.md').read_text(encoding='utf-8')
           assert 'repository.managarr/repository.managarr.zip' in index
           assert 'context.arr.manager/context.arr.manager.zip' in index
+          assert addon_version in readme
+          assert repo_version in readme
           assert '{{' not in index
+          assert '{{' not in readme
           parser = Links()
           parser.feed(index)
           for href in parser.hrefs:
@@ -187,6 +197,7 @@ jobs:
             sleep 5
           done
           for path in \
+            README.md \
             addons.xml \
             addons.xml.md5 \
             repository.managarr/repository.managarr.zip \
@@ -219,6 +230,9 @@ jobs:
           versions = {addon.attrib['id']: addon.attrib['version'] for addon in manifest.findall('addon')}
           assert versions['context.arr.manager'] == os.environ['ADDON_VERSION']
           assert versions['repository.managarr'] == os.environ['REPOSITORY_VERSION']
+          readme = (root / 'README.md').read_text(encoding='utf-8')
+          assert os.environ['ADDON_VERSION'] in readme
+          assert '{{' not in readme
           with zipfile.ZipFile(root / 'repository.managarr.zip') as archive:
               assert archive.testzip() is None
               repository_xml = ET.fromstring(archive.read('repository.managarr/addon.xml'))
@@ -249,5 +263,6 @@ jobs:
             echo "- Generated source branch: \`gh-pages\`"
             echo "- Repository ZIP: $RAW_BASE/repository.managarr/repository.managarr.zip"
             echo "- Repository SHA-256: \`$REPOSITORY_SHA256\`"
+            echo "- Branch guide: $RAW_BASE/README.md"
             echo "- Pages-ready URL after one-time repository setting: $PAGES_URL"
           } >> "$GITHUB_STEP_SUMMARY"

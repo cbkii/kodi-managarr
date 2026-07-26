@@ -20,7 +20,7 @@ Use this concise gate with [`ANDROID_KODI_VALIDATION.md`](ANDROID_KODI_VALIDATIO
 ## Kodi repository publication
 
 - [ ] The repository workflow resolves the exact intended stable release and rejects draft/prerelease assets.
-- [ ] The generated `gh-pages` branch contains the landing page, `addons.xml`, MD5 change token, SHA-256 files, repository package and add-on package.
+- [ ] The generated `gh-pages` branch contains its beginner README, landing page, `addons.xml`, MD5 change token, SHA-256 files, repository package and add-on package.
 - [ ] Stable aliases `repository.managarr/repository.managarr.zip` and `context.arr.manager/context.arr.manager.zip` match their versioned packages and checksums.
 - [ ] The repository manifest uses the verified raw `gh-pages` source for `info`, `checksum` and `datadir` URLs.
 - [ ] `repository.managarr-X.Y.Z.zip` is deterministic, installable, licensed and does not contain itself or its stable alias.
@@ -86,11 +86,14 @@ Use disposable media only; do not test real deletion against irreplaceable libra
 Run **Actions → Build and publish Kodi release**:
 
 1. choose the branch;
-2. enter a version or leave blank for the maintained manifest/automatic patch behaviour;
+2. enter a new version, leave it blank for maintained-manifest/automatic patch behaviour, or enter an existing stable version to repair its repository publication;
 3. choose stable, prerelease or draft;
 4. optionally override release highlights, or leave blank to use maintained `addon.xml` news;
-5. run the workflow;
-6. for stable, confirm **Generate and publish Kodi repository** updates and verifies the `gh-pages` source branch for the same tag/version;
-7. when GitHub Pages is enabled, confirm the friendly landing page shows the same repository and add-on versions.
+5. leave **Publish the stable release to the Kodi add-on repository** checked for stable releases and repository repairs;
+6. run the workflow;
+7. for stable, confirm the called **Generate and publish Kodi repository** job updates and verifies the `gh-pages` source branch for the same tag/version;
+8. when GitHub Pages is enabled, confirm the friendly landing page and generated branch README show the same repository and add-on versions.
+
+When an existing stable version is entered with the repository checkbox selected, the workflow reuses the existing GitHub release and assets instead of creating a duplicate tag or release. The repository-only workflow remains available as an independent repair path.
 
 No mandatory RC promotion sequence is required.
