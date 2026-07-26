@@ -54,8 +54,8 @@ Destructive features are protected by confirmations, dry-run options, strict mat
 
 ## Install
 
-1. Open the [Kodi Managarr repository page](https://cbkii.github.io/kodi-managarr/).
-2. Download the file named `repository.managarr-X.Y.Z.zip`.
+1. Download the [Kodi Managarr Repository ZIP](https://raw.githubusercontent.com/cbkii/kodi-managarr/gh-pages/repository.managarr/repository.managarr.zip).
+2. Keep the downloaded ZIP file. Do not extract it.
 3. In Kodi, enable **Unknown sources** when Kodi asks for permission.
 4. Open **Add-ons**.
 5. Select **Install from zip file**.
@@ -66,6 +66,8 @@ Destructive features are protected by confirmations, dry-run options, strict mat
 10. Install **Kodi Managarr**.
 
 Keep Kodi add-on updates enabled to receive new stable versions from the repository.
+
+The download link always points to the current repository installer. You can also view its [SHA-256 checksum](https://raw.githubusercontent.com/cbkii/kodi-managarr/gh-pages/repository.managarr/repository.managarr.zip.sha256) or the complete [generated repository source](https://github.com/cbkii/kodi-managarr/tree/gh-pages).
 
 ## First setup
 
