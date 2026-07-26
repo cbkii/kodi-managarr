@@ -19,10 +19,15 @@ Use this concise gate with [`ANDROID_KODI_VALIDATION.md`](ANDROID_KODI_VALIDATIO
 
 ## Kodi repository publication
 
-- [ ] Pages resolves the exact intended stable release and rejects draft/prerelease assets.
-- [ ] `addons.xml`, MD5 change token, SHA-256 files and per-package hashes match.
-- [ ] `repository.managarr-X.Y.Z.zip` is deterministic, installable, licensed and does not contain itself.
+- [ ] The repository workflow resolves the exact intended stable release and rejects draft/prerelease assets.
+- [ ] The generated `gh-pages` branch contains the landing page, `addons.xml`, MD5 change token, SHA-256 files, repository package and add-on package.
+- [ ] Stable aliases `repository.managarr/repository.managarr.zip` and `context.arr.manager/context.arr.manager.zip` match their versioned packages and checksums.
+- [ ] The repository manifest uses the verified raw `gh-pages` source for `info`, `checksum` and `datadir` URLs.
+- [ ] `repository.managarr-X.Y.Z.zip` is deterministic, installable, licensed and does not contain itself or its stable alias.
+- [ ] The workflow downloads the public raw files after publication, verifies both ZIPs, validates both SHA-256 files and checks the repository manifest URLs.
 - [ ] The next stable release is detected as an update and preserves settings.
+
+The raw `gh-pages` source works without GitHub Pages being enabled. To enable the friendly project page once, open **Repository settings → Pages**, choose **Deploy from a branch**, select `gh-pages` and `/ (root)`, then save. The same generated branch will then serve `https://cbkii.github.io/kodi-managarr/` and will continue to update after later stable releases.
 
 ## Core Android Kodi checks
 
@@ -78,13 +83,14 @@ Use disposable media only; do not test real deletion against irreplaceable libra
 
 ## Release workflow
 
-Run **Actions -> Build and publish Kodi release**:
+Run **Actions → Build and publish Kodi release**:
 
 1. choose the branch;
 2. enter a version or leave blank for the maintained manifest/automatic patch behaviour;
 3. choose stable, prerelease or draft;
 4. optionally override release highlights, or leave blank to use maintained `addon.xml` news;
 5. run the workflow;
-6. for stable, confirm Pages publishes the same tag/version.
+6. for stable, confirm **Generate and publish Kodi repository** updates and verifies the `gh-pages` source branch for the same tag/version;
+7. when GitHub Pages is enabled, confirm the friendly landing page shows the same repository and add-on versions.
 
 No mandatory RC promotion sequence is required.

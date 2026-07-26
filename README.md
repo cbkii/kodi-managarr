@@ -1,140 +1,267 @@
-# Kodi Managarr
+<p align="center">
+  <img src="resources/icon.png" alt="Kodi Managarr icon" width="160" height="160">
+</p>
 
-Kodi Managarr is a Kodi 19+ Python 3 add-on for managing Radarr, Sonarr and optional companion services directly from Kodi's video library. It is designed for Android TV, uses Kodi-native dialogs and menus, and never opens a browser.
+<h1 align="center">Kodi Managarr</h1>
 
-## Kodi-native actions
+<p align="center"><strong>Manage Radarr and Sonarr from your Kodi library.</strong></p>
 
-- **Request & Search** - searches an existing Arr item or adds an unmanaged Kodi movie/show using exact identity and one persistent root/profile default per service, then starts the appropriate search.
-- **Search & download now** - queues and verifies the appropriate Radarr movie, Sonarr series or Sonarr episode search.
-- **Interactive search** - presents Radarr/Sonarr release results, rejection reasons and metadata, then revalidates and grabs the selected release through Arr.
-- **Status and Dashboard** - selected-item status plus a bounded, manually refreshed service/health/queue/wanted summary.
-- **Monitoring** - monitor, unmonitor, or change quality profile. An episode quality-profile change is series-wide because Sonarr profiles are assigned to series.
-- **Download queue** - view matching queue entries or remove one from Servarr and its download client without blocklisting it.
-- **Subtitles** - use optional Bazarr integration from Kodi's built-in subtitle-search window with up to three ordered languages.
-- **Delete & Exclude** - removes the selected movie/series, or deletes and unmonitors the selected episode file.
-- **Delete & Replace** - proves and blocklists the imported release, deletes the file, reconciles Servarr, searches for a replacement and synchronises Kodi.
-- **Retention** - previews or safely removes watched movies and episode files using age criteria, explicit exclusions and movie-rating protection, manually or on an optional schedule.
+<p align="center">
+  <a href="https://github.com/cbkii/kodi-managarr/actions/workflows/ci.yml"><img src="https://github.com/cbkii/kodi-managarr/actions/workflows/ci.yml/badge.svg?branch=main" alt="Build status"></a>
+  <a href="https://github.com/cbkii/kodi-managarr/releases"><img src="https://img.shields.io/github/v/release/cbkii/kodi-managarr?display_name=tag&sort=semver" alt="Latest release"></a>
+  <img src="https://img.shields.io/badge/Kodi-19%2B-17B2E8?logo=kodi&logoColor=white" alt="Kodi 19 or newer">
+  <img src="https://img.shields.io/badge/Designed_for-Android_TV-3DDC84?logo=android&logoColor=white" alt="Designed for Android TV">
+  <a href="LICENSE.txt"><img src="https://img.shields.io/github/license/cbkii/kodi-managarr" alt="GPL-3.0-or-later licence"></a>
+</p>
 
-Prowlarr is optional and read-only from Managarr: it contributes indexer health and informational search context, but never bypasses Radarr/Sonarr download tracking or acts as a media/deletion authority.
+Kodi Managarr adds a **Managarr** menu to movies, TV shows, and episodes in the Kodi library. It sends your chosen action to Radarr or Sonarr. It uses Kodi menus and dialogs, so it does not open a web browser.
 
-## Safety model
+Managarr does not replace Radarr, Sonarr, your download client, or Kodi. Those services must already be installed and working.
 
-- **Dry run is enabled by default on fresh installations.** Existing saved settings are preserved during upgrade.
-- Retention is disabled by default; movies and episodes must each be explicitly included.
-- Manual and periodic retention each default to dry-run, with a configurable hard deletion cap.
-- Servarr API deletion is the default and recommended backend. Retention always uses the API-only path.
-- Direct SMB/SFTP deletion uses Kodi VFS and Kodi-managed credentials for the existing explicit delete workflows.
-- Direct deletion always requires confirmation, even if confirmation is disabled for API-only operations.
-- Empty, malformed, root, share-root, mapping-root, protected, traversal and ambiguous paths fail closed.
-- Every multi-file direct operation validates every target before blocklisting or deleting anything.
-- Confirmed VFS folder plans are re-enumerated before deletion and removals are verified against parent listings.
-- Retention revalidates Kodi and Arr identity, file state and policy immediately before each deletion.
-- A shared multi-episode file remains protected unless every linked episode is still eligible.
-- Servarr commands succeed only with terminal `Completed` status and `Successful` result.
-- Partial commits are persisted without secrets and reported with completed transaction stages.
-- API keys and credential-bearing URLs are never written to diagnostics, subtitle cache state or logs.
+## What Managarr can do
 
-## Install and automatic updates
+- Show the Radarr or Sonarr status of a Kodi library item.
+- Search for a movie, series, or episode now.
+- Add an unmanaged movie or series, then start a search.
+- Show release results and let you select one.
+- Monitor or unmonitor media.
+- Change the quality profile of a movie or series.
+- View or remove matching download-queue items.
+- Show a simple service dashboard.
+- Find subtitles through Bazarr.
+- Delete and exclude media.
+- Delete a file, blocklist its release, and search for a replacement.
+- Preview or run optional watched-media retention rules.
 
-1. Download `repository.managarr-X.Y.Z.zip` from the [project repository page](https://cbkii.github.io/kodi-managarr/).
-2. Enable **Unknown sources** in Kodi settings if required.
-3. Open **Add-ons -> Install from zip file** and select the repository ZIP.
-4. Open **Install from repository -> Kodi Managarr Repository -> Context menus** and install **Kodi Managarr**.
-5. Leave Kodi's normal add-on auto-update setting enabled.
-6. Configure **My add-ons -> Context menus -> Kodi Managarr** and run the applicable connection tests.
-7. Keep **Dry run** and both retention dry-run settings enabled for the first destructive end-to-end validation.
+Destructive features are protected by confirmations, dry-run options, strict matching, path checks, and an optional PIN.
 
-The repository publishes canonical Kodi filenames, `addons.xml`, Kodi's `addons.xml.md5` change token and SHA-256 checksum files. It validates the exact stable release ZIP before publication and does not claim cryptographic signing.
+## What you need
 
-## Request & Search setup
+### Required
 
-Open **Configure Request & Search defaults** once. Managarr stores one Radarr and one Sonarr root folder and quality profile, plus one Sonarr monitoring mode. These are persistent defaults, not per-request routing: multi-instance, HD/4K and tag-routing policies remain outside this feature.
+- Kodi 19 or newer with Python 3.
+- At least one of these services:
+  - Radarr for movies.
+  - Sonarr for TV shows and episodes.
+- Network access from the Kodi device to the service.
+- Movies and TV shows added to the Kodi video library.
 
-Existing items are never added twice. Stable TMDb/TVDb identity is preferred; exact title/year fallback is used only when necessary, and ambiguous lookup results require an explicit Kodi-native selection. Episode actions resolve the parent TV show's stable IDs through Kodi JSON-RPC instead of treating the episode's TVDb ID as the series ID. This also supports API-backend use without path mappings and season-zero specials.
+### Optional
 
-Title fallback matching is Unicode-aware. Accented Latin, CJK, Cyrillic and other alphanumeric scripts are retained while punctuation and whitespace are normalised.
+- Bazarr for subtitle search and download.
+- Prowlarr for extra status and indexer information.
+- A Kodi keymap tool for direct remote-button shortcuts.
 
-## Optional Prowlarr and Bazarr
+## Install
 
-Prowlarr requires its URL/API key only when enabled. The Dashboard uses its status, health and indexer endpoints, and Interactive search may show an informational count when Arr returns no releases.
+1. Download the [Kodi Managarr Repository ZIP](https://raw.githubusercontent.com/cbkii/kodi-managarr/gh-pages/repository.managarr/repository.managarr.zip).
+2. Keep the downloaded ZIP file. Do not extract it.
+3. In Kodi, enable **Unknown sources** when Kodi asks for permission.
+4. Open **Add-ons**.
+5. Select **Install from zip file**.
+6. Select the repository ZIP that you downloaded.
+7. Select **Install from repository**.
+8. Open **Kodi Managarr Repository**.
+9. Open **Context menus**.
+10. Install **Kodi Managarr**.
 
-Bazarr requires its URL/API key and **Configure subtitle languages**. Choose one to three unique language codes in preference order. A base language such as `en` accepts normal, forced and hearing-impaired variants; a qualified choice such as `en:forced` accepts only that exact variant. During movie or episode playback, open Kodi's normal subtitle-search dialog and choose Kodi Managarr/Bazarr.
+Keep Kodi add-on updates enabled to receive new stable versions from the repository.
 
-Subtitle results store only short-lived, sanitised provider identity and stable database IDs. The token is consumed before the non-idempotent Bazarr download request, current playback is revalidated, and only an existing Kodi-accessible or safely mapped subtitle path is returned.
+The download link always points to the current repository installer. You can also view its [SHA-256 checksum](https://raw.githubusercontent.com/cbkii/kodi-managarr/gh-pages/repository.managarr/repository.managarr.zip.sha256) or the complete [generated repository source](https://github.com/cbkii/kodi-managarr/tree/gh-pages).
 
-## Menu configuration and PIN protection
+## First setup
 
-The plain-text **Managarr** root item appears for Kodi library movies, TV shows and episodes. **Advanced** is the upgrade-safe default. **Simple** keeps common actions visible. **Configure menu** can hide or reorder registered actions and restore defaults using Kodi-native TV-remote dialogs. Hidden actions remain callable through direct `RunScript(...,mode=...)` key mappings.
+Open:
 
-**Manage PIN** can create, change, remove or repair a local 4-8 digit numeric PIN. The PIN is salted and derived with PBKDF2-HMAC; plaintext is not stored. It protects media deletion, exclusion and replacement actions, real manual retention cleanup, and enabling periodic retention. Queue removal and disabling periodic retention remain confirmation-only or unrestricted as appropriate. Changing or repairing the PIN invalidates authorisation for real periodic retention. This protects against accidental local use; it is not a boundary against a user who can modify Kodi's local add-on data.
+**Kodi Settings → Add-ons → My add-ons → Context menus → Kodi Managarr → Configure**
+
+### 1. Connect Radarr
+
+Open the **Radarr** settings category.
+
+- Enable Radarr.
+- Enter the Radarr URL that the Kodi device can reach.
+- Enter the Radarr API key.
+- Select **Test Radarr connection**.
+
+Use the address of the Radarr web interface. Use the correct protocol, host name or IP address, port, and reverse-proxy path when one is configured.
+
+### 2. Connect Sonarr
+
+Open the **Sonarr** settings category.
+
+- Enable Sonarr.
+- Enter the Sonarr URL that the Kodi device can reach.
+- Enter the Sonarr API key.
+- Select **Test Sonarr connection**.
+
+You can disable Radarr or Sonarr when you do not use that service.
+
+### 3. Keep the safe defaults
+
+For your first tests:
+
+- Keep **Dry run** enabled.
+- Keep confirmations enabled.
+- Keep **Require release-history match** enabled.
+- Use **Servarr API deletion**, which is the recommended deletion method.
+
+Dry run shows what a destructive action would do without deleting media.
+
+### 4. Configure Request & Search
+
+Open **Configure Request & Search defaults**.
+
+Choose:
+
+- One Radarr root folder and quality profile.
+- One Sonarr root folder and quality profile.
+- The Sonarr monitoring mode.
+
+These choices are used when Managarr adds a movie or series that is not already managed.
+
+### 5. Choose your menu layout
+
+Open the **Menu** settings category.
+
+- Use **Simple** for common actions only.
+- Use **Advanced** for the full menu.
+- Use **TV-remote menu editor** to show, hide, or move items.
+- Use **Preview resolved menu** to see the final result.
+
+Each numbered item has a menu position:
+
+- `0` hides the item.
+- A lower positive number places the item earlier.
+- Numbers such as `10`, `20`, and `30` leave space for later changes.
+
+See [Menu layout](docs/MENU_LAYOUT.md) for the complete behaviour.
+
+## Use Managarr
+
+1. Open a Kodi library view for movies, TV shows, or episodes.
+2. Focus the item that you want to manage.
+3. Open the Kodi context menu.
+4. Select **Managarr**.
+5. Select an action.
+6. Read the result or confirmation before continuing.
+
+The menu is for Kodi **library items**. It may not appear for an ordinary file that has not been added to the Kodi library.
+
+## Suggested first test
+
+Use a media item that already exists in Radarr or Sonarr.
+
+1. Run **Status**.
+2. Run **Search & download now** only when a search is safe for that item.
+3. Open **Monitoring** and check the current state.
+4. Test **Delete & Exclude** or **Delete & Replace** only while **Dry run** is enabled.
+5. Read the dry-run result and confirmation text.
+6. Disable dry run only after the result matches your intended setup.
+
+## Optional services
+
+### Bazarr subtitles
+
+1. Open the **Bazarr** settings category.
+2. Enable Bazarr.
+3. Enter its URL and API key.
+4. Select **Configure subtitle languages**.
+5. Select one to three languages in preference order.
+6. Run **Test Bazarr connection**.
+
+During movie or episode playback, open Kodi's normal subtitle-search window and select the Kodi Managarr or Bazarr provider.
+
+### Prowlarr information
+
+Enable Prowlarr and enter its URL and API key when you want extra dashboard and indexer information.
+
+Managarr does not use Prowlarr to download or delete media. Radarr and Sonarr remain responsible for those actions.
 
 ## Retention cleanup
 
-Retention is opt-in. Configure the **Retention** settings category, enable movies and/or episodes, and keep both dry-run settings enabled while reviewing **Retention preview** and **Last retention report**.
+Retention can find watched media that matches your age rules. It can run manually or on a schedule.
 
-Eligibility can require watched state and either all or any enabled age criteria:
+Retention is disabled on a new installation. Movie cleanup and episode cleanup are also disabled separately.
 
-- **Minimum days since added** uses the newest available Kodi, movie/series or media-file timestamp. This conservative choice protects recently imported or re-added media.
-- **Minimum days since watched** uses Kodi's last-played timestamp and protects missing or future timestamps.
-- **Movie rating protection** keeps movies at or above the configured finite 0-10 threshold. When the threshold is enabled, an unrated movie is also protected. Use `0` to disable this protection; malformed or out-of-range values block retention rather than weakening it.
-- **Explicit exclusions** accept comma, semicolon or line-separated entries: `movie:<Kodi movie ID>`, `episode:<Kodi episode ID>`, `series:<Kodi TV show ID>`, and `season:<Kodi TV show ID>:<season>`.
+Before allowing deletion:
 
-Malformed settings or exclusions invalidate retention instead of being silently replaced with permissive defaults. Episode cleanup unmonitors every Sonarr episode linked to the physical episode-file record before deleting that one file, and only proceeds after every linked episode is present in Kodi and still passes the current policy. Movie cleanup uses Radarr deletion with an import-list exclusion. Each mutation is revalidated immediately before commit and followed by targeted Kodi synchronisation. A reconciliation failure after Arr confirms deletion is reported as a committed deletion with an error, not as an uncommitted failure.
+1. Enable only the media types that you need.
+2. Set the age and protection rules.
+3. Keep both retention dry-run options enabled.
+4. Run **Retention preview**.
+5. Review **Last retention report**.
+6. Set a low maximum deletion limit.
+7. Enable real deletion only after several correct previews.
 
-Periodic retention runs through Kodi's background service. Enabling it stores the current PIN-generation authorisation; a PIN change disables real periodic deletion until explicitly re-enabled. The service refreshes an ownership token during a pass, rechecks the schedule and authorisation between targets, and pre-arms a long safety hold before mutation. Any state/report persistence failure suspends periodic retention rather than allowing the same destructive pass to repeat.
+Read [Advanced configuration](docs/ADVANCED_CONFIGURATION.md#retention) before enabling real or scheduled retention.
 
-## Path mappings
+## PIN protection
 
-Direct Kodi VFS deletion and server-side subtitle paths require explicit mappings where Kodi and the server use different paths:
+Use **Manage PIN** to create a local 4 to 8 digit PIN. The PIN protects destructive actions and real retention cleanup.
 
-```text
-/media/Movies=>smb://server/Movies;/media/Shows=>sftp://server:22/media/Shows
-```
+The PIN helps prevent accidental use from the Kodi interface. It is not protection against a person who can edit Kodi's local add-on files.
 
-Every configured Kodi mapping root is protected automatically. The add-on may use or delete a validated child where appropriate, but never deletes a mapping root or ancestor. VFS-only configuration errors do not block API-backend actions.
+## Troubleshooting
 
-## Keymap Editor
+### A connection test fails
 
-Keymap Editor exposes **Launch Kodi Managarr** under Add-ons actions. Advanced keymaps may call a mode directly:
+- Confirm that the URL opens from another device on the same network.
+- Confirm that the Kodi device can reach the same address.
+- Check the API key.
+- Check the port and reverse-proxy path.
+- Check HTTPS certificate settings when you use HTTPS.
+- Do not use `localhost` unless Radarr or Sonarr runs on the same device as Kodi.
 
-```xml
-<key>RunScript(special://home/addons/context.arr.manager/default.py,mode=request_search)</key>
-<key>RunScript(special://home/addons/context.arr.manager/default.py,mode=interactive_search)</key>
-<key>RunScript(special://home/addons/context.arr.manager/default.py,mode=dashboard)</key>
-<key>RunScript(special://home/addons/context.arr.manager/default.py,mode=retention_preview)</key>
-<key>RunScript(special://home/addons/context.arr.manager/default.py,mode=retention_cleanup)</key>
-<key>RunScript(special://home/addons/context.arr.manager/default.py,mode=delete_replace)</key>
-```
+### Managarr cannot find the selected item
 
-The action registry is the source of truth for menu and direct modes. Query-style arguments are URL-decoded and every destructive direct mode passes through the same central PIN authorisation boundary.
+- Confirm that the item is in the Kodi video library.
+- Confirm that the same movie or series exists in Radarr or Sonarr.
+- Check that Kodi and the service use matching TMDb or TVDb information.
+- Configure a path mapping when Kodi and the server use different media paths.
 
-## Compatibility and development validation
+### The Managarr menu does not appear
 
-Runtime support is **Kodi 19 or newer with Kodi's Python 3 runtime**, including Android Kodi. Kodi 18/Python 2 is unsupported. Host CI separately tests the pure Python code and packaging tools on CPython 3.8 and 3.12; that CI matrix is not a claim that Android Kodi embeds those exact interpreter versions.
+- Confirm that the add-on is enabled.
+- Use a Kodi library movie, TV show, or episode.
+- Check **Menu** settings for items set to `0`.
+- Select **Restore menu defaults** when needed.
 
-```bash
-python -m pip install -r requirements-dev.txt
-python scripts/validate.py
-ruff check .
-python -m unittest discover -s tests -v
-SOURCE_DATE_EPOCH=1700000000 python scripts/package.py
-rm -rf dist/addon-check && mkdir -p dist/addon-check
-python - <<'PY'
-import zipfile
-from pathlib import Path
-archive = next(Path('dist').glob('context.arr.manager-*.zip'))
-with zipfile.ZipFile(archive) as handle:
-    handle.extractall('dist/addon-check')
-PY
-kodi-addon-checker --branch matrix dist/addon-check/context.arr.manager
-```
+### More information is needed
 
-Validation covers the ASCII context root, registry dispatch, safe fresh-install defaults, localisation, PIN policy, retention service registration and packaging, optional-service isolation, subtitle entrypoint, metadata limits, deterministic archives and repository generation. CI runs Python 3.8 and 3.12 alongside actionlint, Ruff, archive integrity and Kodi add-on checker.
+Open **Tools & settings → Write diagnostics**. Managarr writes a non-secret diagnostics file and shows its location. Attach that file and the relevant Kodi log section to a [GitHub issue](https://github.com/cbkii/kodi-managarr/issues).
 
-## Android Kodi validation and release
+Do not post API keys, passwords, private URLs, or media credentials.
 
-Host-side tests do not replace a real Android Kodi run. Use the [Android Kodi validation runbook](docs/ANDROID_KODI_VALIDATION.md) with disposable media. A release candidate remains optional; the practical release gate is green CI plus applicable checks in the [release checklist](docs/RELEASE_CHECKLIST.md).
+## More documentation
+
+### For advanced users
+
+- [Advanced configuration](docs/ADVANCED_CONFIGURATION.md) — deletion methods, path mappings, retention rules, PIN behaviour, keymaps, and technical safety details.
+- [Menu layout](docs/MENU_LAYOUT.md) — numbered positions, visibility, submenus, flattening, migration, and recovery.
+- [Android Kodi validation](docs/ANDROID_KODI_VALIDATION.md) — manual testing on a Kodi Android device.
+
+### For contributors and maintainers
+
+- [Contributing](CONTRIBUTING.md) — development setup and required checks.
+- [Architecture](docs/ARCHITECTURE.md) — runtime boundaries and design decisions.
+- [Agent sources](docs/AGENT_SOURCES.md) — authoritative Kodi and Servarr references.
+- [Release checklist](docs/RELEASE_CHECKLIST.md) — release validation and publication steps.
+
+## Compatibility
+
+- Kodi 19 or newer.
+- Kodi Python 3 runtime.
+- Designed for Kodi on Android TV.
+- Also testable on other Kodi platforms that meet the same requirements.
+- Kodi 18 and Python 2 are not supported.
+
+## Privacy and security
+
+Managarr communicates directly with the service URLs that you configure. It does not send your library or API keys to a Managarr cloud service.
+
+API keys and credential-bearing URLs are excluded from Managarr diagnostics, subtitle cache state, and normal logs. Kodi stores hidden settings locally, not in an encrypted vault. Protect access to the Kodi device and its profile data.
 
 ## Licence
 
-GPL-3.0-or-later. See `LICENSE.txt`.
+Kodi Managarr is available under the [GPL-3.0-or-later licence](LICENSE.txt).
