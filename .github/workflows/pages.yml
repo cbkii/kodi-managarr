@@ -10,6 +10,15 @@ on:
         required: false
         default: ""
         type: string
+  # One-time branch trigger used to establish and verify the Pages install surface.
+  # Remove this trigger after the first successful deployment.
+  push:
+    branches: [docs/end-user-readme]
+    paths:
+      - .github/workflows/pages.yml
+      - pages/**
+      - scripts/generate_repo.py
+      - tests/test_generate_repo.py
 
 permissions:
   contents: read
@@ -26,7 +35,7 @@ env:
 
 jobs:
   build:
-    if: github.event_name == 'workflow_dispatch' || (github.event.release.draft == false && github.event.release.prerelease == false)
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || (github.event.release.draft == false && github.event.release.prerelease == false)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     outputs:
@@ -53,7 +62,7 @@ jobs:
         run: |
           set -euo pipefail
           tag="$EVENT_TAG"
-          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+          if [ "$GITHUB_EVENT_NAME" != release ]; then
             tag="$REQUESTED_TAG"
             if [ -z "$tag" ]; then
               tag="$(gh release list --repo "$GITHUB_REPOSITORY" --exclude-drafts --exclude-pre-releases --limit 1 --json tagName --jq '.[0].tagName')"
@@ -80,6 +89,9 @@ jobs:
           test "${#assets[@]}" -eq 1
           mv "${assets[0]}" release.zip
 
+      - name: Test repository generator
+        run: python -m unittest tests.test_generate_repo -v
+
       - name: Generate and validate repository
         id: generate
         run: |
@@ -91,19 +103,46 @@ jobs:
           import os
           import xml.etree.ElementTree as ET
           import zipfile
+          from html.parser import HTMLParser
           from pathlib import Path
 
-          root = ET.parse('pages_output/addons.xml').getroot()
+          class Links(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.hrefs = []
+
+              def handle_starttag(self, tag, attrs):
+                  if tag == 'a':
+                      href = dict(attrs).get('href')
+                      if href:
+                          self.hrefs.append(href)
+
+          output_root = Path('pages_output')
+          root = ET.parse(output_root / 'addons.xml').getroot()
           versions = {addon.attrib['id']: addon.attrib['version'] for addon in root.findall('addon')}
           version = versions['context.arr.manager']
           repo_version = versions['repository.managarr']
-          repository_zip = Path('pages_output/repository.managarr') / f'repository.managarr-{repo_version}.zip'
-          addon_zip = Path('pages_output/context.arr.manager') / f'context.arr.manager-{version}.zip'
+          repository_zip = output_root / 'repository.managarr' / f'repository.managarr-{repo_version}.zip'
+          addon_zip = output_root / 'context.arr.manager' / f'context.arr.manager-{version}.zip'
           for path, root_name in ((repository_zip, 'repository.managarr/'), (addon_zip, 'context.arr.manager/')):
               assert path.is_file() and path.stat().st_size > 0
               with zipfile.ZipFile(path) as archive:
                   assert archive.testzip() is None
                   assert archive.namelist() and all(name.startswith(root_name) for name in archive.namelist())
+
+          index = (output_root / 'index.html').read_text(encoding='utf-8')
+          assert f'repository.managarr-{repo_version}.zip' in index
+          assert f'context.arr.manager-{version}.zip' in index
+          assert '{{' not in index
+          parser = Links()
+          parser.feed(index)
+          for href in parser.hrefs:
+              if href.startswith(('https://', 'http://', 'mailto:')):
+                  continue
+              assert (output_root / href).is_file(), href
+          assert (output_root / 'styles.css').is_file()
+          assert (output_root / '.nojekyll').is_file()
+
           output = Path(os.environ['GITHUB_OUTPUT'])
           with output.open('a', encoding='utf-8') as handle:
               handle.write(f'addon_version={version}\n')
@@ -113,6 +152,8 @@ jobs:
 
       - name: Configure Pages
         uses: actions/configure-pages@v6
+        with:
+          enablement: true
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5
@@ -146,6 +187,38 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v5
 
+      - name: Verify live installation endpoints
+        env:
+          ADDON_VERSION: ${{ needs.build.outputs.addon_version }}
+          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+          REPOSITORY_ZIP: ${{ needs.build.outputs.repository_zip }}
+        run: |
+          set -euo pipefail
+          base="${PAGE_URL%/}"
+          expected="repository.managarr/$REPOSITORY_ZIP"
+          html="$RUNNER_TEMP/index.html"
+          for attempt in $(seq 1 12); do
+            if curl --fail --silent --show-error --location --max-time 20 "$base/" --output "$html" \
+              && grep --fixed-strings --quiet "$expected" "$html"; then
+              break
+            fi
+            if [ "$attempt" -eq 12 ]; then
+              echo "Pages landing page did not publish the expected repository ZIP" >&2
+              exit 1
+            fi
+            sleep 10
+          done
+          for path in \
+            addons.xml \
+            addons.xml.md5 \
+            "$expected" \
+            "$expected.sha256" \
+            "context.arr.manager/context.arr.manager-$ADDON_VERSION.zip"; do
+            curl --fail --silent --show-error --location \
+              --retry 5 --retry-all-errors --retry-delay 3 --max-time 20 \
+              "$base/$path" --output /dev/null
+          done
+
       - name: Deployment summary
         env:
           ADDON_VERSION: ${{ needs.build.outputs.addon_version }}
@@ -153,7 +226,7 @@ jobs:
           REPOSITORY_ZIP: ${{ needs.build.outputs.repository_zip }}
         run: |
           {
-            echo '## Kodi repository published'
+            echo '## Kodi repository published and verified'
             echo "- Kodi Managarr: \`$ADDON_VERSION\`"
             echo "- Repository URL: $REPOSITORY_URL"
             echo "- Install ZIP: $REPOSITORY_URL/repository.managarr/$REPOSITORY_ZIP"
