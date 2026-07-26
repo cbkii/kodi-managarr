@@ -3,7 +3,9 @@
 
 import argparse
 import hashlib
+import html
 import os
+import re
 import shutil
 import stat
 import xml.etree.ElementTree as ET
@@ -15,6 +17,10 @@ ADDON_ID = "context.arr.manager"
 REPOSITORY_ID = "repository.managarr"
 DEFAULT_REPOSITORY_URL = "https://cbkii.github.io/kodi-managarr"
 DEFAULT_EPOCH = 1700000000
+ROOT = Path(__file__).resolve().parent.parent
+SITE_SOURCE = ROOT / "pages"
+VERSION_PATTERN = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+$")
+TEMPLATE_PATTERN = re.compile(r"\{\{[A-Z_]+\}\}")
 
 
 def _sha256(path):
@@ -35,6 +41,13 @@ def _safe_member_name(name):
         return False
     path = PurePosixPath(name)
     return not path.is_absolute() and ".." not in path.parts
+
+
+def _validate_version(value, label):
+    value = str(value or "").strip()
+    if not VERSION_PATTERN.fullmatch(value):
+        raise ValueError(f"{label} must use x.y.z")
+    return value
 
 
 def _validate_release_zip(path):
@@ -68,9 +81,7 @@ def _validate_release_zip(path):
             raise ValueError("Release addon.xml is malformed") from exc
         if manifest.tag != "addon" or manifest.attrib.get("id") != ADDON_ID:
             raise ValueError("Release addon.xml has the wrong add-on ID")
-        version = (manifest.attrib.get("version") or "").strip()
-        if not version:
-            raise ValueError("Release addon.xml is missing a version")
+        version = _validate_version(manifest.attrib.get("version"), "Release add-on version")
 
         metadata = {"addon.xml": manifest_bytes, "LICENSE.txt": archive.read(licence_name)}
         for relative in ("resources/icon.png", "resources/fanart.jpg"):
@@ -81,6 +92,7 @@ def _validate_release_zip(path):
 
 
 def create_repository_manifest(repo_version, repo_url):
+    repo_version = _validate_version(repo_version, "Repository add-on version")
     repo_url = repo_url.rstrip("/")
     root = ET.Element(
         "addon", id=REPOSITORY_ID, name="Kodi Managarr Repository",
@@ -142,12 +154,34 @@ def _write_relative(root, relative, content):
     target.write_bytes(content)
 
 
+def _render_site(out_dir, addon_version, repo_version, repo_url):
+    template_path = SITE_SOURCE / "index.html"
+    stylesheet_path = SITE_SOURCE / "styles.css"
+    if not template_path.is_file() or not stylesheet_path.is_file():
+        raise ValueError("Pages source is missing index.html or styles.css")
+
+    rendered = template_path.read_text(encoding="utf-8")
+    replacements = {
+        "{{ADDON_VERSION}}": addon_version,
+        "{{REPOSITORY_VERSION}}": repo_version,
+        "{{REPOSITORY_URL}}": repo_url.rstrip("/"),
+    }
+    for marker, value in replacements.items():
+        rendered = rendered.replace(marker, html.escape(value, quote=True))
+    unresolved = sorted(set(TEMPLATE_PATTERN.findall(rendered)))
+    if unresolved:
+        raise ValueError(f"Pages source contains unresolved placeholders: {unresolved}")
+
+    _write_text(out_dir / "index.html", rendered)
+    shutil.copyfile(stylesheet_path, out_dir / "styles.css")
+    _write_text(out_dir / ".nojekyll", "")
+
+
 def generate_repository(release_zip, out_dir, repo_version, repo_url, epoch):
     addon_version, addon_manifest, metadata = _validate_release_zip(release_zip)
-    repo_version = str(repo_version or "").strip()
-    if not repo_version:
-        raise ValueError("Repository add-on version is required")
-    if not str(repo_url).lower().startswith("https://"):
+    repo_version = _validate_version(repo_version, "Repository add-on version")
+    repo_url = str(repo_url or "").strip().rstrip("/")
+    if not repo_url.lower().startswith("https://"):
         raise ValueError("Repository URL must use HTTPS")
 
     out_dir = out_dir.resolve()
@@ -188,7 +222,7 @@ def generate_repository(release_zip, out_dir, repo_version, repo_url, epoch):
     (out_dir / "addons.xml").write_bytes(addons_bytes)
     _write_text(out_dir / "addons.xml.md5", hashlib.md5(addons_bytes).hexdigest() + "\n")  # nosec B303: Kodi change token
     _write_text(out_dir / "addons.xml.sha256", hashlib.sha256(addons_bytes).hexdigest() + "\n")
-    _write_text(out_dir / "index.html", "<!doctype html><meta charset=\"utf-8\"><title>Kodi Managarr Repository</title><h1>Kodi Managarr Repository</h1>\n")
+    _render_site(out_dir, addon_version, repo_version, repo_url)
 
     with zipfile.ZipFile(repository_zip) as archive:
         if archive.testzip() is not None or repository_zip.name in archive.namelist():
