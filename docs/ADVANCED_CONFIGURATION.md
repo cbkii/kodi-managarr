@@ -310,12 +310,12 @@ Kodi Keymap Editor can expose **Launch Kodi Managarr** under add-on actions.
 Advanced keymaps can call a mode directly:
 
 ```xml
-<key>RunScript(special://home/addons/context.arr.manager/default.py,mode=request_search)</key>
-<key>RunScript(special://home/addons/context.arr.manager/default.py,mode=interactive_search)</key>
-<key>RunScript(special://home/addons/context.arr.manager/default.py,mode=dashboard)</key>
-<key>RunScript(special://home/addons/context.arr.manager/default.py,mode=retention_preview)</key>
-<key>RunScript(special://home/addons/context.arr.manager/default.py,mode=retention_cleanup)</key>
-<key>RunScript(special://home/addons/context.arr.manager/default.py,mode=delete_replace)</key>
+<key>RunScript(context.arr.manager,mode=request_search)</key>
+<key>RunScript(context.arr.manager,mode=interactive_search)</key>
+<key>RunScript(context.arr.manager,mode=dashboard)</key>
+<key>RunScript(context.arr.manager,mode=retention_preview)</key>
+<key>RunScript(context.arr.manager,mode=retention_cleanup)</key>
+<key>RunScript(context.arr.manager,mode=delete_replace)</key>
 ```
 
 A hidden menu item can still be called by a direct mode. Destructive modes still pass through the same PIN, confirmation, matching, and safety checks.
