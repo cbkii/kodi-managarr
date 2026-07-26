@@ -15,7 +15,8 @@ from pathlib import Path, PurePosixPath
 
 ADDON_ID = "context.arr.manager"
 REPOSITORY_ID = "repository.managarr"
-DEFAULT_REPOSITORY_URL = "https://cbkii.github.io/kodi-managarr"
+DEFAULT_REPOSITORY_URL = "https://raw.githubusercontent.com/cbkii/kodi-managarr/gh-pages"
+DEFAULT_WEBSITE_URL = "https://cbkii.github.io/kodi-managarr"
 DEFAULT_EPOCH = 1700000000
 ROOT = Path(__file__).resolve().parent.parent
 SITE_SOURCE = ROOT / "pages"
@@ -47,6 +48,13 @@ def _validate_version(value, label):
     value = str(value or "").strip()
     if not VERSION_PATTERN.fullmatch(value):
         raise ValueError(f"{label} must use x.y.z")
+    return value
+
+
+def _validate_https_url(value, label):
+    value = str(value or "").strip().rstrip("/")
+    if not value.lower().startswith("https://"):
+        raise ValueError(f"{label} must use HTTPS")
     return value
 
 
@@ -91,9 +99,10 @@ def _validate_release_zip(path):
         return version, manifest, metadata
 
 
-def create_repository_manifest(repo_version, repo_url):
+def create_repository_manifest(repo_version, repo_url, website_url=DEFAULT_WEBSITE_URL):
     repo_version = _validate_version(repo_version, "Repository add-on version")
-    repo_url = repo_url.rstrip("/")
+    repo_url = _validate_https_url(repo_url, "Repository URL")
+    website_url = _validate_https_url(website_url, "Repository website URL")
     root = ET.Element(
         "addon", id=REPOSITORY_ID, name="Kodi Managarr Repository",
         version=repo_version, **{"provider-name": "CB"},
@@ -112,7 +121,7 @@ def create_repository_manifest(repo_version, repo_url):
     ET.SubElement(metadata, "description", lang="en_GB").text = "Install Kodi Managarr and receive normal Kodi add-on updates."
     ET.SubElement(metadata, "platform").text = "all"
     ET.SubElement(metadata, "license").text = "GPL-3.0-or-later"
-    ET.SubElement(metadata, "website").text = repo_url
+    ET.SubElement(metadata, "website").text = website_url
     ET.SubElement(metadata, "source").text = "https://github.com/cbkii/kodi-managarr"
     assets = ET.SubElement(metadata, "assets")
     ET.SubElement(assets, "icon").text = "icon.png"
@@ -148,13 +157,18 @@ def _write_hash(path):
     _write_text(path.with_name(path.name + ".sha256"), f"{_sha256(path)}  {path.name}\n")
 
 
+def _write_alias(source, alias):
+    shutil.copyfile(source, alias)
+    _write_hash(alias)
+
+
 def _write_relative(root, relative, content):
     target = root / relative
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(content)
 
 
-def _render_site(out_dir, addon_version, repo_version, repo_url):
+def _render_site(out_dir, addon_version, repo_version):
     template_path = SITE_SOURCE / "index.html"
     stylesheet_path = SITE_SOURCE / "styles.css"
     if not template_path.is_file() or not stylesheet_path.is_file():
@@ -164,7 +178,6 @@ def _render_site(out_dir, addon_version, repo_version, repo_url):
     replacements = {
         "{{ADDON_VERSION}}": addon_version,
         "{{REPOSITORY_VERSION}}": repo_version,
-        "{{REPOSITORY_URL}}": repo_url.rstrip("/"),
     }
     for marker, value in replacements.items():
         rendered = rendered.replace(marker, html.escape(value, quote=True))
@@ -177,12 +190,11 @@ def _render_site(out_dir, addon_version, repo_version, repo_url):
     _write_text(out_dir / ".nojekyll", "")
 
 
-def generate_repository(release_zip, out_dir, repo_version, repo_url, epoch):
+def generate_repository(release_zip, out_dir, repo_version, repo_url, epoch, website_url=DEFAULT_WEBSITE_URL):
     addon_version, addon_manifest, metadata = _validate_release_zip(release_zip)
     repo_version = _validate_version(repo_version, "Repository add-on version")
-    repo_url = str(repo_url or "").strip().rstrip("/")
-    if not repo_url.lower().startswith("https://"):
-        raise ValueError("Repository URL must use HTTPS")
+    repo_url = _validate_https_url(repo_url, "Repository URL")
+    website_url = _validate_https_url(website_url, "Repository website URL")
 
     out_dir = out_dir.resolve()
     if out_dir.exists():
@@ -194,6 +206,7 @@ def generate_repository(release_zip, out_dir, repo_version, repo_url, epoch):
     canonical_zip = addon_dir / f"{ADDON_ID}-{addon_version}.zip"
     shutil.copyfile(release_zip, canonical_zip)
     _write_hash(canonical_zip)
+    _write_alias(canonical_zip, addon_dir / f"{ADDON_ID}.zip")
     _write_relative(addon_dir, "addon.xml", metadata["addon.xml"])
     for relative in ("resources/icon.png", "resources/fanart.jpg"):
         if relative in metadata:
@@ -201,7 +214,7 @@ def generate_repository(release_zip, out_dir, repo_version, repo_url, epoch):
 
     repository_dir = out_dir / REPOSITORY_ID
     repository_dir.mkdir()
-    repository_manifest = create_repository_manifest(repo_version, repo_url)
+    repository_manifest = create_repository_manifest(repo_version, repo_url, website_url)
     _write_relative(repository_dir, "addon.xml", _xml_bytes(repository_manifest))
     _write_relative(repository_dir, "LICENSE.txt", metadata["LICENSE.txt"])
     if "resources/icon.png" in metadata:
@@ -214,6 +227,7 @@ def generate_repository(release_zip, out_dir, repo_version, repo_url, epoch):
     _deterministic_zip(temporary_zip, repository_dir, epoch)
     os.replace(temporary_zip, repository_zip)
     _write_hash(repository_zip)
+    _write_alias(repository_zip, repository_dir / f"{REPOSITORY_ID}.zip")
 
     addons = ET.Element("addons")
     addons.append(repository_manifest)
@@ -222,7 +236,7 @@ def generate_repository(release_zip, out_dir, repo_version, repo_url, epoch):
     (out_dir / "addons.xml").write_bytes(addons_bytes)
     _write_text(out_dir / "addons.xml.md5", hashlib.md5(addons_bytes).hexdigest() + "\n")  # nosec B303: Kodi change token
     _write_text(out_dir / "addons.xml.sha256", hashlib.sha256(addons_bytes).hexdigest() + "\n")
-    _render_site(out_dir, addon_version, repo_version, repo_url)
+    _render_site(out_dir, addon_version, repo_version)
 
     with zipfile.ZipFile(repository_zip) as archive:
         if archive.testzip() is not None or repository_zip.name in archive.namelist():
@@ -237,10 +251,18 @@ def main():
     parser.add_argument("release_zip", type=Path)
     parser.add_argument("--repo-version", default="1.0.0")
     parser.add_argument("--repo-url", default=DEFAULT_REPOSITORY_URL)
+    parser.add_argument("--website-url", default=DEFAULT_WEBSITE_URL)
     parser.add_argument("--out-dir", type=Path, default=Path("pages_output"))
     args = parser.parse_args()
     epoch = int(os.environ.get("SOURCE_DATE_EPOCH", DEFAULT_EPOCH))
-    addon_version, repository_zip = generate_repository(args.release_zip, args.out_dir, args.repo_version, args.repo_url, epoch)
+    addon_version, repository_zip = generate_repository(
+        args.release_zip,
+        args.out_dir,
+        args.repo_version,
+        args.repo_url,
+        epoch,
+        args.website_url,
+    )
     print(f"Repository generated for {ADDON_ID} {addon_version}: {repository_zip}")
 
 
