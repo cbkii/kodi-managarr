@@ -56,6 +56,14 @@ class RepositoryPagesWorkflowTests(unittest.TestCase):
         self.assertIn("test \"$(jq -r '.isDraft'", PAGES_WORKFLOW)
         self.assertIn("test \"$(jq -r '.isPrerelease'", PAGES_WORKFLOW)
 
+    def test_repository_tooling_changes_republish_latest_stable_release(self):
+        self.assertIn("  push:\n    branches: [main]", PAGES_WORKFLOW)
+        self.assertIn("      - .github/workflows/pages.yml", PAGES_WORKFLOW)
+        self.assertIn("      - scripts/generate_repo.py", PAGES_WORKFLOW)
+        self.assertIn("      - pages/**", PAGES_WORKFLOW)
+        self.assertIn("github.event_name == 'push'", PAGES_WORKFLOW)
+        self.assertIn("--exclude-drafts --exclude-pre-releases", PAGES_WORKFLOW)
+
     def test_exact_release_tag_and_single_asset_are_used(self):
         self.assertIn('EVENT_TAG: ${{ github.event.release.tag_name }}', PAGES_WORKFLOW)
         self.assertIn('gh release view "$tag"', PAGES_WORKFLOW)
