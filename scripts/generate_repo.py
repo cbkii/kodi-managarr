@@ -169,23 +169,25 @@ def _write_relative(root, relative, content):
 
 
 def _render_site(out_dir, addon_version, repo_version):
-    template_path = SITE_SOURCE / "index.html"
     stylesheet_path = SITE_SOURCE / "styles.css"
-    if not template_path.is_file() or not stylesheet_path.is_file():
-        raise ValueError("Pages source is missing index.html or styles.css")
+    template_paths = (SITE_SOURCE / "index.html", SITE_SOURCE / "README.md")
+    if not stylesheet_path.is_file() or any(not path.is_file() for path in template_paths):
+        raise ValueError("Pages source is missing index.html, README.md or styles.css")
 
-    rendered = template_path.read_text(encoding="utf-8")
     replacements = {
         "{{ADDON_VERSION}}": addon_version,
         "{{REPOSITORY_VERSION}}": repo_version,
     }
-    for marker, value in replacements.items():
-        rendered = rendered.replace(marker, html.escape(value, quote=True))
-    unresolved = sorted(set(TEMPLATE_PATTERN.findall(rendered)))
-    if unresolved:
-        raise ValueError(f"Pages source contains unresolved placeholders: {unresolved}")
+    for template_path in template_paths:
+        rendered = template_path.read_text(encoding="utf-8")
+        for marker, value in replacements.items():
+            replacement = html.escape(value, quote=True) if template_path.suffix == ".html" else value
+            rendered = rendered.replace(marker, replacement)
+        unresolved = sorted(set(TEMPLATE_PATTERN.findall(rendered)))
+        if unresolved:
+            raise ValueError(f"Pages source contains unresolved placeholders: {unresolved}")
+        _write_text(out_dir / template_path.name, rendered)
 
-    _write_text(out_dir / "index.html", rendered)
     shutil.copyfile(stylesheet_path, out_dir / "styles.css")
     _write_text(out_dir / ".nojekyll", "")
 
