@@ -7,7 +7,21 @@ import tempfile
 import unittest
 import xml.etree.ElementTree as ET
 import zipfile
+from html.parser import HTMLParser
 from pathlib import Path
+
+
+class LinkParser(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.links = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag != "a":
+            return
+        values = dict(attrs)
+        if values.get("href"):
+            self.links.append(values["href"])
 
 
 class GenerateRepoTests(unittest.TestCase):
@@ -26,10 +40,18 @@ class GenerateRepoTests(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.temp_dir)
 
-    def run_generator(self, release_zip=None, out_name="pages"):
+    def run_generator(self, release_zip=None, out_name="pages", repo_version="1.0.0"):
         out_dir = self.temp_dir / out_name
         result = subprocess.run(
-            [sys.executable, "scripts/generate_repo.py", str(release_zip or self.zip_path), "--out-dir", str(out_dir), "--repo-version", "1.0.0"],
+            [
+                sys.executable,
+                "scripts/generate_repo.py",
+                str(release_zip or self.zip_path),
+                "--out-dir",
+                str(out_dir),
+                "--repo-version",
+                repo_version,
+            ],
             check=False,
             capture_output=True,
             text=True,
@@ -74,6 +96,31 @@ class GenerateRepoTests(unittest.TestCase):
             self.assertIn("context.arr.manager/addon.xml", archive.namelist())
             self.assertIn("context.arr.manager/LICENSE.txt", archive.namelist())
 
+    def test_generated_site_links_to_installable_repository(self):
+        result, out_dir = self.run_generator()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        index = (out_dir / "index.html").read_text(encoding="utf-8")
+        self.assertIn("Kodi Managarr 1.2.3", index)
+        self.assertIn("repository.managarr-1.0.0.zip", index)
+        self.assertNotIn("{{", index)
+        self.assertTrue((out_dir / "styles.css").is_file())
+        self.assertTrue((out_dir / ".nojekyll").is_file())
+
+        parser = LinkParser()
+        parser.feed(index)
+        local_links = [link for link in parser.links if not link.startswith(("https://", "http://", "mailto:"))]
+        expected = {
+            "addons.xml",
+            "addons.xml.md5",
+            "repository.managarr/repository.managarr-1.0.0.zip",
+            "repository.managarr/repository.managarr-1.0.0.zip.sha256",
+            "context.arr.manager/context.arr.manager-1.2.3.zip",
+            "context.arr.manager/context.arr.manager-1.2.3.zip.sha256",
+        }
+        self.assertTrue(expected.issubset(set(local_links)))
+        for link in local_links:
+            self.assertTrue((out_dir / link).is_file(), link)
+
     def test_output_is_deterministic(self):
         old = os.environ.get("SOURCE_DATE_EPOCH")
         os.environ["SOURCE_DATE_EPOCH"] = "1700000000"
@@ -91,11 +138,19 @@ class GenerateRepoTests(unittest.TestCase):
         second_files = {p.relative_to(second_dir): p.read_bytes() for p in second_dir.rglob("*") if p.is_file()}
         self.assertEqual(first_files, second_files)
 
-    def test_rejects_wrong_root_missing_version_licence_and_traversal(self):
+    def test_rejects_wrong_root_missing_version_licence_traversal_and_bad_repo_version(self):
         cases = {
-            "wrong-root": [("other/addon.xml", '<addon id="context.arr.manager" version="1.0.0" />'), ("other/LICENSE.txt", "licence")],
-            "missing-version": [("context.arr.manager/addon.xml", '<addon id="context.arr.manager" />'), ("context.arr.manager/LICENSE.txt", "licence")],
-            "missing-licence": [("context.arr.manager/addon.xml", '<addon id="context.arr.manager" version="1.0.0" />')],
+            "wrong-root": [
+                ("other/addon.xml", '<addon id="context.arr.manager" version="1.0.0" />'),
+                ("other/LICENSE.txt", "licence"),
+            ],
+            "missing-version": [
+                ("context.arr.manager/addon.xml", '<addon id="context.arr.manager" />'),
+                ("context.arr.manager/LICENSE.txt", "licence"),
+            ],
+            "missing-licence": [
+                ("context.arr.manager/addon.xml", '<addon id="context.arr.manager" version="1.0.0" />'),
+            ],
             "traversal": [
                 ("context.arr.manager/addon.xml", '<addon id="context.arr.manager" version="1.0.0" />'),
                 ("context.arr.manager/LICENSE.txt", "licence"),
@@ -110,6 +165,10 @@ class GenerateRepoTests(unittest.TestCase):
                         archive.writestr(member, content)
                 result, _ = self.run_generator(path, out_name=f"out-{name}")
                 self.assertNotEqual(result.returncode, 0)
+
+        result, _ = self.run_generator(repo_version="latest")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Repository add-on version must use x.y.z", result.stderr)
 
 
 if __name__ == "__main__":
