@@ -63,12 +63,16 @@ class RepositoryPagesWorkflowTests(unittest.TestCase):
         self.assertIn('test "${#assets[@]}" -eq 1', PAGES_WORKFLOW)
         self.assertNotIn("fetch-gh-release-asset", PAGES_WORKFLOW)
 
-    def test_repository_generation_is_validated_before_upload(self):
+    def test_repository_generation_is_validated_before_publication(self):
         self.assertIn("export SOURCE_DATE_EPOCH=1700000000", PAGES_WORKFLOW)
         self.assertIn("python scripts/generate_repo.py release.zip", PAGES_WORKFLOW)
         self.assertIn("assert archive.testzip() is None", PAGES_WORKFLOW)
-        self.assertIn("actions/upload-pages-artifact", PAGES_WORKFLOW)
-        self.assertIn("actions/deploy-pages", PAGES_WORKFLOW)
+        self.assertIn("git push --force origin HEAD:gh-pages", PAGES_WORKFLOW)
+        self.assertIn("https://raw.githubusercontent.com/$GITHUB_REPOSITORY/gh-pages", PAGES_WORKFLOW)
+        self.assertIn("sha256sum --check repository.managarr.zip.sha256", PAGES_WORKFLOW)
+        self.assertIn("sha256sum --check context.arr.manager.zip.sha256", PAGES_WORKFLOW)
+        self.assertNotIn("actions/upload-pages-artifact", PAGES_WORKFLOW)
+        self.assertNotIn("actions/deploy-pages", PAGES_WORKFLOW)
 
 
 if __name__ == "__main__":
