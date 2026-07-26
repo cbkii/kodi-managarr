@@ -10,8 +10,8 @@ on:
         required: false
         default: ""
         type: string
-  # One-time branch trigger used to establish and verify the Pages install surface.
-  # Remove this trigger after the first successful deployment.
+  # One-time branch trigger used to establish and verify the generated source.
+  # Remove this trigger after the first successful publication.
   push:
     branches: [docs/end-user-readme]
     paths:
@@ -21,13 +21,10 @@ on:
       - tests/test_generate_repo.py
 
 permissions:
-  contents: read
-  issues: write
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
-  group: kodi-repository-pages
+  group: kodi-repository-publish
   cancel-in-progress: false
 
 env:
@@ -35,20 +32,16 @@ env:
   PYTHONDONTWRITEBYTECODE: "1"
 
 jobs:
-  build:
+  publish:
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || (github.event.release.draft == false && github.event.release.prerelease == false)
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    outputs:
-      addon_version: ${{ steps.generate.outputs.addon_version }}
-      release_tag: ${{ steps.release.outputs.release_tag }}
-      repository_zip: ${{ steps.generate.outputs.repository_zip }}
-      repository_url: ${{ steps.generate.outputs.repository_url }}
     steps:
       - name: Check out repository tooling
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          persist-credentials: false
+          fetch-depth: 0
+          persist-credentials: true
 
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -98,8 +91,11 @@ jobs:
         run: |
           set -euo pipefail
           export SOURCE_DATE_EPOCH=1700000000
-          repository_url="https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY#*/}"
-          python scripts/generate_repo.py release.zip --repo-url "$repository_url"
+          raw_url="https://raw.githubusercontent.com/$GITHUB_REPOSITORY/gh-pages"
+          website_url="https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY#*/}"
+          python scripts/generate_repo.py release.zip \
+            --repo-url "$raw_url" \
+            --website-url "$website_url"
           python - <<'PY'
           import os
           import xml.etree.ElementTree as ET
@@ -121,19 +117,26 @@ jobs:
           output_root = Path('pages_output')
           root = ET.parse(output_root / 'addons.xml').getroot()
           versions = {addon.attrib['id']: addon.attrib['version'] for addon in root.findall('addon')}
-          version = versions['context.arr.manager']
+          addon_version = versions['context.arr.manager']
           repo_version = versions['repository.managarr']
-          repository_zip = output_root / 'repository.managarr' / f'repository.managarr-{repo_version}.zip'
-          addon_zip = output_root / 'context.arr.manager' / f'context.arr.manager-{version}.zip'
+          repository_zip = output_root / 'repository.managarr' / 'repository.managarr.zip'
+          addon_zip = output_root / 'context.arr.manager' / 'context.arr.manager.zip'
           for path, root_name in ((repository_zip, 'repository.managarr/'), (addon_zip, 'context.arr.manager/')):
               assert path.is_file() and path.stat().st_size > 0
+              assert path.with_name(path.name + '.sha256').is_file()
               with zipfile.ZipFile(path) as archive:
                   assert archive.testzip() is None
                   assert archive.namelist() and all(name.startswith(root_name) for name in archive.namelist())
 
+          repository = root.find("./addon[@id='repository.managarr']/extension[@point='xbmc.addon.repository']/dir")
+          expected_base = f'https://raw.githubusercontent.com/{os.environ["GITHUB_REPOSITORY"]}/gh-pages'
+          assert repository.findtext('info') == f'{expected_base}/addons.xml'
+          assert repository.findtext('checksum') == f'{expected_base}/addons.xml.md5'
+          assert repository.findtext('datadir') == f'{expected_base}/'
+
           index = (output_root / 'index.html').read_text(encoding='utf-8')
-          assert f'repository.managarr-{repo_version}.zip' in index
-          assert f'context.arr.manager-{version}.zip' in index
+          assert 'repository.managarr/repository.managarr.zip' in index
+          assert 'context.arr.manager/context.arr.manager.zip' in index
           assert '{{' not in index
           parser = Links()
           parser.feed(index)
@@ -144,126 +147,116 @@ jobs:
           assert (output_root / 'styles.css').is_file()
           assert (output_root / '.nojekyll').is_file()
 
-          output = Path(os.environ['GITHUB_OUTPUT'])
-          with output.open('a', encoding='utf-8') as handle:
-              handle.write(f'addon_version={version}\n')
-              handle.write(f'repository_zip={repository_zip.name}\n')
-              handle.write(f'repository_url=https://{os.environ["GITHUB_REPOSITORY_OWNER"]}.github.io/{os.environ["GITHUB_REPOSITORY"].split("/", 1)[1]}\n')
+          with Path(os.environ['GITHUB_OUTPUT']).open('a', encoding='utf-8') as handle:
+              handle.write(f'addon_version={addon_version}\n')
+              handle.write(f'repository_version={repo_version}\n')
           PY
 
-      - name: Configure Pages
-        uses: actions/configure-pages@v6
-        with:
-          enablement: true
-
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v5
-        with:
-          path: pages_output
-
-      - name: Build summary
+      - name: Publish generated repository source
         env:
-          ADDON_VERSION: ${{ steps.generate.outputs.addon_version }}
           RELEASE_TAG: ${{ steps.release.outputs.release_tag }}
-          REPOSITORY_ZIP: ${{ steps.generate.outputs.repository_zip }}
-          REPOSITORY_URL: ${{ steps.generate.outputs.repository_url }}
-        run: |
-          {
-            echo '## Kodi repository build'
-            echo "- Stable release: \`$RELEASE_TAG\`"
-            echo "- Kodi Managarr: \`$ADDON_VERSION\`"
-            echo "- Repository: $REPOSITORY_URL"
-            echo "- Install ZIP: $REPOSITORY_URL/repository.managarr/$REPOSITORY_ZIP"
-          } >> "$GITHUB_STEP_SUMMARY"
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v5
-
-      - name: Verify live installation endpoints
-        id: verify
-        env:
-          ADDON_VERSION: ${{ needs.build.outputs.addon_version }}
-          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
-          REPOSITORY_ZIP: ${{ needs.build.outputs.repository_zip }}
         run: |
           set -euo pipefail
-          base="${PAGE_URL%/}"
-          expected="repository.managarr/$REPOSITORY_ZIP"
-          html="$RUNNER_TEMP/index.html"
+          publish_dir="$RUNNER_TEMP/gh-pages"
+          git worktree add --detach "$publish_dir" HEAD
+          (
+            cd "$publish_dir"
+            git switch --orphan generated-repository
+            git rm -rf . >/dev/null 2>&1 || true
+            find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+            cp -a "$GITHUB_WORKSPACE/pages_output/." .
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add -A
+            git commit -m "chore(repository): publish $RELEASE_TAG"
+            git push --force origin HEAD:gh-pages
+          )
+          git worktree remove --force "$publish_dir"
+
+      - name: Verify published raw repository
+        id: verify
+        env:
+          ADDON_VERSION: ${{ steps.generate.outputs.addon_version }}
+          REPOSITORY_VERSION: ${{ steps.generate.outputs.repository_version }}
+        run: |
+          set -euo pipefail
+          base="https://raw.githubusercontent.com/$GITHUB_REPOSITORY/gh-pages"
+          verify_dir="$RUNNER_TEMP/verify"
+          mkdir "$verify_dir"
+          expected='repository.managarr/repository.managarr.zip'
           for attempt in $(seq 1 12); do
-            if curl --fail --silent --show-error --location --max-time 20 "$base/" --output "$html" \
-              && grep --fixed-strings --quiet "$expected" "$html"; then
+            if curl --fail --silent --show-error --location --max-time 20 "$base/index.html" --output "$verify_dir/index.html" \
+              && grep --fixed-strings --quiet "$expected" "$verify_dir/index.html"; then
               break
             fi
             if [ "$attempt" -eq 12 ]; then
-              echo "Pages landing page did not publish the expected repository ZIP" >&2
+              echo 'Generated repository source did not become readable' >&2
               exit 1
             fi
-            sleep 10
+            sleep 5
           done
           for path in \
             addons.xml \
             addons.xml.md5 \
-            "$expected" \
-            "$expected.sha256" \
-            "context.arr.manager/context.arr.manager-$ADDON_VERSION.zip"; do
+            repository.managarr/repository.managarr.zip \
+            repository.managarr/repository.managarr.zip.sha256 \
+            context.arr.manager/context.arr.manager.zip \
+            context.arr.manager/context.arr.manager.zip.sha256; do
+            destination="$verify_dir/${path##*/}"
             curl --fail --silent --show-error --location \
               --retry 5 --retry-all-errors --retry-delay 3 --max-time 20 \
-              "$base/$path" --output /dev/null
+              "$base/$path" --output "$destination"
           done
+          (
+            cd "$verify_dir"
+            sha256sum --check repository.managarr.zip.sha256
+            sha256sum --check context.arr.manager.zip.sha256
+          )
+          export VERIFY_DIR="$verify_dir"
+          export RAW_BASE="$base"
+          python - <<'PY'
+          import hashlib
+          import os
+          import xml.etree.ElementTree as ET
+          import zipfile
+          from pathlib import Path
 
-      - name: Deployment summary
-        if: success()
+          root = Path(os.environ['VERIFY_DIR'])
+          addons = (root / 'addons.xml').read_bytes()
+          assert hashlib.md5(addons).hexdigest() == (root / 'addons.xml.md5').read_text().strip()  # nosec B303: Kodi change token
+          manifest = ET.fromstring(addons)
+          versions = {addon.attrib['id']: addon.attrib['version'] for addon in manifest.findall('addon')}
+          assert versions['context.arr.manager'] == os.environ['ADDON_VERSION']
+          assert versions['repository.managarr'] == os.environ['REPOSITORY_VERSION']
+          with zipfile.ZipFile(root / 'repository.managarr.zip') as archive:
+              assert archive.testzip() is None
+              repository_xml = ET.fromstring(archive.read('repository.managarr/addon.xml'))
+              directory = repository_xml.find("./extension[@point='xbmc.addon.repository']/dir")
+              base = os.environ['RAW_BASE']
+              assert directory.findtext('info') == f'{base}/addons.xml'
+              assert directory.findtext('checksum') == f'{base}/addons.xml.md5'
+              assert directory.findtext('datadir') == f'{base}/'
+          with zipfile.ZipFile(root / 'context.arr.manager.zip') as archive:
+              assert archive.testzip() is None
+              assert 'context.arr.manager/addon.xml' in archive.namelist()
+          PY
+          echo "repository_sha256=$(sha256sum "$verify_dir/repository.managarr.zip" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          echo "raw_base=$base" >> "$GITHUB_OUTPUT"
+
+      - name: Publication summary
         env:
-          ADDON_VERSION: ${{ needs.build.outputs.addon_version }}
-          REPOSITORY_URL: ${{ needs.build.outputs.repository_url }}
-          REPOSITORY_ZIP: ${{ needs.build.outputs.repository_zip }}
+          ADDON_VERSION: ${{ steps.generate.outputs.addon_version }}
+          PAGES_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/
+          RAW_BASE: ${{ steps.verify.outputs.raw_base }}
+          RELEASE_TAG: ${{ steps.release.outputs.release_tag }}
+          REPOSITORY_SHA256: ${{ steps.verify.outputs.repository_sha256 }}
         run: |
           {
             echo '## Kodi repository published and verified'
+            echo "- Stable release: \`$RELEASE_TAG\`"
             echo "- Kodi Managarr: \`$ADDON_VERSION\`"
-            echo "- Repository URL: $REPOSITORY_URL"
-            echo "- Install ZIP: $REPOSITORY_URL/repository.managarr/$REPOSITORY_ZIP"
+            echo "- Generated source branch: \`gh-pages\`"
+            echo "- Repository ZIP: $RAW_BASE/repository.managarr/repository.managarr.zip"
+            echo "- Repository SHA-256: \`$REPOSITORY_SHA256\`"
+            echo "- Pages-ready URL: $PAGES_URL"
           } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Record bootstrap deployment result
-        if: always() && github.event_name == 'push'
-        env:
-          ADDON_VERSION: ${{ needs.build.outputs.addon_version }}
-          DEPLOY_OUTCOME: ${{ steps.deployment.outcome }}
-          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
-          REPOSITORY_ZIP: ${{ needs.build.outputs.repository_zip }}
-          VERIFY_OUTCOME: ${{ steps.verify.outcome }}
-        run: |
-          set -euo pipefail
-          base="${PAGE_URL%/}"
-          body="$RUNNER_TEMP/pages-result.md"
-          {
-            echo '<!-- managarr-pages-bootstrap -->'
-            echo '## Kodi repository Pages bootstrap'
-            echo
-            echo "- Workflow run: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-            echo "- Source commit: \`$GITHUB_SHA\`"
-            echo "- Deployment: \`$DEPLOY_OUTCOME\`"
-            echo "- Live endpoint verification: \`$VERIFY_OUTCOME\`"
-            if [ "$VERIFY_OUTCOME" = success ]; then
-              echo "- Landing page: $base/"
-              echo "- Repository ZIP: $base/repository.managarr/$REPOSITORY_ZIP"
-              echo "- Published add-on: \`$ADDON_VERSION\`"
-            fi
-          } > "$body"
-          existing="$(gh api --paginate "repos/$GITHUB_REPOSITORY/issues/29/comments" --jq '.[] | select(.body | contains("<!-- managarr-pages-bootstrap -->")) | .id' | head -n 1)"
-          if [ -n "$existing" ]; then
-            gh api --method PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$existing" --raw-field body="$(cat "$body")" >/dev/null
-          else
-            gh api --method POST "repos/$GITHUB_REPOSITORY/issues/29/comments" --raw-field body="$(cat "$body")" >/dev/null
-          fi
