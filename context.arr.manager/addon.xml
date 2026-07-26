@@ -1,0 +1,29 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<addon id="context.arr.manager" name="Kodi Managarr" version="1.4.0" provider-name="CB">
+  <requires>
+    <import addon="xbmc.python" version="3.0.0" />
+  </requires>
+  <extension point="kodi.context.item">
+    <menu id="kodi.core.main">
+      <item library="context.py" args="menu"><label>Managarr</label><visible>String.IsEqual(ListItem.DBType,movie) | String.IsEqual(ListItem.DBType,tvshow) | String.IsEqual(ListItem.DBType,episode)</visible></item>
+    </menu>
+  </extension>
+  <extension point="xbmc.python.script" library="default.py">
+    <provides>executable</provides>
+  </extension>
+  <extension point="xbmc.service" library="service.py" />
+  <extension point="xbmc.subtitle.module" library="subtitles.py" />
+  <extension point="xbmc.addon.metadata">
+    <summary lang="en_GB">Manage Arr media, Bazarr subtitles and safe watched-media retention from Kodi.</summary>
+    <description lang="en_GB">Kodi-native Request &amp; Search, interactive Radarr/Sonarr release selection, service dashboard, monitoring, queue, Bazarr subtitle download, deletion, exclusion and replacement controls. Optional retention provides dry-run previews, watched and age-aware cleanup, explicit movie/episode/series/season exclusions, movie-rating protection and bounded PIN-authorised periodic runs.</description>
+    <platform>all</platform>
+    <license>GPL-3.0-or-later</license>
+    <source>https://github.com/cbkii/kodi-managarr</source>
+    <website>https://github.com/cbkii/kodi-managarr</website>
+    <news>v1.4.0 (2026-07-26) - Add TV-remote-friendly menu configuration with canonical numeric ranks, grouped integer settings and plain-English help. Batch-enable actions, move directly before or after another entry, enter a rank, preview or normalise the resolved hierarchy, and optionally flatten Monitoring, Download queue, Retention or Tools as labelled main-menu blocks.</news>
+    <assets>
+      <icon>resources/icon.png</icon>
+      <fanart>resources/fanart.jpg</fanart>
+    </assets>
+  </extension>
+</addon>
