@@ -9,7 +9,7 @@ on:
         default: main
         type: string
       version:
-        description: Exact x.y.z version; blank resumes an untagged manifest version or increments the highest tag
+        description: Exact x.y.z version; blank resumes/increments, or enter an existing stable version to republish it
         required: false
         default: ""
         type: string
@@ -29,6 +29,11 @@ on:
         required: true
         default: true
         type: boolean
+      publish_kodi_repository:
+        description: Publish the stable release to the Kodi add-on repository (also repairs an existing release tag)
+        required: true
+        default: true
+        type: boolean
 
 permissions:
   contents: write
@@ -43,11 +48,78 @@ env:
   PYTHONDONTWRITEBYTECODE: "1"
 
 jobs:
+  prepare:
+    name: Resolve release mode
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      existing_release: ${{ steps.mode.outputs.existing_release }}
+      release_tag: ${{ steps.mode.outputs.release_tag }}
+      release_url: ${{ steps.mode.outputs.release_url }}
+    steps:
+      - name: Detect an existing published release
+        id: mode
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+          CHANNEL: ${{ inputs.channel }}
+          PUBLISH_KODI_REPOSITORY: ${{ inputs.publish_kodi_repository }}
+        run: |
+          set -euo pipefail
+          requested="${REQUESTED_VERSION#v}"
+          printf 'existing_release=false\nrelease_tag=\nrelease_url=\n' >> "$GITHUB_OUTPUT"
+          if [ -z "$requested" ]; then
+            exit 0
+          fi
+          if [[ ! "$requested" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo 'Requested version must use x.y.z or vx.y.z' >&2
+            exit 1
+          fi
+          tag="v$requested"
+          if metadata="$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease,tagName,url 2>/dev/null)"; then
+            if [ "$PUBLISH_KODI_REPOSITORY" != true ]; then
+              echo "$tag already has a GitHub release. Select the Kodi repository checkbox to republish it, or enter a newer version." >&2
+              exit 1
+            fi
+            if [ "$CHANNEL" != stable ]; then
+              echo 'An existing stable release can only be republished with the stable channel selected.' >&2
+              exit 1
+            fi
+            if [ "$(jq -r '.isDraft' <<<"$metadata")" != false ] || [ "$(jq -r '.isPrerelease' <<<"$metadata")" != false ]; then
+              echo "$tag is not a published stable release and cannot be added to the stable Kodi repository." >&2
+              exit 1
+            fi
+            resolved="$(jq -r '.tagName' <<<"$metadata")"
+            url="$(jq -r '.url' <<<"$metadata")"
+            {
+              echo 'existing_release=true'
+              echo "release_tag=$resolved"
+              echo "release_url=$url"
+            } >> "$GITHUB_OUTPUT"
+            {
+              echo '# Existing release selected'
+              echo
+              echo "- Release: [$resolved]($url)"
+              echo '- A duplicate GitHub release will not be created.'
+              echo '- The checked Kodi repository option will regenerate and redeploy this release.'
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          if gh api --silent "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" >/dev/null 2>&1; then
+            echo "$tag exists as a Git tag but has no published GitHub release asset to deploy." >&2
+            exit 1
+          fi
+
   release:
     name: Validate, version, package, and release
+    needs: prepare
+    if: needs.prepare.outputs.existing_release != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     environment: kodi-release
+    outputs:
+      tag: ${{ steps.metadata.outputs.tag }}
+      version: ${{ steps.metadata.outputs.version }}
+      release_url: ${{ steps.release.outputs.url }}
     steps:
       - name: Check out release branch
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -305,6 +377,7 @@ jobs:
           TAG: ${{ steps.metadata.outputs.tag }}
           VERSION_SOURCE: ${{ steps.metadata.outputs.version_source }}
           CHANNEL: ${{ inputs.channel }}
+          PUBLISH_KODI_REPOSITORY: ${{ inputs.publish_kodi_repository }}
         run: |
           {
             echo '# Kodi release created'
@@ -312,4 +385,22 @@ jobs:
             echo "- Release: [$TAG]($RELEASE_URL)"
             echo "- Version source: \`$VERSION_SOURCE\`"
             echo "- Channel: \`$CHANNEL\`"
+            echo "- Publish to Kodi repository: \`$PUBLISH_KODI_REPOSITORY\`"
           } >> "$GITHUB_STEP_SUMMARY"
+
+  publish_repository:
+    name: Publish stable release to Kodi repository
+    needs: [prepare, release]
+    if: >-
+      ${{
+        always() &&
+        inputs.publish_kodi_repository &&
+        needs.prepare.result == 'success' &&
+        (needs.release.result == 'success' || needs.release.result == 'skipped') &&
+        (needs.prepare.outputs.existing_release == 'true' || inputs.channel == 'stable')
+      }}
+    permissions:
+      contents: write
+    uses: ./.github/workflows/pages.yml
+    with:
+      release_tag: ${{ needs.prepare.outputs.existing_release == 'true' && needs.prepare.outputs.release_tag || needs.release.outputs.tag }}
