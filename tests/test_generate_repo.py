@@ -69,10 +69,14 @@ class GenerateRepoTests(unittest.TestCase):
         )
         repository_addon = root.find("./addon[@id='repository.managarr']")
         self.assertEqual(repository_addon.findtext("./extension[@point='xbmc.addon.metadata']/license"), "GPL-3.0-or-later")
+        self.assertEqual(
+            repository_addon.findtext("./extension[@point='xbmc.addon.metadata']/website"),
+            "https://cbkii.github.io/kodi-managarr",
+        )
         directory = repository_addon.find("./extension[@point='xbmc.addon.repository']/dir")
         self.assertEqual(directory.findtext("hashes"), "sha256")
         for tag in ("info", "checksum", "datadir"):
-            self.assertTrue(directory.findtext(tag).startswith("https://"))
+            self.assertTrue(directory.findtext(tag).startswith("https://raw.githubusercontent.com/cbkii/kodi-managarr/gh-pages"))
 
         expected_md5 = hashlib.md5(addons_xml.read_bytes()).hexdigest()  # nosec B303: Kodi change token
         self.assertEqual((out_dir / "addons.xml.md5").read_text().strip(), expected_md5)
@@ -82,14 +86,19 @@ class GenerateRepoTests(unittest.TestCase):
         self.assertFalse((out_dir / "context.arr.manager/icon.png").exists())
 
         repository_zip = out_dir / "repository.managarr/repository.managarr-1.0.0.zip"
+        repository_alias = out_dir / "repository.managarr/repository.managarr.zip"
         addon_zip = out_dir / "context.arr.manager/context.arr.manager-1.2.3.zip"
-        for archive_path in (repository_zip, addon_zip):
+        addon_alias = out_dir / "context.arr.manager/context.arr.manager.zip"
+        for archive_path in (repository_zip, repository_alias, addon_zip, addon_alias):
             self.assertTrue(archive_path.is_file())
             self.assertTrue(archive_path.with_name(archive_path.name + ".sha256").is_file())
             with zipfile.ZipFile(archive_path) as archive:
                 self.assertIsNone(archive.testzip())
-                self.assertNotIn(archive_path.name, archive.namelist())
+        self.assertEqual(repository_zip.read_bytes(), repository_alias.read_bytes())
+        self.assertEqual(addon_zip.read_bytes(), addon_alias.read_bytes())
         with zipfile.ZipFile(repository_zip) as archive:
+            self.assertNotIn(repository_zip.name, archive.namelist())
+            self.assertNotIn(repository_alias.name, archive.namelist())
             self.assertIn("repository.managarr/addon.xml", archive.namelist())
             self.assertIn("repository.managarr/LICENSE.txt", archive.namelist())
         with zipfile.ZipFile(addon_zip) as archive:
@@ -101,7 +110,7 @@ class GenerateRepoTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         index = (out_dir / "index.html").read_text(encoding="utf-8")
         self.assertIn("Kodi Managarr 1.2.3", index)
-        self.assertIn("repository.managarr-1.0.0.zip", index)
+        self.assertIn("repository.managarr/repository.managarr.zip", index)
         self.assertNotIn("{{", index)
         self.assertTrue((out_dir / "styles.css").is_file())
         self.assertTrue((out_dir / ".nojekyll").is_file())
@@ -112,10 +121,10 @@ class GenerateRepoTests(unittest.TestCase):
         expected = {
             "addons.xml",
             "addons.xml.md5",
-            "repository.managarr/repository.managarr-1.0.0.zip",
-            "repository.managarr/repository.managarr-1.0.0.zip.sha256",
-            "context.arr.manager/context.arr.manager-1.2.3.zip",
-            "context.arr.manager/context.arr.manager-1.2.3.zip.sha256",
+            "repository.managarr/repository.managarr.zip",
+            "repository.managarr/repository.managarr.zip.sha256",
+            "context.arr.manager/context.arr.manager.zip",
+            "context.arr.manager/context.arr.manager.zip.sha256",
         }
         self.assertTrue(expected.issubset(set(local_links)))
         for link in local_links:
