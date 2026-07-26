@@ -4,7 +4,9 @@ import json
 import re
 
 from .interactive_messages import INTERACTIVE_MESSAGES
+from .menu_localization import ACTION_HELP_IDS, SETTINGS_MESSAGES
 from .messages import MESSAGES
+from .registry import ACTION_REGISTRY
 
 _CONTEXT_RE = re.compile(r'^msgctxt "#([0-9]+)"$', re.M)
 _PROJECT_HEADER = 'Project-Id-Version: Kodi Managarr\\n'
@@ -54,7 +56,12 @@ def _po_entries(source_text):
 
 def runtime_catalog():
     combined = {}
-    for source_name, catalog in (("messages", MESSAGES), ("interactive_messages", INTERACTIVE_MESSAGES)):
+    sources = (
+        ("messages", MESSAGES),
+        ("interactive_messages", INTERACTIVE_MESSAGES),
+        ("menu_settings", SETTINGS_MESSAGES),
+    )
+    for source_name, catalog in sources:
         for key, value in catalog.items():
             if not isinstance(value, tuple) or len(value) != 2:
                 raise ValueError(f"{source_name}.{key} must define (numeric_id, fallback)")
@@ -70,6 +77,24 @@ def runtime_catalog():
                     f"{existing[0]} and {source_name}.{key}"
                 )
             combined[string_id] = (f"{source_name}.{key}", fallback)
+
+    action_ids = {action["id"] for action in ACTION_REGISTRY}
+    if action_ids != set(ACTION_HELP_IDS):
+        missing = sorted(action_ids - set(ACTION_HELP_IDS))
+        stale = sorted(set(ACTION_HELP_IDS) - action_ids)
+        raise ValueError(f"Menu action help IDs drifted: missing={missing}, stale={stale}")
+    for action in ACTION_REGISTRY:
+        string_id = int(ACTION_HELP_IDS[action["id"]])
+        fallback = str(action.get("default_help") or "")
+        if string_id < 30000 or not fallback:
+            raise ValueError(f"registry.{action['id']} has invalid help localisation metadata")
+        existing = combined.get(string_id)
+        if existing and existing[1] != fallback:
+            raise ValueError(
+                f"Localisation ID {string_id} is assigned to incompatible fallbacks: "
+                f"{existing[0]} and registry.{action['id']}.help"
+            )
+        combined[string_id] = (f"registry.{action['id']}.help", fallback)
     return combined
 
 

@@ -9,8 +9,10 @@ if LIB_DIR not in sys.path:
 
 import arr_manager.entrypoints as _entrypoints  # noqa: E402
 from arr_manager.diagnostics_hardening import install as _install_diagnostics_hardening  # noqa: E402
+from arr_manager.menu_entrypoints import install as _install_menu_layout  # noqa: E402
 
 _install_diagnostics_hardening(_entrypoints)
+_install_menu_layout(_entrypoints)
 run_script = _entrypoints.run_script
 
 

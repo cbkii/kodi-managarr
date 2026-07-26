@@ -8,12 +8,15 @@ sys.path.insert(0, os.path.join(ROOT, "resources", "lib"))
 
 from arr_manager import entrypoints
 from arr_manager.errors import ConfigurationError
+from arr_manager.menu_entrypoints import install as install_menu_layout
 from arr_manager.models import SelectedItem
+
+install_menu_layout(entrypoints)
 
 
 class Addon:
     def __init__(self): self.values = {}
-    def getAddonInfo(self, key): return {"name": "Kodi Managarr", "profile": "special://profile/addon_data/context.arr.manager", "version": "1.1.1"}.get(key, "")
+    def getAddonInfo(self, key): return {"name": "Kodi Managarr", "profile": "special://profile/addon_data/context.arr.manager", "version": "1.4.0"}.get(key, "")
     def getLocalizedString(self, string_id): return ""
     def getSetting(self, key): return self.values.get(key, "")
     def setSetting(self, key, value): self.values[key] = value
@@ -69,14 +72,12 @@ class EntrypointTests(unittest.TestCase):
             entrypoints.run_script(list(args))
         return ui
 
-    def test_launcher_exposes_complete_native_scope_by_default(self):
+    def test_launcher_exposes_grouped_native_scope_by_default(self):
         ui = self.run_script([0])
         self.assertEqual(ui.selections[0][1], [
             "Request & Search", "Status", "Search & download now", "Interactive search",
-            "Monitoring", "Download queue", "Dashboard", "Find subtitles",
-            "Delete & Exclude", "Delete & Replace", "Configure Request & Search defaults",
-            "Configure subtitle languages", "Retention preview", "Run retention cleanup",
-            "Last retention report", "Tools & settings",
+            "Monitoring", "Download queue", "Dashboard", "Find subtitles", "Retention",
+            "Delete & Exclude", "Delete & Replace", "Tools & settings",
         ])
         self.assertEqual(Manager.calls, ["request_search"])
 
@@ -87,6 +88,16 @@ class EntrypointTests(unittest.TestCase):
             "Request & Search", "Status", "Search & download now", "Dashboard",
             "Find subtitles", "Delete & Exclude", "Delete & Replace", "Tools & settings",
         ])
+
+    def test_tools_menu_is_registry_driven(self):
+        ui = self.run_script([11, 0])
+        self.assertEqual(ui.selections[1][1], [
+            "Open settings", "Configure Request & Search defaults", "Configure subtitle languages",
+            "Test Radarr connection", "Test Sonarr connection", "Test file backend",
+            "Test Prowlarr connection", "Test Bazarr connection", "Write diagnostics",
+            "Configure menu", "Manage PIN",
+        ])
+        self.assertTrue(ui.opened)
 
     def test_direct_context_action_skips_launcher_even_when_hidden(self):
         settings = Settings(); settings.hidden_actions = ["search_now"]
