@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="resources/icon.png" alt="Kodi Managarr icon" width="160">
+  <img src="resources/icon.png" alt="Kodi Managarr icon" width="160" height="160">
 </p>
 
 <h1 align="center">Kodi Managarr</h1>
