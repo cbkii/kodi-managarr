@@ -22,6 +22,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
   pages: write
   id-token: write
 
@@ -188,6 +189,7 @@ jobs:
         uses: actions/deploy-pages@v5
 
       - name: Verify live installation endpoints
+        id: verify
         env:
           ADDON_VERSION: ${{ needs.build.outputs.addon_version }}
           PAGE_URL: ${{ steps.deployment.outputs.page_url }}
@@ -220,6 +222,7 @@ jobs:
           done
 
       - name: Deployment summary
+        if: success()
         env:
           ADDON_VERSION: ${{ needs.build.outputs.addon_version }}
           REPOSITORY_URL: ${{ needs.build.outputs.repository_url }}
@@ -231,3 +234,36 @@ jobs:
             echo "- Repository URL: $REPOSITORY_URL"
             echo "- Install ZIP: $REPOSITORY_URL/repository.managarr/$REPOSITORY_ZIP"
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Record bootstrap deployment result
+        if: always() && github.event_name == 'push'
+        env:
+          ADDON_VERSION: ${{ needs.build.outputs.addon_version }}
+          DEPLOY_OUTCOME: ${{ steps.deployment.outcome }}
+          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+          REPOSITORY_ZIP: ${{ needs.build.outputs.repository_zip }}
+          VERIFY_OUTCOME: ${{ steps.verify.outcome }}
+        run: |
+          set -euo pipefail
+          base="${PAGE_URL%/}"
+          body="$RUNNER_TEMP/pages-result.md"
+          {
+            echo '<!-- managarr-pages-bootstrap -->'
+            echo '## Kodi repository Pages bootstrap'
+            echo
+            echo "- Workflow run: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            echo "- Source commit: \`$GITHUB_SHA\`"
+            echo "- Deployment: \`$DEPLOY_OUTCOME\`"
+            echo "- Live endpoint verification: \`$VERIFY_OUTCOME\`"
+            if [ "$VERIFY_OUTCOME" = success ]; then
+              echo "- Landing page: $base/"
+              echo "- Repository ZIP: $base/repository.managarr/$REPOSITORY_ZIP"
+              echo "- Published add-on: \`$ADDON_VERSION\`"
+            fi
+          } > "$body"
+          existing="$(gh api --paginate "repos/$GITHUB_REPOSITORY/issues/29/comments" --jq '.[] | select(.body | contains("<!-- managarr-pages-bootstrap -->")) | .id' | head -n 1)"
+          if [ -n "$existing" ]; then
+            gh api --method PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$existing" --raw-field body="$(cat "$body")" >/dev/null
+          else
+            gh api --method POST "repos/$GITHUB_REPOSITORY/issues/29/comments" --raw-field body="$(cat "$body")" >/dev/null
+          fi
