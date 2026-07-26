@@ -1,6 +1,12 @@
 name: Generate and publish Kodi repository
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/pages.yml
+      - scripts/generate_repo.py
+      - pages/**
   release:
     types: [published]
   workflow_dispatch:
@@ -30,7 +36,7 @@ env:
 
 jobs:
   publish:
-    if: github.event_name == 'workflow_call' || github.event_name == 'workflow_dispatch' || (github.event.release.draft == false && github.event.release.prerelease == false)
+    if: github.event_name == 'push' || github.event_name == 'workflow_call' || github.event_name == 'workflow_dispatch' || (github.event.release.draft == false && github.event.release.prerelease == false)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
