@@ -10,15 +10,6 @@ on:
         required: false
         default: ""
         type: string
-  # One-time branch trigger used to establish and verify the generated source.
-  # Remove this trigger after the first successful publication.
-  push:
-    branches: [docs/end-user-readme]
-    paths:
-      - .github/workflows/pages.yml
-      - pages/**
-      - scripts/generate_repo.py
-      - tests/test_generate_repo.py
 
 permissions:
   contents: write
@@ -33,7 +24,7 @@ env:
 
 jobs:
   publish:
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || (github.event.release.draft == false && github.event.release.prerelease == false)
+    if: github.event_name == 'workflow_dispatch' || (github.event.release.draft == false && github.event.release.prerelease == false)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -258,5 +249,5 @@ jobs:
             echo "- Generated source branch: \`gh-pages\`"
             echo "- Repository ZIP: $RAW_BASE/repository.managarr/repository.managarr.zip"
             echo "- Repository SHA-256: \`$REPOSITORY_SHA256\`"
-            echo "- Pages-ready URL: $PAGES_URL"
+            echo "- Pages-ready URL after one-time repository setting: $PAGES_URL"
           } >> "$GITHUB_STEP_SUMMARY"
